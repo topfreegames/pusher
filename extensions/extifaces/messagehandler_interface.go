@@ -20,40 +20,10 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package cmd
+package extifaces
 
-import (
-	log "github.com/Sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/topfreegames/pusher/pusher"
-)
-
-var certificate string
-
-// apnsCmd represents the apns command
-var apnsCmd = &cobra.Command{
-	Use:   "apns",
-	Short: "starts pusher in apns mode",
-	Long:  `starts pusher in apns mode`,
-	Run: func(cmd *cobra.Command, args []string) {
-		log.SetFormatter(&log.JSONFormatter{})
-		if debug {
-			log.SetLevel(log.DebugLevel)
-		} else {
-			log.SetLevel(log.InfoLevel)
-		}
-		l := log.WithFields(log.Fields{
-			"debug": debug,
-		})
-		if len(certificate) == 0 {
-			l.Panic("p12 certificate must be set")
-		}
-		apnsPusher := pusher.NewAPNSPusher(cfgFile, certificate)
-		apnsPusher.Start()
-	},
-}
-
-func init() {
-	apnsCmd.Flags().StringVar(&certificate, "certificate", "", "p12 certificate path")
-	RootCmd.AddCommand(apnsCmd)
+// MessageHandler interface for making message handlers pluggable easily
+type MessageHandler interface {
+	HandleMessages(msgChan *chan []byte)
+	HandleResponses()
 }

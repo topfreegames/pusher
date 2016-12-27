@@ -20,40 +20,25 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package cmd
+package util
 
 import (
+	"strings"
+
 	log "github.com/Sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/topfreegames/pusher/pusher"
+	"github.com/spf13/viper"
 )
 
-var certificate string
-
-// apnsCmd represents the apns command
-var apnsCmd = &cobra.Command{
-	Use:   "apns",
-	Short: "starts pusher in apns mode",
-	Long:  `starts pusher in apns mode`,
-	Run: func(cmd *cobra.Command, args []string) {
-		log.SetFormatter(&log.JSONFormatter{})
-		if debug {
-			log.SetLevel(log.DebugLevel)
-		} else {
-			log.SetLevel(log.InfoLevel)
-		}
-		l := log.WithFields(log.Fields{
-			"debug": debug,
-		})
-		if len(certificate) == 0 {
-			l.Panic("p12 certificate must be set")
-		}
-		apnsPusher := pusher.NewAPNSPusher(cfgFile, certificate)
-		apnsPusher.Start()
-	},
-}
-
-func init() {
-	apnsCmd.Flags().StringVar(&certificate, "certificate", "", "p12 certificate path")
-	RootCmd.AddCommand(apnsCmd)
+// NewViperWithConfigFile for getting a viper with default configs for the project
+func NewViperWithConfigFile(configFile string) *viper.Viper {
+	v := viper.New()
+	v.SetConfigFile(configFile)
+	v.SetEnvPrefix("pusher")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+	err := v.ReadInConfig()
+	if err != nil {
+		log.Panicf("fatal error loading config file: %s\n", err)
+	}
+	return v
 }

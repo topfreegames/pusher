@@ -20,40 +20,50 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package cmd
+package pusher
 
 import (
 	log "github.com/Sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/topfreegames/pusher/pusher"
+	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/extensions"
+	"github.com/topfreegames/pusher/extensions/extifaces"
+	"github.com/topfreegames/pusher/util"
 )
 
-var certificate string
-
-// apnsCmd represents the apns command
-var apnsCmd = &cobra.Command{
-	Use:   "apns",
-	Short: "starts pusher in apns mode",
-	Long:  `starts pusher in apns mode`,
-	Run: func(cmd *cobra.Command, args []string) {
-		log.SetFormatter(&log.JSONFormatter{})
-		if debug {
-			log.SetLevel(log.DebugLevel)
-		} else {
-			log.SetLevel(log.InfoLevel)
-		}
-		l := log.WithFields(log.Fields{
-			"debug": debug,
-		})
-		if len(certificate) == 0 {
-			l.Panic("p12 certificate must be set")
-		}
-		apnsPusher := pusher.NewAPNSPusher(cfgFile, certificate)
-		apnsPusher.Start()
-	},
+// APNSPusher struct for apns pusher
+type APNSPusher struct {
+	ConfigFile  string
+	Queue       extifaces.Queue
+	Config      *viper.Viper
+	certificate string
 }
 
-func init() {
-	apnsCmd.Flags().StringVar(&certificate, "certificate", "", "p12 certificate path")
-	RootCmd.AddCommand(apnsCmd)
+// NewAPNSPusher for getting a new APNSPusher instance
+func NewAPNSPusher(configFile string, certificate string) *APNSPusher {
+	a := &APNSPusher{
+		ConfigFile:  configFile,
+		certificate: certificate,
+	}
+	a.configure()
+	return a
+}
+
+func (a *APNSPusher) loadConfigurationDefaults() {
+
+}
+
+func (a *APNSPusher) configure() {
+	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
+	a.loadConfigurationDefaults()
+	a.Queue = extensions.NewKafka(a.ConfigFile)
+}
+
+// Start starts pusher in apns mode
+func (a APNSPusher) Start() {
+	l := log.WithFields(log.Fields{
+		"configFile":  a.ConfigFile,
+		"certificate": a.certificate,
+	})
+	l.Info("starting pusher in apns mode...")
+	a.Queue.ConsumeLoop()
 }

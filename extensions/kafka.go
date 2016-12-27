@@ -22,97 +22,127 @@
 
 package extensions
 
-import "github.com/confluentinc/confluent-kafka-go/kafka"
+import (
+	log "github.com/Sirupsen/logrus"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/util"
+)
 
-// Queue for getting push requests
-type Queue struct {
+// Kafka for getting push requests
+type Kafka struct {
 	Topic               string
-	Brokers             []string
+	Brokers             string
 	ConsumerGroup       string
 	SessionTimeout      int
 	OffsetResetStrategy string
 	Consumer            *kafka.Consumer
 	run                 bool
-	Logger              logrus.Logger
 	ConfigFile          string
-	Config              *viper.Config
+	Config              *viper.Viper
+	Topics              []string
+	msgChan             chan []byte
 }
 
-// NewQueue for creating a new Queue instance
-func NewQueue(configFile string, logger *logrus.Logger) *Queue {
-	q := &Queue{
+// NewKafka for creating a new Kafka instance
+func NewKafka(configFile string) *Kafka {
+	q := &Kafka{
 		ConfigFile: configFile,
-		Logger:     logger,
 	}
 	q.configure()
 	return q
 }
 
-func (q *Queue) loadConfigurationDefaults() {
-	q.Config.SetDefault("queue.topics", &string["com.games.teste"])
-	q.Config.SetDefault("queue.brokers", &string["localhost:9092"])
+func (q *Kafka) loadConfigurationDefaults() {
+	q.Config.SetDefault("queue.topics", []string{"com.games.teste"})
+	q.Config.SetDefault("queue.brokers", "localhost:9092")
 	q.Config.SetDefault("queue.group", "teste")
 	q.Config.SetDefault("queue.sessionTimeout", 6000)
 	q.Config.SetDefault("queue.offsetResetStrategy", "earliest")
 }
 
-func (q *Queue) configure() {
-	q.Config = viper.New()
-	q.Config.SetConfigFile(q.ConfigFile)
-	q.Config.SetEnvPrefix("pusher")
-	q.Config.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	q.Config.AutomaticEnv()
+func (q *Kafka) configure() {
+	q.Config = util.NewViperWithConfigFile(q.ConfigFile)
 	q.loadConfigurationDefaults()
-	err := viper.ReadInConfig()
-	if err != nil {
-		q.Logger.Panicf("Fatal error config file: %s \n", err)
-	}
-	q.run = true
 	q.OffsetResetStrategy = q.Config.GetString("queue.offsetResetStrategy")
-	q.Brokers = q.Config.GetStringSlice("queue.brokers")
+	q.Brokers = q.Config.GetString("queue.brokers")
 	q.ConsumerGroup = q.Config.GetString("queue.group")
 	q.SessionTimeout = q.Config.GetInt("queue.sessionTimeout")
 	q.Topics = q.Config.GetStringSlice("queue.topics")
 	q.configureConsumer()
 }
 
-func (q *Queue) configureConsumer() {
+func (q *Kafka) configureConsumer() {
+	l := log.WithFields(log.Fields{
+		"bootstrap.servers":               q.Brokers,
+		"group.id":                        q.ConsumerGroup,
+		"session.timeout.ms":              q.SessionTimeout,
+		"go.events.channel.enable":        true,
+		"go.application.rebalance.enable": true,
+		"default.topic.config":            kafka.ConfigMap{"auto.offset.reset": q.OffsetResetStrategy},
+		"topics":                          q.Topics,
+	})
+	l.Debug("configuring kafka queue extension")
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":               q.Brokers,
 		"group.id":                        q.ConsumerGroup,
 		"session.timeout.ms":              q.SessionTimeout,
 		"go.events.channel.enable":        true,
 		"go.application.rebalance.enable": true,
-		"default.topic.config":            kafka.ConfigMap{"auto.offset.reset": q.OffsetResetStrategy}})
-	err := c.SubscribeTopics(q.topics, nil)
+		"default.topic.config": kafka.ConfigMap{
+			"auto.offset.reset": q.OffsetResetStrategy,
+		},
+	})
 	if err != nil {
-		q.Logger.PanicF("Error subscribing to topics %s\n%s", q.topics, err.Error())
+		l.Panicf("error configuring kafka queue: %s", err.Error())
 	}
+	l.Info("kafka queue configured")
 	q.Consumer = c
 }
 
+// StopConsuming stops consuming messages from the queue
+func (q *Kafka) StopConsuming() {
+	q.run = false
+}
+
+// MessagesChannel returns the channel that will receive all messages got from kafka
+func (q *Kafka) MessagesChannel() *chan []byte {
+	return &q.msgChan
+}
+
 // ConsumeLoop consume messages from the queue and put in messages to send channel
-func (q *Queue) ConsumeLoop() {
+func (q *Kafka) ConsumeLoop() {
+	q.run = true
+	q.msgChan = make(chan []byte)
+	l := log.WithFields(log.Fields{
+		"topics": q.Topics,
+	})
+
+	err := q.Consumer.SubscribeTopics(q.Topics, nil)
+	if err != nil {
+		l.Panicf("error subscribing to topics\n%s", err.Error())
+	}
+
+	l.Info("successfully subscribed to topics")
+
 	for q.run == true {
 		select {
-		case sig := <-sigchan:
-			q.Logger.Warnf("Caught signal %v: terminating\n", sig)
-			run = false
-		case ev := <-c.Events():
+		case ev := <-q.Consumer.Events():
 			switch e := ev.(type) {
 			case kafka.AssignedPartitions:
-				q.Logger.Infof(os.Stderr, "%% %v\n", e)
-				c.Assign(e.Partitions)
+				log.Infof("%v\n", e)
+				q.Consumer.Assign(e.Partitions)
 			case kafka.RevokedPartitions:
-				q.Logger.Warnf(os.Stderr, "%% %v\n", e)
-				c.Unassign()
+				log.Warnf("%v\n", e)
+				q.Consumer.Unassign()
 			case *kafka.Message:
-				q.Logger.Debugf("%% Message on %s:\n%s\n",
+				log.Debugf("message on %s:\n%s\n",
 					e.TopicPartition, string(e.Value))
+				q.msgChan <- e.Value
 			case kafka.PartitionEOF:
-				q.Logger.Infof("%% Reached %v\n", e)
+				log.Debugf("reached %v\n", e)
 			case kafka.Error:
-				q.Logger.Errorf(os.Stderr, "%% Error: %v\n", e)
+				log.Errorf("error: %v\n", e)
 				//TODO ver isso
 				q.run = false
 			}

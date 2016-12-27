@@ -23,10 +23,13 @@
 package cmd
 
 import (
-	"fmt"
-
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/topfreegames/pusher/pusher"
 )
+
+var senderID string
+var apiKey string
 
 // gcmCmd represents the gcm command
 var gcmCmd = &cobra.Command{
@@ -34,10 +37,28 @@ var gcmCmd = &cobra.Command{
 	Short: "starts pusher in gcm mode",
 	Long:  `starts pusher in gcm mode`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("gcm called")
+		log.SetFormatter(&log.JSONFormatter{})
+		if debug {
+			log.SetLevel(log.DebugLevel)
+		} else {
+			log.SetLevel(log.InfoLevel)
+		}
+		l := log.WithFields(log.Fields{
+			"debug": debug,
+		})
+		if len(senderID) == 0 {
+			l.Panic("senderId must be set")
+		}
+		if len(apiKey) == 0 {
+			l.Panic("apiKey must be set")
+		}
+		gcmPusher := pusher.NewGCMPusher(cfgFile, senderID, apiKey)
+		gcmPusher.Start()
 	},
 }
 
 func init() {
+	gcmCmd.Flags().StringVar(&senderID, "senderId", "", "gcm senderID")
+	gcmCmd.Flags().StringVar(&apiKey, "apiKey", "", "gcm apiKey")
 	RootCmd.AddCommand(gcmCmd)
 }

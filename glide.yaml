@@ -4,3 +4,6 @@ import:
   version: ^0.9.2
 - package: github.com/Sirupsen/logrus
   version: ^0.11.0
+- package: github.com/spf13/viper
+- package: github.com/google/go-gcm
+- package: github.com/jpillora/backoff

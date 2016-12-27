@@ -1,5 +1,5 @@
-hash: 0f285d2569529583fb22384d1f0568466ea1f0b610a6a01f4207e41551a50612
-updated: 2016-12-26T16:10:52.591893647-03:00
+hash: 613632e1968e7254b42c7b8284606e8dc4fc5f70159e20ae88fadbe8d9a84a2f
+updated: 2016-12-27T17:05:49.224764233-03:00
 imports:
 - name: github.com/confluentinc/confluent-kafka-go
   version: 1a081c6faa129cee96a011a6f6aa289050044539
@@ -7,6 +7,8 @@ imports:
   - kafka
 - name: github.com/fsnotify/fsnotify
   version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
+- name: github.com/google/go-gcm
+  version: 190e93b4cedb43562b5bd558eb1a1bbd38695bcd
 - name: github.com/hashicorp/hcl
   version: 37ab263305aaeb501a60eb16863e808d426e37f2
   subpackages:
@@ -20,10 +22,16 @@ imports:
   - json/token
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
+- name: github.com/jpillora/backoff
+  version: f24585d1c70490c0920ab34924f54f726e1416c7
 - name: github.com/magiconair/properties
   version: 9c47895dc1ce54302908ab8a43385d1f5df2c11c
+- name: github.com/mattn/go-xmpp
+  version: 62f9ce32468be9fa73d7d3027490a155f618d034
 - name: github.com/mitchellh/mapstructure
   version: 5a0325d7fafaac12dda6e7fb8bd222ec1b69875e
+- name: github.com/pborman/uuid
+  version: 5007efa264d92316c43112bc573e754bc889b7b1
 - name: github.com/pelletier/go-buffruneio
   version: df1e16fde7fc330a0ca68167c23bf7ed6ac31d6d
 - name: github.com/pelletier/go-toml
