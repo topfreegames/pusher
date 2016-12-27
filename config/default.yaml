@@ -1,0 +1,8 @@
+---
+queue:
+  topic: com.games.teste
+  brokers:
+    - "localhost:9092"
+  group: teste
+  sessionTimeout: 6000
+  offsetResetStrategy: earliest
