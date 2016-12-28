@@ -9,5 +9,3 @@ Pusher
 [] Do we need concurrency control e.g. max buffer for inflight messages?
 [] Only commit kafka offsets on success
 [] Grab from kafka in batches?
-[] More than one thread in messageHandler? (test performance)
-

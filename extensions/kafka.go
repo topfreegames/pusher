@@ -60,7 +60,7 @@ func (q *Kafka) loadConfigurationDefaults() {
 	q.Config.SetDefault("queue.brokers", "localhost:9092")
 	q.Config.SetDefault("queue.group", "teste")
 	q.Config.SetDefault("queue.sessionTimeout", 6000)
-	q.Config.SetDefault("queue.offsetResetStrategy", "earliest")
+	q.Config.SetDefault("queue.offsetResetStrategy", "latest")
 }
 
 func (q *Kafka) configure() {
@@ -82,8 +82,12 @@ func (q *Kafka) configureConsumer() {
 		"session.timeout.ms":              q.SessionTimeout,
 		"go.events.channel.enable":        true,
 		"go.application.rebalance.enable": true,
-		"default.topic.config":            kafka.ConfigMap{"auto.offset.reset": q.OffsetResetStrategy},
-		"topics":                          q.Topics,
+		"enable.auto.commit":              false,
+		"default.topic.config": kafka.ConfigMap{
+			"auto.offset.reset":  q.OffsetResetStrategy,
+			"auto.commit.enable": false,
+		},
+		"topics": q.Topics,
 	})
 	l.Debug("configuring kafka queue extension")
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
@@ -92,8 +96,10 @@ func (q *Kafka) configureConsumer() {
 		"session.timeout.ms":              q.SessionTimeout,
 		"go.events.channel.enable":        true,
 		"go.application.rebalance.enable": true,
+		"enable.auto.commit":              false,
 		"default.topic.config": kafka.ConfigMap{
-			"auto.offset.reset": q.OffsetResetStrategy,
+			"auto.offset.reset":  q.OffsetResetStrategy,
+			"auto.commit.enable": false,
 		},
 	})
 	if err != nil {
