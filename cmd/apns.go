@@ -29,7 +29,6 @@ import (
 )
 
 var certificate string
-var bundleID string
 var environment string
 
 // apnsCmd represents the apns command
@@ -53,17 +52,13 @@ var apnsCmd = &cobra.Command{
 		if len(environment) == 0 {
 			l.Panic("environment must be set")
 		}
-		if len(bundleID) == 0 {
-			l.Panic("bundleId must be set")
-		}
-		apnsPusher := pusher.NewAPNSPusher(cfgFile, certificate, bundleID, environment)
+		apnsPusher := pusher.NewAPNSPusher(cfgFile, certificate, environment)
 		apnsPusher.Start()
 	},
 }
 
 func init() {
 	apnsCmd.Flags().StringVar(&certificate, "certificate", "", "pem certificate path")
-	apnsCmd.Flags().StringVar(&bundleID, "bundleId", "", "the game bundle id")
 	apnsCmd.Flags().StringVar(&environment, "environment", "", "the environment")
 	RootCmd.AddCommand(apnsCmd)
 }

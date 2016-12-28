@@ -49,10 +49,12 @@ RUN export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH && make bui
 RUN mkdir /app
 RUN mv /go/src/github.com/topfreegames/pusher/bin/pusher /app/pusher
 RUN mv /go/src/github.com/topfreegames/pusher/config /app/config
+RUN mv /go/src/github.com/topfreegames/pusher/tls /app/tls
 RUN rm -r /go/src/github.com/topfreegames/pusher
 
 WORKDIR /app
 
 VOLUME /app/config
+VOLUME /app/tls
 
 CMD /app/pusher -h

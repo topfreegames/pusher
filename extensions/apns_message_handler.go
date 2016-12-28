@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	cert "github.com/RobotsAndPencils/buford/certificate"
 	"github.com/RobotsAndPencils/buford/push"
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -57,11 +58,10 @@ type Notification struct {
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
-func NewAPNSMessageHandler(configFile string, topic string, certificatePath string, environment string) *APNSMessageHandler {
+func NewAPNSMessageHandler(configFile string, certificatePath string, environment string) *APNSMessageHandler {
 	a := &APNSMessageHandler{
 		ConfigFile:        configFile,
 		CertificatePath:   certificatePath,
-		Topic:             topic,
 		sentMessages:      0,
 		responsesReceived: 0,
 		Environment:       environment,
@@ -103,6 +103,7 @@ func (a *APNSMessageHandler) configureCertificate() {
 	}
 	log.Debugf("loaded apns certificate: %s", c)
 	a.certificate = c
+	a.Topic = cert.TopicFromCert(c)
 }
 
 func (a *APNSMessageHandler) configureAPNSPushQueue() {

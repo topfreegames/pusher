@@ -39,7 +39,6 @@ type APNSPusher struct {
 	ConfigFile      string
 	Queue           extifaces.Queue
 	Config          *viper.Viper
-	Topic           string
 	MessageHandler  extifaces.MessageHandler
 	CertificatePath string
 	Environment     string
@@ -47,11 +46,10 @@ type APNSPusher struct {
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
-func NewAPNSPusher(configFile string, certificatePath string, topic string, environment string) *APNSPusher {
+func NewAPNSPusher(configFile string, certificatePath string, environment string) *APNSPusher {
 	a := &APNSPusher{
 		ConfigFile:      configFile,
 		CertificatePath: certificatePath,
-		Topic:           topic,
 		Environment:     environment,
 	}
 	a.configure()
@@ -64,7 +62,7 @@ func (a *APNSPusher) configure() {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
 	a.Queue = extensions.NewKafka(a.ConfigFile)
-	a.MessageHandler = extensions.NewAPNSMessageHandler(a.ConfigFile, a.Topic, a.CertificatePath, a.Environment)
+	a.MessageHandler = extensions.NewAPNSMessageHandler(a.ConfigFile, a.CertificatePath, a.Environment)
 }
 
 // Start starts pusher in apns mode
