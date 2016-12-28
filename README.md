@@ -18,3 +18,4 @@ make build
 - [ ] Grab from kafka in batches?
 - [ ] GCM staging support
 - [ ] Handle all responses from APNS and GCM
+- [ ] Test Everything
