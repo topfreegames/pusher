@@ -42,12 +42,14 @@ type Kafka struct {
 	Config              *viper.Viper
 	Topics              []string
 	msgChan             chan []byte
+	messagesReceived    int64
 }
 
 // NewKafka for creating a new Kafka instance
 func NewKafka(configFile string) *Kafka {
 	q := &Kafka{
-		ConfigFile: configFile,
+		ConfigFile:       configFile,
+		messagesReceived: 0,
 	}
 	q.configure()
 	return q
@@ -136,6 +138,10 @@ func (q *Kafka) ConsumeLoop() {
 				log.Warnf("%v\n", e)
 				q.Consumer.Unassign()
 			case *kafka.Message:
+				q.messagesReceived++
+				if q.messagesReceived%1000 == 0 {
+					log.Infof("got %d messages from kafka", q.messagesReceived)
+				}
 				log.Debugf("message on %s:\n%s\n",
 					e.TopicPartition, string(e.Value))
 				q.msgChan <- e.Value
