@@ -93,6 +93,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	})
 	l.Debugf("sending message to gcm")
 	messageID, bytes, err := gcm.SendXmpp(g.senderID, g.apiKey, m)
+	//TODO tratar o erro?
 	if err != nil {
 		l.Error("error sending message: %s", err.Error())
 	}
