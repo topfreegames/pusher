@@ -70,6 +70,7 @@ func (q *Kafka) configure() {
 	q.SessionTimeout = q.Config.GetInt("queue.sessionTimeout")
 	q.Topics = q.Config.GetStringSlice("queue.topics")
 	q.configureConsumer()
+	q.msgChan = make(chan []byte)
 }
 
 func (q *Kafka) configureConsumer() {
@@ -113,7 +114,6 @@ func (q *Kafka) MessagesChannel() *chan []byte {
 // ConsumeLoop consume messages from the queue and put in messages to send channel
 func (q *Kafka) ConsumeLoop() {
 	q.run = true
-	q.msgChan = make(chan []byte)
 	l := log.WithFields(log.Fields{
 		"topics": q.Topics,
 	})

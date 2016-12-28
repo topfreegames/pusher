@@ -75,9 +75,9 @@ func (g GCMPusher) Start() {
 		"senderID":   g.senderID,
 	})
 	l.Info("starting pusher in gcm mode...")
-	go g.Queue.ConsumeLoop()
 	go g.MessageHandler.HandleMessages(g.Queue.MessagesChannel())
 	go g.MessageHandler.HandleResponses()
+	go g.Queue.ConsumeLoop()
 
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
