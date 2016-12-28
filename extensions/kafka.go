@@ -50,6 +50,7 @@ func NewKafka(configFile string) *Kafka {
 	q := &Kafka{
 		ConfigFile:       configFile,
 		messagesReceived: 0,
+		msgChan:          make(chan []byte),
 	}
 	q.configure()
 	return q
@@ -72,20 +73,20 @@ func (q *Kafka) configure() {
 	q.SessionTimeout = q.Config.GetInt("queue.sessionTimeout")
 	q.Topics = q.Config.GetStringSlice("queue.topics")
 	q.configureConsumer()
-	q.msgChan = make(chan []byte)
 }
 
 func (q *Kafka) configureConsumer() {
+	//TODO auto commit needs to be false
 	l := log.WithFields(log.Fields{
 		"bootstrap.servers":               q.Brokers,
 		"group.id":                        q.ConsumerGroup,
 		"session.timeout.ms":              q.SessionTimeout,
 		"go.events.channel.enable":        true,
 		"go.application.rebalance.enable": true,
-		"enable.auto.commit":              false,
+		"enable.auto.commit":              true,
 		"default.topic.config": kafka.ConfigMap{
 			"auto.offset.reset":  q.OffsetResetStrategy,
-			"auto.commit.enable": false,
+			"auto.commit.enable": true,
 		},
 		"topics": q.Topics,
 	})
@@ -96,10 +97,10 @@ func (q *Kafka) configureConsumer() {
 		"session.timeout.ms":              q.SessionTimeout,
 		"go.events.channel.enable":        true,
 		"go.application.rebalance.enable": true,
-		"enable.auto.commit":              false,
+		"enable.auto.commit":              true,
 		"default.topic.config": kafka.ConfigMap{
 			"auto.offset.reset":  q.OffsetResetStrategy,
-			"auto.commit.enable": false,
+			"auto.commit.enable": true,
 		},
 	})
 	if err != nil {

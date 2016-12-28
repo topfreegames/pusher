@@ -1,4 +1,6 @@
 ---
+apns:
+  concurrentWorkers: 100
 queue:
   topics: 
     - "com.games.teste"

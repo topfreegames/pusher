@@ -7,3 +7,5 @@ import:
 - package: github.com/spf13/viper
 - package: github.com/google/go-gcm
 - package: github.com/jpillora/backoff
+- package: github.com/RobotsAndPencils/buford
+  version: ^0.12.0

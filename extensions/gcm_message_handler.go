@@ -61,13 +61,13 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CcsMessage) error {
 	l := log.WithFields(log.Fields{
 		"ccsMessage": cm,
 	})
+	l.Debugf("got response from gcm")
 	gcmResMutex.Lock()
 	g.responsesReceived++
-	gcmResMutex.Unlock()
-	l.Debugf("got response from gcm")
 	if g.responsesReceived%1000 == 0 {
 		log.Infof("received %d responses", g.responsesReceived)
 	}
+	gcmResMutex.Unlock()
 	return nil
 }
 
@@ -96,11 +96,12 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	//TODO tratar o erro?
 	if err != nil {
 		l.Error("error sending message: %s", err.Error())
-	}
-	g.sentMessages++
-	log.Debugf("sendMessage return mid:%s bytes:%d err:%s", messageID, bytes)
-	if g.sentMessages%1000 == 0 {
-		log.Infof("sent %d messages", g.sentMessages)
+	} else {
+		g.sentMessages++
+		log.Debugf("sendMessage return mid:%s bytes:%d err:%s", messageID, bytes)
+		if g.sentMessages%1000 == 0 {
+			log.Infof("sent %d messages", g.sentMessages)
+		}
 	}
 	return err
 }

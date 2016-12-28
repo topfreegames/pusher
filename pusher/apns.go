@@ -23,6 +23,10 @@
 package pusher
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
@@ -32,38 +36,58 @@ import (
 
 // APNSPusher struct for apns pusher
 type APNSPusher struct {
-	ConfigFile  string
-	Queue       extifaces.Queue
-	Config      *viper.Viper
-	certificate string
+	ConfigFile      string
+	Queue           extifaces.Queue
+	Config          *viper.Viper
+	Topic           string
+	MessageHandler  extifaces.MessageHandler
+	CertificatePath string
+	Environment     string
+	run             bool
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
-func NewAPNSPusher(configFile string, certificate string) *APNSPusher {
+func NewAPNSPusher(configFile string, certificatePath string, topic string, environment string) *APNSPusher {
 	a := &APNSPusher{
-		ConfigFile:  configFile,
-		certificate: certificate,
+		ConfigFile:      configFile,
+		CertificatePath: certificatePath,
+		Topic:           topic,
+		Environment:     environment,
 	}
 	a.configure()
 	return a
 }
 
-func (a *APNSPusher) loadConfigurationDefaults() {
-
-}
+func (a *APNSPusher) loadConfigurationDefaults() {}
 
 func (a *APNSPusher) configure() {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
 	a.Queue = extensions.NewKafka(a.ConfigFile)
+	a.MessageHandler = extensions.NewAPNSMessageHandler(a.ConfigFile, a.Topic, a.CertificatePath, a.Environment)
 }
 
 // Start starts pusher in apns mode
 func (a APNSPusher) Start() {
+	a.run = true
 	l := log.WithFields(log.Fields{
-		"configFile":  a.ConfigFile,
-		"certificate": a.certificate,
+		"configFile":      a.ConfigFile,
+		"certificatePath": a.CertificatePath,
 	})
 	l.Info("starting pusher in apns mode...")
-	a.Queue.ConsumeLoop()
+	go a.MessageHandler.HandleMessages(a.Queue.MessagesChannel())
+	go a.MessageHandler.HandleResponses()
+	go a.Queue.ConsumeLoop()
+	sigchan := make(chan os.Signal)
+	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
+
+	for a.run == true {
+		select {
+		case sig := <-sigchan:
+			log.Warnf("caught signal %v: terminating\n", sig)
+			a.run = false
+		}
+	}
+	//TODO stop queue and message handler before exiting
+	l.Info("exiting pusher...")
 }

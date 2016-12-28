@@ -1,5 +1,5 @@
-hash: 613632e1968e7254b42c7b8284606e8dc4fc5f70159e20ae88fadbe8d9a84a2f
-updated: 2016-12-27T17:05:49.224764233-03:00
+hash: 66096720643d4c7ea26dbd4614778d6c7d8dd8c4914012e4040870a2a12151e0
+updated: 2016-12-28T14:27:42.79557516-03:00
 imports:
 - name: github.com/confluentinc/confluent-kafka-go
   version: 1a081c6faa129cee96a011a6f6aa289050044539
@@ -36,6 +36,10 @@ imports:
   version: df1e16fde7fc330a0ca68167c23bf7ed6ac31d6d
 - name: github.com/pelletier/go-toml
   version: ce7be745f09fe4ff89af8e3ea744e1deabf20ee3
+- name: github.com/RobotsAndPencils/buford
+  version: 1589c179b764ddceb204a439d9bf366f04c55f9b
+  subpackages:
+  - push
 - name: github.com/Sirupsen/logrus
   version: d26492970760ca5d33129d2d799e34be5c4782eb
 - name: github.com/spf13/afero
@@ -52,6 +56,18 @@ imports:
   version: 5ccb023bc27df288a957c5e994cd44fd19619465
 - name: github.com/spf13/viper
   version: 651d9d916abc3c3d6a91a12549495caba5edffd2
+- name: golang.org/x/crypto
+  version: 3f77d695175f990a2967385c493939f380ee40a3
+  subpackages:
+  - pkcs12
+  - pkcs12/internal/rc2
+- name: golang.org/x/net
+  version: 9773060888fba93b172cedcd70127db1ab739bd1
+  subpackages:
+  - http2
+  - http2/hpack
+  - idna
+  - lex/httplex
 - name: golang.org/x/sys
   version: a646d33e2ee3172a661fc09bca23bb4889a41bc8
   subpackages:
