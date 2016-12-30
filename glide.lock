@@ -1,12 +1,10 @@
-hash: b0f821f8cba837ba90308af0dc9a316ac0749b1a8cd3b1f83afe9fc5b7a9502c
-updated: 2016-12-30T11:23:06.402486906-02:00
+hash: 66096720643d4c7ea26dbd4614778d6c7d8dd8c4914012e4040870a2a12151e0
+updated: 2016-12-30T11:30:54.518688707-02:00
 imports:
 - name: github.com/confluentinc/confluent-kafka-go
   version: 1a081c6faa129cee96a011a6f6aa289050044539
   subpackages:
   - kafka
-- name: github.com/edenhill/librdkafka
-  version: 25f44213ddf91f3c0413837b2a815097a1f34521
 - name: github.com/fsnotify/fsnotify
   version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
 - name: github.com/google/go-gcm
