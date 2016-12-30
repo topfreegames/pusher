@@ -23,6 +23,52 @@ brew install go
 brew install librdkafka
 ```
 
+### Sending pushes
+
+#### APNS
+
+```
+./bin/pusher apns --certificate <path-to-unified-certificate>/unified.pem --environment production -d
+```
+
+#### GCM
+
+```
+./bin/pusher gcm --apiKey <api-key> --senderId <sender-id>  --environment production -d
+```
+
+### Benchmark
+
+#### Create fake push data
+
+```
+cd bench
+
+python create_bench.py test.txt
+
+```
+
+text.txt will contain several lines like this:
+
+- GCM
+
+```
+{"to": "XNAJY2WCN7RDH6B5APHXTCM793X28IO7780AB51F0F8OV3ENWXOIR40JRF3K9416AD9K029NEE3XTA229NJC0Y6DHCBO13EE6IFO6VRF8FICJ317AC5I3N1FCSJ7KIVXMKZ088BJOVS3PPJUG9CWV1J2", "notification": {"title": "Come play!", "body": "Helena miss you! come play!"}, "dry_run": true}
+```
+
+If you want to actually send the pushes you need to set `dry_run: false` (default is true).
+
+- APNS
+
+```
+{"DeviceToken":"H9CSRZHTAUPOZP1ZDLK46DN8L1DS4JFIUKHXE33K77QHQLHZ650TG66U49ZQGFZV","Payload":{"aps":{"alert":"Helena miss you! come play!"}},"push_expiry":0}
+```
+
+#### Send pushes using the fake data:
+
+cat test.txt| kafka-console-producer --topic com.games.teste --broker-list localhost:9941
+
+
 ### TODO
 
 - [ ] Do we need concurrency control e.g. max buffer for inflight messages?
