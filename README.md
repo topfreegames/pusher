@@ -35,5 +35,5 @@ brew install librdkafka
 - [ ] Graceful shutdown should empty channels before dying
 - [ ] Report stats to graphite including deleted token stats
 - [ ] README with dev and deployment instructions
-- [ ] Send successfuly sent messages to another kafka queue, including metadata to identify the game, push type, user id, etc.
-- [ ] Send logs of deleted tokens to another kafka queue, including metadata to identify the game, push type, user id, when the token was created etc.
+- [ ] Send successfuly sent messages to another kafka queue, including metadata to identify the game, push type, user id, etc. (extension bad_token_handler with a method Handle(chan <-token) that is easy to turn on/off and replace)
+- [ ] Send logs of deleted tokens to another kafka queue, including metadata to identify the game, push type, user id, when the token was created etc. (extension successful_message_handler with a method Handle(chan <-token) that is easy to turn on/off and replace)
