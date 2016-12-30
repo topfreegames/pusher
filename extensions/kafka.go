@@ -158,6 +158,8 @@ func (q *Kafka) ConsumeLoop() {
 				log.Errorf("error: %v\n", e)
 				//TODO ver isso
 				q.run = false
+			default:
+				log.Warnf("ev not recognized: %v\n", e)
 			}
 		}
 	}
