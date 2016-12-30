@@ -15,6 +15,7 @@ make build
 
 ### Dependencies
 * Go 1.7
+* Kafka >= 0.9.0
 * [librdkafka](https://github.com/edenhill/librdkafka)
 
 ```
