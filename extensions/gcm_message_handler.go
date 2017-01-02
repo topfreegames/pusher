@@ -24,6 +24,7 @@ package extensions
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
@@ -36,25 +37,45 @@ var gcmResMutex sync.Mutex
 
 // GCMMessageHandler implements the messagehandler interface
 type GCMMessageHandler struct {
+	apiKey            string
+	appName           string
+	Config            *viper.Viper
 	ConfigFile        string
+	PushDB            *PGClient
+	responsesReceived int64
 	run               bool
 	senderID          string
-	apiKey            string
-	Config            *viper.Viper
 	sentMessages      int64
-	responsesReceived int64
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
-func NewGCMMessageHandler(configFile string, senderID string, apiKey string) *GCMMessageHandler {
+func NewGCMMessageHandler(configFile, senderID, apiKey, appName string) *GCMMessageHandler {
 	g := &GCMMessageHandler{
-		ConfigFile:        configFile,
-		senderID:          senderID,
 		apiKey:            apiKey,
-		sentMessages:      0,
+		appName:           appName,
+		ConfigFile:        configFile,
 		responsesReceived: 0,
+		senderID:          senderID,
+		sentMessages:      0,
 	}
+	g.configure()
 	return g
+}
+
+func (g *GCMMessageHandler) handleTokenError(token string) {
+	l := log.WithFields(log.Fields{
+		"method": "handleTokenError",
+		"token":  token,
+	})
+	// TODO: before deleting send deleted token info to another queue/db
+	l.Debugf("deleting token")
+	query := fmt.Sprintf("DELETE FROM %s_gcm WHERE token = '%s';", g.appName, token)
+	_, err := g.PushDB.DB.Exec(query)
+	if err != nil {
+		l.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Errorf("error deleting token")
+	}
 }
 
 func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CcsMessage) error {
@@ -68,6 +89,31 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CcsMessage) error {
 		log.Infof("received %d responses", g.responsesReceived)
 	}
 	gcmResMutex.Unlock()
+	if cm.Error != "" {
+		switch cm.Error {
+		case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
+			l.WithFields(log.Fields{
+				"category": "TokenError",
+			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
+			g.handleTokenError(cm.From)
+		case "INVALID_JSON":
+			l.WithFields(log.Fields{
+				"category": "JsonError",
+			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
+		case "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR":
+			l.WithFields(log.Fields{
+				"category": "GoogleError",
+			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
+		case "DEVICE_MESSAGE_RATE_EXCEEDED", "TOPICS_MESSAGE_RATE_EXCEEDED":
+			l.WithFields(log.Fields{
+				"category": "RateExceededError",
+			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
+		default:
+			l.WithFields(log.Fields{
+				"category": "DefaultError",
+			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
+		}
+	}
 	return nil
 }
 
@@ -77,6 +123,15 @@ func (g *GCMMessageHandler) loadConfigurationDefaults() {
 func (g *GCMMessageHandler) configure() {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
+	g.configurePushDatabase()
+}
+
+func (g *GCMMessageHandler) configurePushDatabase() {
+	var err error
+	g.PushDB, err = NewPGClient("push.db", g.Config)
+	if err != nil {
+		log.Panicf("could not connect to push database: %s", err.Error())
+	}
 }
 
 func (g *GCMMessageHandler) sendMessage(message []byte) error {
@@ -95,7 +150,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	messageID, bytes, err := gcm.SendXmpp(g.senderID, g.apiKey, m)
 	//TODO tratar o erro?
 	if err != nil {
-		l.Error("error sending message: %s", err.Error())
+		l.Errorf("error sending message: %s", err.Error())
 	} else {
 		g.sentMessages++
 		log.Debugf("sendMessage return mid:%s bytes:%d err:%s", messageID, bytes)

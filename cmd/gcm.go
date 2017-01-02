@@ -52,7 +52,10 @@ var gcmCmd = &cobra.Command{
 		if len(apiKey) == 0 {
 			l.Panic("apiKey must be set")
 		}
-		gcmPusher := pusher.NewGCMPusher(cfgFile, senderID, apiKey)
+		if len(app) == 0 {
+			l.Panic("app must be set")
+		}
+		gcmPusher := pusher.NewGCMPusher(cfgFile, senderID, apiKey, app)
 		gcmPusher.Start()
 	},
 }
@@ -60,5 +63,6 @@ var gcmCmd = &cobra.Command{
 func init() {
 	gcmCmd.Flags().StringVar(&senderID, "senderId", "", "gcm senderID")
 	gcmCmd.Flags().StringVar(&apiKey, "apiKey", "", "gcm apiKey")
+	gcmCmd.Flags().StringVar(&app, "app", "", "the app name for the table in pushdb")
 	RootCmd.AddCommand(gcmCmd)
 }

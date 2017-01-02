@@ -36,21 +36,23 @@ import (
 
 // GCMPusher struct for apns pusher
 type GCMPusher struct {
-	ConfigFile     string
-	Queue          extifaces.Queue
-	Config         *viper.Viper
-	MessageHandler extifaces.MessageHandler
-	senderID       string
 	apiKey         string
+	AppName        string
+	Config         *viper.Viper
+	ConfigFile     string
+	MessageHandler extifaces.MessageHandler
+	Queue          extifaces.Queue
 	run            bool
+	senderID       string
 }
 
 // NewGCMPusher for getting a new GCMPusher instance
-func NewGCMPusher(configFile string, senderID string, apiKey string) *GCMPusher {
+func NewGCMPusher(configFile, senderID, apiKey, appName string) *GCMPusher {
 	g := &GCMPusher{
-		senderID:   senderID,
 		apiKey:     apiKey,
+		AppName:    appName,
 		ConfigFile: configFile,
+		senderID:   senderID,
 	}
 	g.configure()
 	return g
@@ -64,7 +66,7 @@ func (g *GCMPusher) configure() {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
 	g.Queue = extensions.NewKafka(g.ConfigFile)
-	g.MessageHandler = extensions.NewGCMMessageHandler(g.ConfigFile, g.senderID, g.apiKey)
+	g.MessageHandler = extensions.NewGCMMessageHandler(g.ConfigFile, g.senderID, g.apiKey, g.AppName)
 }
 
 // Start starts pusher in apns mode

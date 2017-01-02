@@ -34,7 +34,7 @@ brew install librdkafka
 #### GCM
 
 ```
-./bin/pusher gcm --apiKey <api-key> --senderId <sender-id>  --environment production -d
+./bin/pusher gcm --apiKey <api-key> --senderId <sender-id> --app <app-name> -d
 ```
 
 ### Benchmark
@@ -71,7 +71,7 @@ cat test.txt | kafka-console-producer --topic com.games.teste --broker-list loca
 
 ### TODO
 
-- [ ] Handle all responses from APNS and GCM
+- [x] Handle all responses from APNS and GCM
 - [ ] Test Everything
 - [ ] GCM staging support (send PR to https://github.com/google/go-gcm ?)
 - [ ] Logging and stats
