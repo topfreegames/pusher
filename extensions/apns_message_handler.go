@@ -25,6 +25,7 @@ package extensions
 import (
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	cert "github.com/RobotsAndPencils/buford/certificate"
@@ -39,16 +40,18 @@ var apnsResMutex sync.Mutex
 
 // APNSMessageHandler implements the messagehandler interface
 type APNSMessageHandler struct {
-	ConfigFile        string
-	Topic             string
-	run               bool
-	CertificatePath   string
-	PushQueue         *push.Queue
+	appName           string
 	certificate       tls.Certificate
+	CertificatePath   string
 	Config            *viper.Viper
+	ConfigFile        string
 	Environment       string
-	sentMessages      int64
+	PushDB            *PGClient
+	PushQueue         *push.Queue
 	responsesReceived int64
+	run               bool
+	sentMessages      int64
+	Topic             string
 }
 
 // Notification is the notification base struct
@@ -58,16 +61,33 @@ type Notification struct {
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
-func NewAPNSMessageHandler(configFile string, certificatePath string, environment string) *APNSMessageHandler {
+func NewAPNSMessageHandler(configFile, certificatePath, environment, appName string) *APNSMessageHandler {
 	a := &APNSMessageHandler{
-		ConfigFile:        configFile,
 		CertificatePath:   certificatePath,
-		sentMessages:      0,
-		responsesReceived: 0,
+		ConfigFile:        configFile,
 		Environment:       environment,
+		responsesReceived: 0,
+		sentMessages:      0,
+		appName:           appName,
 	}
 	a.configure()
 	return a
+}
+
+func (a *APNSMessageHandler) handleTokenError(token string) {
+	l := log.WithFields(log.Fields{
+		"method": "handleTokenError",
+		"token":  token,
+	})
+	// TODO: before deleting send deleted token info to another queue/db
+	l.Debugf("deleting token")
+	query := fmt.Sprintf("DELETE FROM %s_apns WHERE token = '%s';", a.appName, token)
+	_, err := a.PushDB.DB.Exec(query)
+	if err != nil {
+		l.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Errorf("error deleting token")
+	}
 }
 
 func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
@@ -81,7 +101,31 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 		log.Infof("received %d responses", a.responsesReceived)
 	}
 	apnsResMutex.Unlock()
-	//TODO do something with the response
+	if res.Err != nil {
+		switch res.Err.(*push.Error).Reason {
+		case push.ErrMissingDeviceToken, push.ErrBadDeviceToken:
+			l.WithFields(log.Fields{
+				"category": "TokenError",
+			}).Errorf("received an error: %s", res.Err.Error())
+			a.handleTokenError(res.DeviceToken)
+		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
+			l.WithFields(log.Fields{
+				"category": "CertificateError",
+			}).Errorf("received an error: %s", res.Err.Error())
+		case push.ErrMissingTopic, push.ErrTopicDisallowed, push.ErrDeviceTokenNotForTopic:
+			l.WithFields(log.Fields{
+				"category": "TopicError",
+			}).Errorf("received an error: %s", res.Err.Error())
+		case push.ErrIdleTimeout, push.ErrShutdown, push.ErrInternalServerError, push.ErrServiceUnavailable:
+			l.WithFields(log.Fields{
+				"category": "AppleError",
+			}).Errorf("received an error: %s", res.Err.Error())
+		default:
+			l.WithFields(log.Fields{
+				"category": "DefaultError",
+			}).Errorf("received an error: %s", res.Err.Error())
+		}
+	}
 	return nil
 }
 
@@ -94,6 +138,7 @@ func (a *APNSMessageHandler) configure() {
 	a.loadConfigurationDefaults()
 	a.configureCertificate()
 	a.configureAPNSPushQueue()
+	a.configurePushDatabase()
 }
 
 func (a *APNSMessageHandler) configureCertificate() {
@@ -129,6 +174,14 @@ func (a *APNSMessageHandler) configureAPNSPushQueue() {
 	workers := uint(concurrentWorkers)
 	queue := push.NewQueue(svc, workers)
 	a.PushQueue = queue
+}
+
+func (a *APNSMessageHandler) configurePushDatabase() {
+	var err error
+	a.PushDB, err = NewPGClient("push.db", a.Config)
+	if err != nil {
+		log.Panicf("could not connect to push database: %s", err.Error())
+	}
 }
 
 func (a *APNSMessageHandler) sendMessage(message []byte) {

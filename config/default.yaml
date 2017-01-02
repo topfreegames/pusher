@@ -2,9 +2,18 @@
 apns:
   concurrentWorkers: 100
 queue:
-  topics: 
+  topics:
     - "com.games.teste"
   brokers: "localhost:9941"
   group: testGroup
   sessionTimeout: 6000
   offsetResetStrategy: latest
+push:
+  db:
+    host: localhost
+    port: 8558
+    user: pusher_user
+    pass: ""
+    poolSize: 20
+    maxRetries: 3
+    database: push

@@ -28,7 +28,7 @@ brew install librdkafka
 #### APNS
 
 ```
-./bin/pusher apns --certificate <path-to-unified-certificate>/unified.pem --environment production -d
+./bin/pusher apns --certificate <path-to-unified-certificate>/unified.pem --environment production --app <app-name> -d
 ```
 
 #### GCM
@@ -66,7 +66,7 @@ If you want to actually send the pushes you need to set `dry_run: false` (defaul
 
 #### Send pushes using the fake data:
 
-cat test.txt| kafka-console-producer --topic com.games.teste --broker-list localhost:9941
+cat test.txt | kafka-console-producer --topic com.games.teste --broker-list localhost:9941
 
 
 ### TODO

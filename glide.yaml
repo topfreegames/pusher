@@ -9,3 +9,5 @@ import:
 - package: github.com/jpillora/backoff
 - package: github.com/RobotsAndPencils/buford
   version: ^0.12.0
+- package: gopkg.in/pg.v5
+  version: ^5.1.10

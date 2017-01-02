@@ -28,6 +28,7 @@ import (
 	"github.com/topfreegames/pusher/pusher"
 )
 
+var app string
 var certificate string
 var environment string
 
@@ -52,7 +53,10 @@ var apnsCmd = &cobra.Command{
 		if len(environment) == 0 {
 			l.Panic("environment must be set")
 		}
-		apnsPusher := pusher.NewAPNSPusher(cfgFile, certificate, environment)
+		if len(app) == 0 {
+			l.Panic("app must be set")
+		}
+		apnsPusher := pusher.NewAPNSPusher(cfgFile, certificate, environment, app)
 		apnsPusher.Start()
 	},
 }
@@ -60,5 +64,6 @@ var apnsCmd = &cobra.Command{
 func init() {
 	apnsCmd.Flags().StringVar(&certificate, "certificate", "", "pem certificate path")
 	apnsCmd.Flags().StringVar(&environment, "environment", "", "the environment")
+	apnsCmd.Flags().StringVar(&app, "app", "", "the app name for the table in pushdb")
 	RootCmd.AddCommand(apnsCmd)
 }

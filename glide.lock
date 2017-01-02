@@ -1,5 +1,5 @@
-hash: 66096720643d4c7ea26dbd4614778d6c7d8dd8c4914012e4040870a2a12151e0
-updated: 2016-12-30T11:30:54.518688707-02:00
+hash: d3f1e125ea47e33f285dca46f0e5c159a666cd3db1e8e03d3981a7aaf5b6cab0
+updated: 2017-01-02T13:44:36.94142089-02:00
 imports:
 - name: github.com/confluentinc/confluent-kafka-go
   version: 1a081c6faa129cee96a011a6f6aa289050044539
@@ -22,6 +22,8 @@ imports:
   - json/token
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
+- name: github.com/jinzhu/inflection
+  version: 74387dc39a75e970e7a3ae6a3386b5bd2e5c5cff
 - name: github.com/jpillora/backoff
   version: f24585d1c70490c0920ab34924f54f726e1416c7
 - name: github.com/magiconair/properties
@@ -57,6 +59,10 @@ imports:
   version: 5ccb023bc27df288a957c5e994cd44fd19619465
 - name: github.com/spf13/viper
   version: 651d9d916abc3c3d6a91a12549495caba5edffd2
+- name: github.com/uber-go/atomic
+  version: 0c9e689d64f004564b79d9a663634756df322902
+- name: github.com/uber-go/zap
+  version: d11d2851fcabcf03421c4dbdbc3146fc74eb1035
 - name: golang.org/x/crypto
   version: 3f77d695175f990a2967385c493939f380ee40a3
   subpackages:
@@ -78,6 +84,14 @@ imports:
   subpackages:
   - transform
   - unicode/norm
+- name: gopkg.in/pg.v5
+  version: 8a8439b05791ad404bf5a685460288586cd0208a
+  subpackages:
+  - internal
+  - internal/parser
+  - internal/pool
+  - orm
+  - types
 - name: gopkg.in/yaml.v2
   version: a5b47d31c556af34a302ce5d659e6fea44d90de0
 testImports: []
