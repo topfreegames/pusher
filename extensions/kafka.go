@@ -149,8 +149,7 @@ func (q *Kafka) ConsumeLoop() {
 				if q.messagesReceived%1000 == 0 {
 					log.Infof("got %d messages from kafka", q.messagesReceived)
 				}
-				log.Debugf("message on %s:\n%s\n",
-					e.TopicPartition, string(e.Value))
+				log.Debugf("message on %s:\n%s\n", e.TopicPartition, string(e.Value))
 				q.msgChan <- e.Value
 			case kafka.PartitionEOF:
 				log.Debugf("reached %v\n", e)
