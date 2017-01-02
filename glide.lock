@@ -1,5 +1,5 @@
-hash: d3f1e125ea47e33f285dca46f0e5c159a666cd3db1e8e03d3981a7aaf5b6cab0
-updated: 2017-01-02T13:44:36.94142089-02:00
+hash: 960ca68392b65ee6a3a15d06a834929490ed69e7ec4016066f18a43b4007b72f
+updated: 2017-01-02T16:25:32.758290377-02:00
 imports:
 - name: github.com/confluentinc/confluent-kafka-go
   version: 1a081c6faa129cee96a011a6f6aa289050044539
@@ -32,6 +32,36 @@ imports:
   version: 62f9ce32468be9fa73d7d3027490a155f618d034
 - name: github.com/mitchellh/mapstructure
   version: 5a0325d7fafaac12dda6e7fb8bd222ec1b69875e
+- name: github.com/onsi/ginkgo
+  version: 462326b1628e124b23f42e87a8f2750e3c4e2d24
+  subpackages:
+  - config
+  - internal/codelocation
+  - internal/containernode
+  - internal/failer
+  - internal/leafnodes
+  - internal/remote
+  - internal/spec
+  - internal/specrunner
+  - internal/suite
+  - internal/testingtproxy
+  - internal/writer
+  - reporters
+  - reporters/stenographer
+  - types
+- name: github.com/onsi/gomega
+  version: a78ae492d53aad5a7a232d0d0462c14c400e3ee7
+  subpackages:
+  - format
+  - internal/assertion
+  - internal/asyncassertion
+  - internal/testingtsupport
+  - matchers
+  - matchers/support/goraph/bipartitegraph
+  - matchers/support/goraph/edge
+  - matchers/support/goraph/node
+  - matchers/support/goraph/util
+  - types
 - name: github.com/pborman/uuid
   version: 5007efa264d92316c43112bc573e754bc889b7b1
 - name: github.com/pelletier/go-buffruneio
@@ -59,10 +89,6 @@ imports:
   version: 5ccb023bc27df288a957c5e994cd44fd19619465
 - name: github.com/spf13/viper
   version: 651d9d916abc3c3d6a91a12549495caba5edffd2
-- name: github.com/uber-go/atomic
-  version: 0c9e689d64f004564b79d9a663634756df322902
-- name: github.com/uber-go/zap
-  version: d11d2851fcabcf03421c4dbdbc3146fc74eb1035
 - name: golang.org/x/crypto
   version: 3f77d695175f990a2967385c493939f380ee40a3
   subpackages:

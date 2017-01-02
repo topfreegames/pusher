@@ -18,10 +18,17 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-MY_IP=`ifconfig | grep --color=none -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep --color=none -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | head -n 1`
+wait-for-pg:
+	@until docker exec pusher_postgres_1 pg_isready; do echo 'Waiting for Postgres...' && sleep 1; done
+	@sleep 2
 
-include ./make/build.mk
-include ./make/deps.mk
-include ./make/run.mk
-include ./make/setup.mk
-include ./make/test.mk
+deps: start-deps wait-for-pg
+
+start-deps:
+	@echo "Starting dependencies using HOST IP of ${MY_IP}..."
+	@env MY_IP=${MY_IP} docker-compose --project-name pusher up -d
+	@sleep 10
+	@echo "Dependencies started successfully."
+
+stop-deps:
+	@env MY_IP=${MY_IP} docker-compose --project-name pusher down

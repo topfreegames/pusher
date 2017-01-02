@@ -11,3 +11,7 @@ import:
   version: ^0.12.0
 - package: gopkg.in/pg.v5
   version: ^5.1.10
+- package: github.com/onsi/ginkgo
+  version: ^1.2.0
+- package: github.com/onsi/gomega
+  version: ^1.0.0

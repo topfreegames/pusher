@@ -1,0 +1,3 @@
+DROP DATABASE IF EXISTS push;
+DROP OWNED BY pusher_user CASCADE;
+DROP ROLE pusher_user;

@@ -15,3 +15,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
       KAFKA_NUM_PARTITIONS: 5
       KAFKA_CREATE_TOPICS: "com.games.teste:5:1"
+  postgres:
+    image: postgres:9.5
+    ports:
+      - "8585:5432"

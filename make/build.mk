@@ -18,10 +18,6 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-MY_IP=`ifconfig | grep --color=none -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep --color=none -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | head -n 1`
-
-include ./make/build.mk
-include ./make/deps.mk
-include ./make/run.mk
-include ./make/setup.mk
-include ./make/test.mk
+build:
+	@mkdir -p bin
+	@go build -o bin/pusher main.go

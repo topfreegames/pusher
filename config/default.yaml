@@ -11,7 +11,7 @@ queue:
 push:
   db:
     host: localhost
-    port: 8558
+    port: 8585
     user: pusher_user
     pass: ""
     poolSize: 20
