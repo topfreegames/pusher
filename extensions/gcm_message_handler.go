@@ -93,6 +93,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CcsMessage) error {
 	gcmResMutex.Unlock()
 	if cm.Error != "" {
 		switch cm.Error {
+		// errors from https://developers.google.com/cloud-messaging/xmpp-server-ref table 4
 		case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
 			l.WithFields(logrus.Fields{
 				"category": "TokenError",
@@ -155,7 +156,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		l.Errorf("error sending message: %s", err.Error())
 	} else {
 		g.sentMessages++
-		l.Debugf("sendMessage return mid:%s bytes:%d err:%s", messageID, bytes)
+		l.Debugf("sendMessage return mid:%s bytes:%d", messageID, bytes)
 		if g.sentMessages%1000 == 0 {
 			l.Infof("sent %d messages", g.sentMessages)
 		}
