@@ -68,7 +68,7 @@ func (a *APNSPusher) configure() {
 }
 
 // Start starts pusher in apns mode
-func (a APNSPusher) Start() {
+func (a *APNSPusher) Start() {
 	a.run = true
 	l := log.WithFields(log.Fields{
 		"configFile":      a.ConfigFile,

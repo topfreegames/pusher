@@ -70,7 +70,7 @@ func (g *GCMPusher) configure() {
 }
 
 // Start starts pusher in apns mode
-func (g GCMPusher) Start() {
+func (g *GCMPusher) Start() {
 	g.run = true
 	l := log.WithFields(log.Fields{
 		"configFile": g.ConfigFile,
