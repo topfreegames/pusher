@@ -1,5 +1,5 @@
-hash: 960ca68392b65ee6a3a15d06a834929490ed69e7ec4016066f18a43b4007b72f
-updated: 2017-01-02T16:25:32.758290377-02:00
+hash: ff5a6266f64a2879580b360612958d2bdc2e2142d43631c4a70d7c7594993704
+updated: 2017-01-05T14:13:17.473689856-02:00
 imports:
 - name: github.com/confluentinc/confluent-kafka-go
   version: 1a081c6faa129cee96a011a6f6aa289050044539
@@ -73,6 +73,8 @@ imports:
   subpackages:
   - certificate
   - push
+- name: github.com/satori/go.uuid
+  version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
   version: d26492970760ca5d33129d2d799e34be5c4782eb
 - name: github.com/spf13/afero
@@ -111,7 +113,7 @@ imports:
   - transform
   - unicode/norm
 - name: gopkg.in/pg.v5
-  version: 8a8439b05791ad404bf5a685460288586cd0208a
+  version: 8ffbc762a98b464fcfbd244ef3e7ed89ea43417a
   subpackages:
   - internal
   - internal/parser
