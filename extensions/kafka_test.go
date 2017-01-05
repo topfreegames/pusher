@@ -25,15 +25,22 @@ package extensions
 import (
 	"time"
 
+	"github.com/Sirupsen/logrus/hooks/test"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Kafka Extension", func() {
+	logger, hook := test.NewNullLogger()
+
+	BeforeEach(func() {
+		hook.Reset()
+	})
+
 	Describe("Creating new client", func() {
 		It("should return connected client", func() {
-			client := NewKafka("../config/test.yaml")
+			client := NewKafka("../config/test.yaml", logger)
 
 			Expect(client.Brokers).NotTo(HaveLen(0))
 			Expect(client.Topics).To(HaveLen(1))
@@ -44,7 +51,7 @@ var _ = Describe("Kafka Extension", func() {
 
 	Describe("ConsumeLoop", func() {
 		It("should consume message and add it to msgChan", func() {
-			client := NewKafka("../config/test.yaml")
+			client := NewKafka("../config/test.yaml", logger)
 			Expect(client).NotTo(BeNil())
 			defer client.StopConsuming()
 			go client.ConsumeLoop()

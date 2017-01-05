@@ -23,7 +23,7 @@
 package extensions
 
 import (
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/util"
@@ -31,24 +31,26 @@ import (
 
 // Kafka for getting push requests
 type Kafka struct {
-	Topic               string
 	Brokers             string
-	ConsumerGroup       string
-	SessionTimeout      int
-	OffsetResetStrategy string
-	Consumer            *kafka.Consumer
-	run                 bool
-	ConfigFile          string
 	Config              *viper.Viper
-	Topics              []string
-	msgChan             chan []byte
+	ConfigFile          string
+	Consumer            *kafka.Consumer
+	ConsumerGroup       string
+	Logger              *logrus.Logger
 	messagesReceived    int64
+	msgChan             chan []byte
+	OffsetResetStrategy string
+	run                 bool
+	SessionTimeout      int
+	Topic               string
+	Topics              []string
 }
 
 // NewKafka for creating a new Kafka instance
-func NewKafka(configFile string) *Kafka {
+func NewKafka(configFile string, logger *logrus.Logger) *Kafka {
 	q := &Kafka{
 		ConfigFile:       configFile,
+		Logger:           logger,
 		messagesReceived: 0,
 		msgChan:          make(chan []byte),
 	}
@@ -77,7 +79,7 @@ func (q *Kafka) configure() {
 
 func (q *Kafka) configureConsumer() {
 	//TODO auto commit needs to be false
-	l := log.WithFields(log.Fields{
+	l := q.Logger.WithFields(logrus.Fields{
 		"bootstrap.servers":               q.Brokers,
 		"group.id":                        q.ConsumerGroup,
 		"session.timeout.ms":              q.SessionTimeout,
@@ -123,7 +125,7 @@ func (q *Kafka) MessagesChannel() *chan []byte {
 // ConsumeLoop consume messages from the queue and put in messages to send channel
 func (q *Kafka) ConsumeLoop() {
 	q.run = true
-	l := log.WithFields(log.Fields{
+	l := q.Logger.WithFields(logrus.Fields{
 		"topics": q.Topics,
 	})
 
@@ -139,26 +141,26 @@ func (q *Kafka) ConsumeLoop() {
 		case ev := <-q.Consumer.Events():
 			switch e := ev.(type) {
 			case kafka.AssignedPartitions:
-				log.Infof("%v\n", e)
+				l.Infof("%v\n", e)
 				q.Consumer.Assign(e.Partitions)
 			case kafka.RevokedPartitions:
-				log.Warnf("%v\n", e)
+				l.Warnf("%v\n", e)
 				q.Consumer.Unassign()
 			case *kafka.Message:
 				q.messagesReceived++
 				if q.messagesReceived%1000 == 0 {
-					log.Infof("got %d messages from kafka", q.messagesReceived)
+					l.Infof("got %d messages from kafka", q.messagesReceived)
 				}
-				log.Debugf("message on %s:\n%s\n", e.TopicPartition, string(e.Value))
+				l.Debugf("message on %s:\n%s\n", e.TopicPartition, string(e.Value))
 				q.msgChan <- e.Value
 			case kafka.PartitionEOF:
-				log.Debugf("reached %v\n", e)
+				l.Debugf("reached %v\n", e)
 			case kafka.Error:
-				log.Errorf("error: %v\n", e)
+				l.Errorf("error: %v\n", e)
 				//TODO ver isso
 				q.run = false
 			default:
-				log.Warnf("ev not recognized: %v\n", e)
+				l.Warnf("ev not recognized: %v\n", e)
 			}
 		}
 	}

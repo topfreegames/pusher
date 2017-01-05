@@ -27,7 +27,7 @@ import (
 	"fmt"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/google/go-gcm"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/util"
@@ -41,6 +41,7 @@ type GCMMessageHandler struct {
 	appName           string
 	Config            *viper.Viper
 	ConfigFile        string
+	Logger            *logrus.Logger
 	PushDB            *PGClient
 	responsesReceived int64
 	run               bool
@@ -49,11 +50,12 @@ type GCMMessageHandler struct {
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
-func NewGCMMessageHandler(configFile, senderID, apiKey, appName string) *GCMMessageHandler {
+func NewGCMMessageHandler(configFile, senderID, apiKey, appName string, logger *logrus.Logger) *GCMMessageHandler {
 	g := &GCMMessageHandler{
 		apiKey:            apiKey,
 		appName:           appName,
 		ConfigFile:        configFile,
+		Logger:            logger,
 		responsesReceived: 0,
 		senderID:          senderID,
 		sentMessages:      0,
@@ -63,7 +65,7 @@ func NewGCMMessageHandler(configFile, senderID, apiKey, appName string) *GCMMess
 }
 
 func (g *GCMMessageHandler) handleTokenError(token string) {
-	l := log.WithFields(log.Fields{
+	l := g.Logger.WithFields(logrus.Fields{
 		"method": "handleTokenError",
 		"token":  token,
 	})
@@ -72,44 +74,44 @@ func (g *GCMMessageHandler) handleTokenError(token string) {
 	query := fmt.Sprintf("DELETE FROM %s_gcm WHERE token = '%s';", g.appName, token)
 	_, err := g.PushDB.DB.Exec(query)
 	if err != nil {
-		l.WithFields(log.Fields{
+		l.WithFields(logrus.Fields{
 			"error": err.Error(),
 		}).Errorf("error deleting token")
 	}
 }
 
 func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CcsMessage) error {
-	l := log.WithFields(log.Fields{
+	l := g.Logger.WithFields(logrus.Fields{
 		"ccsMessage": cm,
 	})
 	l.Debugf("got response from gcm")
 	gcmResMutex.Lock()
 	g.responsesReceived++
 	if g.responsesReceived%1000 == 0 {
-		log.Infof("received %d responses", g.responsesReceived)
+		l.Infof("received %d responses", g.responsesReceived)
 	}
 	gcmResMutex.Unlock()
 	if cm.Error != "" {
 		switch cm.Error {
 		case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
-			l.WithFields(log.Fields{
+			l.WithFields(logrus.Fields{
 				"category": "TokenError",
 			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
 			g.handleTokenError(cm.From)
 		case "INVALID_JSON":
-			l.WithFields(log.Fields{
+			l.WithFields(logrus.Fields{
 				"category": "JsonError",
 			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
 		case "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR":
-			l.WithFields(log.Fields{
+			l.WithFields(logrus.Fields{
 				"category": "GoogleError",
 			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
 		case "DEVICE_MESSAGE_RATE_EXCEEDED", "TOPICS_MESSAGE_RATE_EXCEEDED":
-			l.WithFields(log.Fields{
+			l.WithFields(logrus.Fields{
 				"category": "RateExceededError",
 			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
 		default:
-			l.WithFields(log.Fields{
+			l.WithFields(logrus.Fields{
 				"category": "DefaultError",
 			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
 		}
@@ -130,7 +132,7 @@ func (g *GCMMessageHandler) configurePushDatabase() {
 	var err error
 	g.PushDB, err = NewPGClient("push.db", g.Config)
 	if err != nil {
-		log.Panicf("could not connect to push database: %s", err.Error())
+		g.Logger.Panicf("could not connect to push database: %s", err.Error())
 	}
 }
 
@@ -143,7 +145,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		DryRun: true,
 	}
 	err := json.Unmarshal(message, &m)
-	l := log.WithFields(log.Fields{
+	l := g.Logger.WithFields(logrus.Fields{
 		"message": m,
 	})
 	l.Debugf("sending message to gcm")
@@ -153,9 +155,9 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		l.Errorf("error sending message: %s", err.Error())
 	} else {
 		g.sentMessages++
-		log.Debugf("sendMessage return mid:%s bytes:%d err:%s", messageID, bytes)
+		l.Debugf("sendMessage return mid:%s bytes:%d err:%s", messageID, bytes)
 		if g.sentMessages%1000 == 0 {
-			log.Infof("sent %d messages", g.sentMessages)
+			l.Infof("sent %d messages", g.sentMessages)
 		}
 	}
 	return err

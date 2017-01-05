@@ -23,7 +23,7 @@
 package cmd
 
 import (
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/topfreegames/pusher/pusher"
 )
@@ -37,13 +37,14 @@ var gcmCmd = &cobra.Command{
 	Short: "starts pusher in gcm mode",
 	Long:  `starts pusher in gcm mode`,
 	Run: func(cmd *cobra.Command, args []string) {
-		log.SetFormatter(&log.JSONFormatter{})
+		var log = logrus.New()
+		log.Formatter = new(logrus.JSONFormatter)
 		if debug {
-			log.SetLevel(log.DebugLevel)
+			log.Level = logrus.DebugLevel
 		} else {
-			log.SetLevel(log.InfoLevel)
+			log.Level = logrus.InfoLevel
 		}
-		l := log.WithFields(log.Fields{
+		l := log.WithFields(logrus.Fields{
 			"debug": debug,
 		})
 		if len(senderID) == 0 {
@@ -55,7 +56,7 @@ var gcmCmd = &cobra.Command{
 		if len(app) == 0 {
 			l.Panic("app must be set")
 		}
-		gcmPusher := pusher.NewGCMPusher(cfgFile, senderID, apiKey, app)
+		gcmPusher := pusher.NewGCMPusher(cfgFile, senderID, apiKey, app, log)
 		gcmPusher.Start()
 	},
 }

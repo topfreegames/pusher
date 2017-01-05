@@ -23,7 +23,7 @@
 package cmd
 
 import (
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/topfreegames/pusher/pusher"
 )
@@ -38,13 +38,14 @@ var apnsCmd = &cobra.Command{
 	Short: "starts pusher in apns mode",
 	Long:  `starts pusher in apns mode`,
 	Run: func(cmd *cobra.Command, args []string) {
-		log.SetFormatter(&log.JSONFormatter{})
+		var log = logrus.New()
+		log.Formatter = new(logrus.JSONFormatter)
 		if debug {
-			log.SetLevel(log.DebugLevel)
+			log.Level = logrus.DebugLevel
 		} else {
-			log.SetLevel(log.InfoLevel)
+			log.Level = logrus.InfoLevel
 		}
-		l := log.WithFields(log.Fields{
+		l := log.WithFields(logrus.Fields{
 			"debug": debug,
 		})
 		if len(certificate) == 0 {
@@ -56,7 +57,7 @@ var apnsCmd = &cobra.Command{
 		if len(app) == 0 {
 			l.Panic("app must be set")
 		}
-		apnsPusher := pusher.NewAPNSPusher(cfgFile, certificate, environment, app)
+		apnsPusher := pusher.NewAPNSPusher(cfgFile, certificate, environment, app, log)
 		apnsPusher.Start()
 	},
 }

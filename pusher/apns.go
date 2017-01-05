@@ -27,7 +27,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/extensions/extifaces"
@@ -37,22 +37,24 @@ import (
 // APNSPusher struct for apns pusher
 type APNSPusher struct {
 	AppName         string
-	ConfigFile      string
-	Queue           extifaces.Queue
-	Config          *viper.Viper
-	MessageHandler  extifaces.MessageHandler
 	CertificatePath string
+	Config          *viper.Viper
+	ConfigFile      string
 	Environment     string
+	Logger          *logrus.Logger
+	MessageHandler  extifaces.MessageHandler
+	Queue           extifaces.Queue
 	run             bool
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
-func NewAPNSPusher(configFile, certificatePath, environment, appName string) *APNSPusher {
+func NewAPNSPusher(configFile, certificatePath, environment, appName string, logger *logrus.Logger) *APNSPusher {
 	a := &APNSPusher{
-		ConfigFile:      configFile,
-		CertificatePath: certificatePath,
-		Environment:     environment,
 		AppName:         appName,
+		CertificatePath: certificatePath,
+		ConfigFile:      configFile,
+		Environment:     environment,
+		Logger:          logger,
 	}
 	a.configure()
 	return a
@@ -63,14 +65,14 @@ func (a *APNSPusher) loadConfigurationDefaults() {}
 func (a *APNSPusher) configure() {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
-	a.Queue = extensions.NewKafka(a.ConfigFile)
-	a.MessageHandler = extensions.NewAPNSMessageHandler(a.ConfigFile, a.CertificatePath, a.Environment, a.AppName)
+	a.Queue = extensions.NewKafka(a.ConfigFile, a.Logger)
+	a.MessageHandler = extensions.NewAPNSMessageHandler(a.ConfigFile, a.CertificatePath, a.Environment, a.AppName, a.Logger)
 }
 
 // Start starts pusher in apns mode
 func (a *APNSPusher) Start() {
 	a.run = true
-	l := log.WithFields(log.Fields{
+	l := a.Logger.WithFields(logrus.Fields{
 		"configFile":      a.ConfigFile,
 		"certificatePath": a.CertificatePath,
 	})
@@ -84,7 +86,7 @@ func (a *APNSPusher) Start() {
 	for a.run == true {
 		select {
 		case sig := <-sigchan:
-			log.Warnf("caught signal %v: terminating\n", sig)
+			l.Warnf("caught signal %v: terminating\n", sig)
 			a.run = false
 		}
 	}

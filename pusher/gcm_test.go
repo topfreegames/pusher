@@ -25,6 +25,7 @@ package pusher
 import (
 	"time"
 
+	"github.com/Sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -34,10 +35,15 @@ var _ = Describe("GCM Pusher", func() {
 	senderID := "sender-id"
 	apiKey := "api-key"
 	appName := "testapp"
+	logger, hook := test.NewNullLogger()
+
+	BeforeEach(func() {
+		hook.Reset()
+	})
 
 	Describe("Creating new gcm pusher", func() {
 		It("should return configured pusher", func() {
-			pusher := NewGCMPusher(configFile, senderID, apiKey, appName)
+			pusher := NewGCMPusher(configFile, senderID, apiKey, appName, logger)
 			Expect(pusher).NotTo(BeNil())
 			Expect(pusher.apiKey).To(Equal(apiKey))
 			Expect(pusher.AppName).To(Equal(appName))
@@ -52,7 +58,7 @@ var _ = Describe("GCM Pusher", func() {
 
 	Describe("Start gcm pusher", func() {
 		It("should launch go routines and run forever", func() {
-			pusher := NewGCMPusher(configFile, senderID, apiKey, appName)
+			pusher := NewGCMPusher(configFile, senderID, apiKey, appName, logger)
 			Expect(pusher).NotTo(BeNil())
 			defer func() { pusher.run = false }()
 			go pusher.Start()

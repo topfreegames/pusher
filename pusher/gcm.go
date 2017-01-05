@@ -27,7 +27,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/extensions/extifaces"
@@ -40,6 +40,7 @@ type GCMPusher struct {
 	AppName        string
 	Config         *viper.Viper
 	ConfigFile     string
+	Logger         *logrus.Logger
 	MessageHandler extifaces.MessageHandler
 	Queue          extifaces.Queue
 	run            bool
@@ -47,12 +48,13 @@ type GCMPusher struct {
 }
 
 // NewGCMPusher for getting a new GCMPusher instance
-func NewGCMPusher(configFile, senderID, apiKey, appName string) *GCMPusher {
+func NewGCMPusher(configFile, senderID, apiKey, appName string, logger *logrus.Logger) *GCMPusher {
 	g := &GCMPusher{
 		apiKey:     apiKey,
 		AppName:    appName,
 		ConfigFile: configFile,
 		senderID:   senderID,
+		Logger:     logger,
 	}
 	g.configure()
 	return g
@@ -65,14 +67,14 @@ func (g *GCMPusher) loadConfigurationDefaults() {
 func (g *GCMPusher) configure() {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
-	g.Queue = extensions.NewKafka(g.ConfigFile)
-	g.MessageHandler = extensions.NewGCMMessageHandler(g.ConfigFile, g.senderID, g.apiKey, g.AppName)
+	g.Queue = extensions.NewKafka(g.ConfigFile, g.Logger)
+	g.MessageHandler = extensions.NewGCMMessageHandler(g.ConfigFile, g.senderID, g.apiKey, g.AppName, g.Logger)
 }
 
 // Start starts pusher in apns mode
 func (g *GCMPusher) Start() {
 	g.run = true
-	l := log.WithFields(log.Fields{
+	l := g.Logger.WithFields(logrus.Fields{
 		"configFile": g.ConfigFile,
 		"senderID":   g.senderID,
 	})
@@ -87,7 +89,7 @@ func (g *GCMPusher) Start() {
 	for g.run == true {
 		select {
 		case sig := <-sigchan:
-			log.Warnf("caught signal %v: terminating\n", sig)
+			l.Warnf("caught signal %v: terminating\n", sig)
 			g.run = false
 		}
 	}

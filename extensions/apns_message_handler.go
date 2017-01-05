@@ -30,7 +30,7 @@ import (
 
 	cert "github.com/RobotsAndPencils/buford/certificate"
 	"github.com/RobotsAndPencils/buford/push"
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/certificate"
 	"github.com/topfreegames/pusher/util"
@@ -46,6 +46,7 @@ type APNSMessageHandler struct {
 	Config            *viper.Viper
 	ConfigFile        string
 	Environment       string
+	Logger            *logrus.Logger
 	PushDB            *PGClient
 	PushQueue         *push.Queue
 	responsesReceived int64
@@ -61,21 +62,22 @@ type Notification struct {
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
-func NewAPNSMessageHandler(configFile, certificatePath, environment, appName string) *APNSMessageHandler {
+func NewAPNSMessageHandler(configFile, certificatePath, environment, appName string, logger *logrus.Logger) *APNSMessageHandler {
 	a := &APNSMessageHandler{
+		appName:           appName,
 		CertificatePath:   certificatePath,
 		ConfigFile:        configFile,
 		Environment:       environment,
+		Logger:            logger,
 		responsesReceived: 0,
 		sentMessages:      0,
-		appName:           appName,
 	}
 	a.configure()
 	return a
 }
 
 func (a *APNSMessageHandler) handleTokenError(token string) {
-	l := log.WithFields(log.Fields{
+	l := a.Logger.WithFields(logrus.Fields{
 		"method": "handleTokenError",
 		"token":  token,
 	})
@@ -84,44 +86,44 @@ func (a *APNSMessageHandler) handleTokenError(token string) {
 	query := fmt.Sprintf("DELETE FROM %s_apns WHERE token = '%s';", a.appName, token)
 	_, err := a.PushDB.DB.Exec(query)
 	if err != nil {
-		l.WithFields(log.Fields{
+		l.WithFields(logrus.Fields{
 			"error": err.Error(),
 		}).Errorf("error deleting token")
 	}
 }
 
 func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
-	l := log.WithFields(log.Fields{
+	l := a.Logger.WithFields(logrus.Fields{
 		"apns res": res,
 	})
 	l.Debugf("got response from apns")
 	apnsResMutex.Lock()
 	a.responsesReceived++
 	if a.responsesReceived%1000 == 0 {
-		log.Infof("received %d responses", a.responsesReceived)
+		l.Infof("received %d responses", a.responsesReceived)
 	}
 	apnsResMutex.Unlock()
 	if res.Err != nil {
 		switch res.Err.(*push.Error).Reason {
 		case push.ErrMissingDeviceToken, push.ErrBadDeviceToken:
-			l.WithFields(log.Fields{
+			l.WithFields(logrus.Fields{
 				"category": "TokenError",
 			}).Errorf("received an error: %s", res.Err.Error())
 			a.handleTokenError(res.DeviceToken)
 		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
-			l.WithFields(log.Fields{
+			l.WithFields(logrus.Fields{
 				"category": "CertificateError",
 			}).Errorf("received an error: %s", res.Err.Error())
 		case push.ErrMissingTopic, push.ErrTopicDisallowed, push.ErrDeviceTokenNotForTopic:
-			l.WithFields(log.Fields{
+			l.WithFields(logrus.Fields{
 				"category": "TopicError",
 			}).Errorf("received an error: %s", res.Err.Error())
 		case push.ErrIdleTimeout, push.ErrShutdown, push.ErrInternalServerError, push.ErrServiceUnavailable:
-			l.WithFields(log.Fields{
+			l.WithFields(logrus.Fields{
 				"category": "AppleError",
 			}).Errorf("received an error: %s", res.Err.Error())
 		default:
-			l.WithFields(log.Fields{
+			l.WithFields(logrus.Fields{
 				"category": "DefaultError",
 			}).Errorf("received an error: %s", res.Err.Error())
 		}
@@ -144,9 +146,9 @@ func (a *APNSMessageHandler) configure() {
 func (a *APNSMessageHandler) configureCertificate() {
 	c, err := certificate.FromPemFile(a.CertificatePath, "")
 	if err != nil {
-		log.Panicf("error loading pem certificate: %s", err.Error())
+		a.Logger.Panicf("error loading pem certificate: %s", err.Error())
 	}
-	log.Debugf("loaded apns certificate: %s", c)
+	a.Logger.Debugf("loaded apns certificate: %s", c)
 	a.certificate = c
 	a.Topic = cert.TopicFromCert(c)
 }
@@ -154,7 +156,7 @@ func (a *APNSMessageHandler) configureCertificate() {
 func (a *APNSMessageHandler) configureAPNSPushQueue() {
 	client, err := push.NewClient(a.certificate)
 	if err != nil {
-		log.Panicf("could not create apns client: %s", err.Error())
+		a.Logger.Panicf("could not create apns client: %s", err.Error())
 	}
 	// TODO is production flag
 	var svc *push.Service
@@ -166,11 +168,11 @@ func (a *APNSMessageHandler) configureAPNSPushQueue() {
 		svc = push.NewService(client, push.Development)
 		break
 	default:
-		log.Panicf("invalid environment")
+		a.Logger.Panicf("invalid environment")
 	}
 	// TODO needs to be configurable
 	concurrentWorkers := a.Config.GetInt("apns.concurrentWorkers")
-	log.Debugf("creating apns queue with %d workers", concurrentWorkers)
+	a.Logger.Debugf("creating apns queue with %d workers", concurrentWorkers)
 	workers := uint(concurrentWorkers)
 	queue := push.NewQueue(svc, workers)
 	a.PushQueue = queue
@@ -180,12 +182,12 @@ func (a *APNSMessageHandler) configurePushDatabase() {
 	var err error
 	a.PushDB, err = NewPGClient("push.db", a.Config)
 	if err != nil {
-		log.Panicf("could not connect to push database: %s", err.Error())
+		a.Logger.Panicf("could not connect to push database: %s", err.Error())
 	}
 }
 
 func (a *APNSMessageHandler) sendMessage(message []byte) {
-	log.WithFields(log.Fields{
+	a.Logger.WithFields(logrus.Fields{
 		"message": string(message),
 	}).Debugf("sending message to apns")
 	h := &push.Headers{
@@ -195,12 +197,12 @@ func (a *APNSMessageHandler) sendMessage(message []byte) {
 	json.Unmarshal(message, n)
 	payload, err := json.Marshal(n.Payload)
 	if err != nil {
-		log.Errorf("error marshaling message payload: %s", err.Error())
+		a.Logger.Errorf("error marshaling message payload: %s", err.Error())
 	}
 	a.PushQueue.Push(n.DeviceToken, h, payload)
 	a.sentMessages++
 	if a.sentMessages%1000 == 0 {
-		log.Infof("sent %d messages", a.sentMessages)
+		a.Logger.Infof("sent %d messages", a.sentMessages)
 	}
 }
 

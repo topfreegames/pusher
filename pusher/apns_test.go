@@ -25,6 +25,7 @@ package pusher
 import (
 	"time"
 
+	"github.com/Sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -34,10 +35,15 @@ var _ = Describe("APNS Pusher", func() {
 	certificatePath := "../tls/self_signed_cert.pem"
 	environment := "development"
 	appName := "testapp"
+	logger, hook := test.NewNullLogger()
+
+	BeforeEach(func() {
+		hook.Reset()
+	})
 
 	Describe("Creating new apns pusher", func() {
 		It("should return configured pusher", func() {
-			pusher := NewAPNSPusher(configFile, certificatePath, environment, appName)
+			pusher := NewAPNSPusher(configFile, certificatePath, environment, appName, logger)
 			Expect(pusher).NotTo(BeNil())
 			Expect(pusher.AppName).To(Equal(appName))
 			Expect(pusher.ConfigFile).To(Equal(configFile))
@@ -52,7 +58,7 @@ var _ = Describe("APNS Pusher", func() {
 
 	Describe("Start apns pusher", func() {
 		It("should launch go routines and run forever", func() {
-			pusher := NewAPNSPusher(configFile, certificatePath, environment, appName)
+			pusher := NewAPNSPusher(configFile, certificatePath, environment, appName, logger)
 			Expect(pusher).NotTo(BeNil())
 			defer func() { pusher.run = false }()
 			go pusher.Start()
