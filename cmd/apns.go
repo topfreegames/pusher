@@ -30,7 +30,6 @@ import (
 
 var app string
 var certificate string
-var environment string
 
 // apnsCmd represents the apns command
 var apnsCmd = &cobra.Command{
@@ -51,20 +50,16 @@ var apnsCmd = &cobra.Command{
 		if len(certificate) == 0 {
 			l.Panic("pem certificate must be set")
 		}
-		if len(environment) == 0 {
-			l.Panic("environment must be set")
-		}
 		if len(app) == 0 {
 			l.Panic("app must be set")
 		}
-		apnsPusher := pusher.NewAPNSPusher(cfgFile, certificate, environment, app, log)
+		apnsPusher := pusher.NewAPNSPusher(cfgFile, certificate, app, production, log)
 		apnsPusher.Start()
 	},
 }
 
 func init() {
 	apnsCmd.Flags().StringVar(&certificate, "certificate", "", "pem certificate path")
-	apnsCmd.Flags().StringVar(&environment, "environment", "", "the environment")
 	apnsCmd.Flags().StringVar(&app, "app", "", "the app name for the table in pushdb")
 	RootCmd.AddCommand(apnsCmd)
 }

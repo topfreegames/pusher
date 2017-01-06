@@ -45,7 +45,7 @@ type APNSMessageHandler struct {
 	CertificatePath   string
 	Config            *viper.Viper
 	ConfigFile        string
-	Environment       string
+	IsProduction      bool
 	Logger            *logrus.Logger
 	PushDB            *PGClient
 	PushQueue         *push.Queue
@@ -62,12 +62,12 @@ type Notification struct {
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
-func NewAPNSMessageHandler(configFile, certificatePath, environment, appName string, logger *logrus.Logger) *APNSMessageHandler {
+func NewAPNSMessageHandler(configFile, certificatePath, appName string, isProduction bool, logger *logrus.Logger) *APNSMessageHandler {
 	a := &APNSMessageHandler{
 		appName:           appName,
 		CertificatePath:   certificatePath,
 		ConfigFile:        configFile,
-		Environment:       environment,
+		IsProduction:      isProduction,
 		Logger:            logger,
 		responsesReceived: 0,
 		sentMessages:      0,
@@ -158,18 +158,13 @@ func (a *APNSMessageHandler) configureAPNSPushQueue() {
 	if err != nil {
 		a.Logger.Panicf("could not create apns client: %s", err.Error())
 	}
-	// TODO is production flag
 	var svc *push.Service
-	switch a.Environment {
-	case "production":
+	if a.IsProduction {
 		svc = push.NewService(client, push.Production)
-		break
-	case "development":
+	} else {
 		svc = push.NewService(client, push.Development)
-		break
-	default:
-		a.Logger.Panicf("invalid environment")
 	}
+
 	// TODO needs to be configurable
 	concurrentWorkers := a.Config.GetInt("apns.concurrentWorkers")
 	a.Logger.Debugf("creating apns queue with %d workers", concurrentWorkers)

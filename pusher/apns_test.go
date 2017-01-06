@@ -33,7 +33,7 @@ import (
 var _ = Describe("APNS Pusher", func() {
 	configFile := "../config/test.yaml"
 	certificatePath := "../tls/self_signed_cert.pem"
-	environment := "development"
+	isProduction := false
 	appName := "testapp"
 	logger, hook := test.NewNullLogger()
 
@@ -43,12 +43,12 @@ var _ = Describe("APNS Pusher", func() {
 
 	Describe("Creating new apns pusher", func() {
 		It("should return configured pusher", func() {
-			pusher := NewAPNSPusher(configFile, certificatePath, environment, appName, logger)
+			pusher := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
 			Expect(pusher).NotTo(BeNil())
 			Expect(pusher.AppName).To(Equal(appName))
 			Expect(pusher.ConfigFile).To(Equal(configFile))
 			Expect(pusher.CertificatePath).To(Equal(certificatePath))
-			Expect(pusher.Environment).To(Equal(environment))
+			Expect(pusher.IsProduction).To(Equal(isProduction))
 			Expect(pusher.run).To(BeFalse())
 			Expect(pusher.Queue).NotTo(BeNil())
 			Expect(pusher.Config).NotTo(BeNil())
@@ -58,7 +58,7 @@ var _ = Describe("APNS Pusher", func() {
 
 	Describe("Start apns pusher", func() {
 		It("should launch go routines and run forever", func() {
-			pusher := NewAPNSPusher(configFile, certificatePath, environment, appName, logger)
+			pusher := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
 			Expect(pusher).NotTo(BeNil())
 			defer func() { pusher.run = false }()
 			go pusher.Start()
