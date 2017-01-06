@@ -45,7 +45,8 @@ var gcmCmd = &cobra.Command{
 			log.Level = logrus.InfoLevel
 		}
 		l := log.WithFields(logrus.Fields{
-			"debug": debug,
+			"method": "gcmCmd",
+			"debug":  debug,
 		})
 		if len(senderID) == 0 {
 			l.Panic("senderId must be set")

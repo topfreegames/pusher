@@ -73,6 +73,7 @@ func (a *APNSPusher) configure() {
 func (a *APNSPusher) Start() {
 	a.run = true
 	l := a.Logger.WithFields(logrus.Fields{
+		"method":          "start",
 		"configFile":      a.ConfigFile,
 		"certificatePath": a.CertificatePath,
 	})

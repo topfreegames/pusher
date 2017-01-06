@@ -45,7 +45,8 @@ var apnsCmd = &cobra.Command{
 			log.Level = logrus.InfoLevel
 		}
 		l := log.WithFields(logrus.Fields{
-			"debug": debug,
+			"method": "apnsCmd",
+			"debug":  debug,
 		})
 		if len(certificate) == 0 {
 			l.Panic("pem certificate must be set")

@@ -80,6 +80,7 @@ func (q *Kafka) configure() {
 func (q *Kafka) configureConsumer() {
 	//TODO auto commit needs to be false
 	l := q.Logger.WithFields(logrus.Fields{
+		"method":                          "configureConsumer",
 		"bootstrap.servers":               q.Brokers,
 		"group.id":                        q.ConsumerGroup,
 		"session.timeout.ms":              q.SessionTimeout,
@@ -106,7 +107,7 @@ func (q *Kafka) configureConsumer() {
 		},
 	})
 	if err != nil {
-		l.Panicf("error configuring kafka queue: %s", err.Error())
+		l.WithError(err).Panic("error configuring kafka queue")
 	}
 	l.Info("kafka queue configured")
 	q.Consumer = c
@@ -126,12 +127,13 @@ func (q *Kafka) MessagesChannel() *chan []byte {
 func (q *Kafka) ConsumeLoop() {
 	q.run = true
 	l := q.Logger.WithFields(logrus.Fields{
+		"method": "ConsumeLoop",
 		"topics": q.Topics,
 	})
 
 	err := q.Consumer.SubscribeTopics(q.Topics, nil)
 	if err != nil {
-		l.Panicf("error subscribing to topics\n%s", err.Error())
+		l.WithError(err).Panic("error subscribing to topics")
 	}
 
 	l.Info("successfully subscribed to topics")
@@ -149,7 +151,7 @@ func (q *Kafka) ConsumeLoop() {
 			case *kafka.Message:
 				q.messagesReceived++
 				if q.messagesReceived%1000 == 0 {
-					l.Infof("got %d messages from kafka", q.messagesReceived)
+					l.Infof("messages from kafka: %d", q.messagesReceived)
 				}
 				l.Debugf("message on %s:\n%s\n", e.TopicPartition, string(e.Value))
 				q.msgChan <- e.Value

@@ -77,6 +77,7 @@ func (g *GCMPusher) configure() {
 func (g *GCMPusher) Start() {
 	g.run = true
 	l := g.Logger.WithFields(logrus.Fields{
+		"method":     "start",
 		"configFile": g.ConfigFile,
 		"senderID":   g.senderID,
 	})
