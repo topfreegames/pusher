@@ -152,7 +152,14 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		"message": m,
 	})
 	l.Debugf("sending message to gcm")
-	messageID, bytes, err := gcm.SendXmpp(g.senderID, g.apiKey, g.IsProduction, m)
+	var messageID string
+	var bytes int
+	if g.IsProduction {
+		messageID, bytes, err = gcm.SendXmpp(g.senderID, g.apiKey, m)
+	} else {
+		messageID, bytes, err = gcm.SendXmppStaging(g.senderID, g.apiKey, m)
+	}
+
 	//TODO tratar o erro?
 	if err != nil {
 		l.Errorf("error sending message: %s", err.Error())
@@ -168,7 +175,11 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 
 // HandleResponses from gcm
 func (g *GCMMessageHandler) HandleResponses() {
-	gcm.Listen(g.senderID, g.apiKey, g.IsProduction, g.handleGCMResponse, nil)
+	if g.IsProduction {
+		gcm.Listen(g.senderID, g.apiKey, g.handleGCMResponse, nil)
+	} else {
+		gcm.ListenStaging(g.senderID, g.apiKey, g.handleGCMResponse, nil)
+	}
 }
 
 // HandleMessages get messages from msgChan and send to GCM
