@@ -72,25 +72,25 @@ func (g *GCMMessageHandler) handleTokenError(token string) {
 		"token":  token,
 	})
 	// TODO: before deleting send deleted token info to another queue/db
-	l.Debugf("deleting token")
+	// TODO: if the above is not that specific move this to an util so it can be reused in apns
+	l.Info("deleting token")
 	query := fmt.Sprintf("DELETE FROM %s_gcm WHERE token = '%s';", g.appName, token)
 	_, err := g.PushDB.DB.Exec(query)
-	if err != nil {
-		l.WithFields(logrus.Fields{
-			"error": err.Error(),
-		}).Errorf("error deleting token")
+	if err != nil && err.Error() != "pg: no rows in result set" {
+		l.WithError(err).Error("error deleting token")
 	}
 }
 
 func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CcsMessage) error {
 	l := g.Logger.WithFields(logrus.Fields{
+		"method":     "handleGCMResponse",
 		"ccsMessage": cm,
 	})
-	l.Debugf("got response from gcm")
+	l.Debug("got response from gcm")
 	gcmResMutex.Lock()
 	g.responsesReceived++
 	if g.responsesReceived%1000 == 0 {
-		l.Infof("received %d responses", g.responsesReceived)
+		l.Infof("received responses: %d", g.responsesReceived)
 	}
 	gcmResMutex.Unlock()
 	if cm.Error != "" {
@@ -98,25 +98,30 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CcsMessage) error {
 		// errors from https://developers.google.com/cloud-messaging/xmpp-server-ref table 4
 		case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
 			l.WithFields(logrus.Fields{
-				"category": "TokenError",
-			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
+				"category":      "TokenError",
+				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			}).Error("received an error")
 			g.handleTokenError(cm.From)
 		case "INVALID_JSON":
 			l.WithFields(logrus.Fields{
-				"category": "JsonError",
-			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
+				"category":      "JsonError",
+				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			}).Error("received an error")
 		case "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR":
 			l.WithFields(logrus.Fields{
-				"category": "GoogleError",
-			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
+				"category":      "GoogleError",
+				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			}).Error("received an error")
 		case "DEVICE_MESSAGE_RATE_EXCEEDED", "TOPICS_MESSAGE_RATE_EXCEEDED":
 			l.WithFields(logrus.Fields{
-				"category": "RateExceededError",
-			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
+				"category":      "RateExceededError",
+				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			}).Error("received an error")
 		default:
 			l.WithFields(logrus.Fields{
-				"category": "DefaultError",
-			}).Errorf("received an error: %s. Description: %s.", cm.Error, cm.ErrorDescription)
+				"category":      "DefaultError",
+				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			}).Error("received an error")
 		}
 	}
 	return nil
@@ -132,14 +137,16 @@ func (g *GCMMessageHandler) configure() {
 }
 
 func (g *GCMMessageHandler) configurePushDatabase() {
+	l := g.Logger.WithField("method", "configurePushDatabase")
 	var err error
 	g.PushDB, err = NewPGClient("push.db", g.Config)
 	if err != nil {
-		g.Logger.Panicf("could not connect to push database: %s", err.Error())
+		l.WithError(err).Panic("could not connect to push database")
 	}
 }
 
 func (g *GCMMessageHandler) sendMessage(message []byte) error {
+	l := g.Logger.WithField("method", "sendMessage")
 	ttl := uint(0)
 	m := gcm.XmppMessage{
 		TimeToLive:               &ttl,
@@ -148,10 +155,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		DryRun: true,
 	}
 	err := json.Unmarshal(message, &m)
-	l := g.Logger.WithFields(logrus.Fields{
-		"message": m,
-	})
-	l.Debugf("sending message to gcm")
+	l.WithField("message", m).Debug("sending message to gcm")
 	var messageID string
 	var bytes int
 	if g.IsProduction {
@@ -162,12 +166,15 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 
 	//TODO tratar o erro?
 	if err != nil {
-		l.Errorf("error sending message: %s", err.Error())
+		l.WithError(err).Error("error sending message")
 	} else {
 		g.sentMessages++
-		l.Debugf("sendMessage return mid:%s bytes:%d", messageID, bytes)
+		l.WithFields(logrus.Fields{
+			"messageID": messageID,
+			"bytes":     bytes,
+		}).Debug("sent message")
 		if g.sentMessages%1000 == 0 {
-			l.Infof("sent %d messages", g.sentMessages)
+			l.Infof("sent messages: %d", g.sentMessages)
 		}
 	}
 	return err

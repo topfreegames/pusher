@@ -100,8 +100,10 @@ var _ = Describe("GCM Message Handler", func() {
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
-			Expect(hook.LastEntry().Data["category"]).To(Equal("TokenError"))
+			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
+			Expect(hook.LastEntry().Message).To(Equal("deleting token"))
+			Expect(hook.Entries[len(hook.Entries)-2].Level).To(Equal(logrus.ErrorLevel))
+			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
 		It("if reponse has error BAD_REGISTRATION", func() {
@@ -111,8 +113,10 @@ var _ = Describe("GCM Message Handler", func() {
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
-			Expect(hook.LastEntry().Data["category"]).To(Equal("TokenError"))
+			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
+			Expect(hook.LastEntry().Message).To(Equal("deleting token"))
+			Expect(hook.Entries[len(hook.Entries)-2].Level).To(Equal(logrus.ErrorLevel))
+			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
 		It("if reponse has error INVALID_JSON", func() {
