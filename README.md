@@ -73,7 +73,7 @@ cat test.txt | kafka-console-producer --topic com.games.teste --broker-list loca
 
 - [x] Handle all responses from APNS and GCM
 - [x] Test Everything
-- [ ] GCM staging support (send PR to https://github.com/google/go-gcm ?)
+- [x] GCM staging support (send PR to https://github.com/google/go-gcm ?)
 - [ ] Logging and stats
 - [ ] Auto recovery when connection to kafka is lost (I think it already does, we only need to check for how much time it will try to recover)
 - [ ] Graceful shutdown should empty channels before dying (the signal is already being caught)
