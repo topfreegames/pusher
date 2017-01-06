@@ -105,8 +105,10 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
-			Expect(hook.LastEntry().Data["category"]).To(Equal("TokenError"))
+			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
+			Expect(hook.LastEntry().Message).To(Equal("deleting token"))
+			Expect(hook.Entries[len(hook.Entries)-2].Level).To(Equal(logrus.ErrorLevel))
+			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
 		It("if reponse has error push.ErrBadDeviceToken", func() {
@@ -121,8 +123,10 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
-			Expect(hook.LastEntry().Data["category"]).To(Equal("TokenError"))
+			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
+			Expect(hook.LastEntry().Message).To(Equal("deleting token"))
+			Expect(hook.Entries[len(hook.Entries)-2].Level).To(Equal(logrus.ErrorLevel))
+			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
 		It("if reponse has error push.ErrBadCertificate", func() {

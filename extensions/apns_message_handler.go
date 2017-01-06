@@ -82,50 +82,54 @@ func (a *APNSMessageHandler) handleTokenError(token string) {
 		"token":  token,
 	})
 	// TODO: before deleting send deleted token info to another queue/db
-	l.Debugf("deleting token")
+	l.Info("deleting token")
 	query := fmt.Sprintf("DELETE FROM %s_apns WHERE token = '%s';", a.appName, token)
 	_, err := a.PushDB.DB.Exec(query)
-	if err != nil {
-		l.WithFields(logrus.Fields{
-			"error": err.Error(),
-		}).Errorf("error deleting token")
+	if err != nil && err.Error() != "pg: no rows in result set" {
+		l.WithError(err).Error("error deleting token")
 	}
 }
 
 func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	l := a.Logger.WithFields(logrus.Fields{
-		"apns res": res,
+		"method": "handleAPNSResponse",
+		"res":    res,
 	})
-	l.Debugf("got response from apns")
+	l.Debug("got response from apns")
 	apnsResMutex.Lock()
 	a.responsesReceived++
 	if a.responsesReceived%1000 == 0 {
-		l.Infof("received %d responses", a.responsesReceived)
+		l.Infof("received responses: %d", a.responsesReceived)
 	}
 	apnsResMutex.Unlock()
 	if res.Err != nil {
 		switch res.Err.(*push.Error).Reason {
 		case push.ErrMissingDeviceToken, push.ErrBadDeviceToken:
 			l.WithFields(logrus.Fields{
-				"category": "TokenError",
-			}).Errorf("received an error: %s", res.Err.Error())
+				"category":      "TokenError",
+				logrus.ErrorKey: res.Err,
+			}).Error("received an error")
 			a.handleTokenError(res.DeviceToken)
 		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
 			l.WithFields(logrus.Fields{
-				"category": "CertificateError",
-			}).Errorf("received an error: %s", res.Err.Error())
+				"category":      "CertificateError",
+				logrus.ErrorKey: res.Err,
+			}).Error("received an error")
 		case push.ErrMissingTopic, push.ErrTopicDisallowed, push.ErrDeviceTokenNotForTopic:
 			l.WithFields(logrus.Fields{
-				"category": "TopicError",
-			}).Errorf("received an error: %s", res.Err.Error())
+				"category":      "TopicError",
+				logrus.ErrorKey: res.Err,
+			}).Error("received an error")
 		case push.ErrIdleTimeout, push.ErrShutdown, push.ErrInternalServerError, push.ErrServiceUnavailable:
 			l.WithFields(logrus.Fields{
-				"category": "AppleError",
-			}).Errorf("received an error: %s", res.Err.Error())
+				"category":      "AppleError",
+				logrus.ErrorKey: res.Err,
+			}).Error("received an error")
 		default:
 			l.WithFields(logrus.Fields{
-				"category": "DefaultError",
-			}).Errorf("received an error: %s", res.Err.Error())
+				"category":      "DefaultError",
+				logrus.ErrorKey: res.Err,
+			}).Error("received an error")
 		}
 	}
 	return nil
@@ -144,19 +148,21 @@ func (a *APNSMessageHandler) configure() {
 }
 
 func (a *APNSMessageHandler) configureCertificate() {
+	l := a.Logger.WithField("method", "configureCertificate")
 	c, err := certificate.FromPemFile(a.CertificatePath, "")
 	if err != nil {
-		a.Logger.Panicf("error loading pem certificate: %s", err.Error())
+		l.WithError(err).Panic("error loading pem certificate")
 	}
-	a.Logger.Debugf("loaded apns certificate: %s", c)
 	a.certificate = c
 	a.Topic = cert.TopicFromCert(c)
+	l.WithField("topic", a.Topic).Debug("loaded apns certificate")
 }
 
 func (a *APNSMessageHandler) configureAPNSPushQueue() {
+	l := a.Logger.WithField("method", "configureAPNSPushQueue")
 	client, err := push.NewClient(a.certificate)
 	if err != nil {
-		a.Logger.Panicf("could not create apns client: %s", err.Error())
+		l.WithError(err).Panic("could not create apns client")
 	}
 	var svc *push.Service
 	if a.IsProduction {
@@ -165,26 +171,25 @@ func (a *APNSMessageHandler) configureAPNSPushQueue() {
 		svc = push.NewService(client, push.Development)
 	}
 
-	// TODO needs to be configurable
 	concurrentWorkers := a.Config.GetInt("apns.concurrentWorkers")
-	a.Logger.Debugf("creating apns queue with %d workers", concurrentWorkers)
+	l.WithField("concurrentWorkers", concurrentWorkers).Debug("creating apns queue")
 	workers := uint(concurrentWorkers)
 	queue := push.NewQueue(svc, workers)
 	a.PushQueue = queue
 }
 
 func (a *APNSMessageHandler) configurePushDatabase() {
+	l := a.Logger.WithField("method", "configurePushDatabase")
 	var err error
 	a.PushDB, err = NewPGClient("push.db", a.Config)
 	if err != nil {
-		a.Logger.Panicf("could not connect to push database: %s", err.Error())
+		l.WithError(err).Panic("could not connect to push database")
 	}
 }
 
 func (a *APNSMessageHandler) sendMessage(message []byte) {
-	a.Logger.WithFields(logrus.Fields{
-		"message": string(message),
-	}).Debugf("sending message to apns")
+	l := a.Logger.WithField("method", "sendMessage")
+	l.WithField("message", message).Debug("sending message to apns")
 	h := &push.Headers{
 		Topic: a.Topic,
 	}
@@ -192,12 +197,12 @@ func (a *APNSMessageHandler) sendMessage(message []byte) {
 	json.Unmarshal(message, n)
 	payload, err := json.Marshal(n.Payload)
 	if err != nil {
-		a.Logger.Errorf("error marshaling message payload: %s", err.Error())
+		l.WithError(err).Error("error marshaling message payload")
 	}
 	a.PushQueue.Push(n.DeviceToken, h, payload)
 	a.sentMessages++
 	if a.sentMessages%1000 == 0 {
-		a.Logger.Infof("sent %d messages", a.sentMessages)
+		l.Infof("sent messages: %d", a.sentMessages)
 	}
 }
 
