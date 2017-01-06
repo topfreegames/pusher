@@ -40,6 +40,7 @@ type GCMPusher struct {
 	AppName        string
 	Config         *viper.Viper
 	ConfigFile     string
+	IsProduction   bool
 	Logger         *logrus.Logger
 	MessageHandler extifaces.MessageHandler
 	Queue          extifaces.Queue
@@ -48,13 +49,14 @@ type GCMPusher struct {
 }
 
 // NewGCMPusher for getting a new GCMPusher instance
-func NewGCMPusher(configFile, senderID, apiKey, appName string, logger *logrus.Logger) *GCMPusher {
+func NewGCMPusher(configFile, senderID, apiKey, appName string, isProduction bool, logger *logrus.Logger) *GCMPusher {
 	g := &GCMPusher{
-		apiKey:     apiKey,
-		AppName:    appName,
-		ConfigFile: configFile,
-		senderID:   senderID,
-		Logger:     logger,
+		apiKey:       apiKey,
+		AppName:      appName,
+		ConfigFile:   configFile,
+		IsProduction: isProduction,
+		Logger:       logger,
+		senderID:     senderID,
 	}
 	g.configure()
 	return g
@@ -68,7 +70,7 @@ func (g *GCMPusher) configure() {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
 	g.Queue = extensions.NewKafka(g.ConfigFile, g.Logger)
-	g.MessageHandler = extensions.NewGCMMessageHandler(g.ConfigFile, g.senderID, g.apiKey, g.AppName, g.Logger)
+	g.MessageHandler = extensions.NewGCMMessageHandler(g.ConfigFile, g.senderID, g.apiKey, g.AppName, g.IsProduction, g.Logger)
 }
 
 // Start starts pusher in apns mode

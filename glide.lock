@@ -1,5 +1,5 @@
-hash: ff5a6266f64a2879580b360612958d2bdc2e2142d43631c4a70d7c7594993704
-updated: 2017-01-05T14:13:17.473689856-02:00
+hash: fb568e4a318f7c2676dbb9458dd9a3c7b9196cb3aa52bdcb506edabc86038825
+updated: 2017-01-06T11:19:56.92203248-02:00
 imports:
 - name: github.com/confluentinc/confluent-kafka-go
   version: 1a081c6faa129cee96a011a6f6aa289050044539
@@ -7,8 +7,6 @@ imports:
   - kafka
 - name: github.com/fsnotify/fsnotify
   version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
-- name: github.com/google/go-gcm
-  version: 190e93b4cedb43562b5bd558eb1a1bbd38695bcd
 - name: github.com/hashicorp/hcl
   version: 37ab263305aaeb501a60eb16863e808d426e37f2
   subpackages:
@@ -77,6 +75,8 @@ imports:
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
   version: d26492970760ca5d33129d2d799e34be5c4782eb
+  subpackages:
+  - hooks/test
 - name: github.com/spf13/afero
   version: 06b7e5f50606ecd49148a01a6008942d9b669217
   subpackages:
@@ -91,6 +91,8 @@ imports:
   version: 5ccb023bc27df288a957c5e994cd44fd19619465
 - name: github.com/spf13/viper
   version: 651d9d916abc3c3d6a91a12549495caba5edffd2
+- name: github.com/topfreegames/go-gcm
+  version: e66c7d2223350beef662c9b91d6fb961e4d3a672
 - name: golang.org/x/crypto
   version: 3f77d695175f990a2967385c493939f380ee40a3
   subpackages:

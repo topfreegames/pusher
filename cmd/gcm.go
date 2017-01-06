@@ -56,7 +56,7 @@ var gcmCmd = &cobra.Command{
 		if len(app) == 0 {
 			l.Panic("app must be set")
 		}
-		gcmPusher := pusher.NewGCMPusher(cfgFile, senderID, apiKey, app, log)
+		gcmPusher := pusher.NewGCMPusher(cfgFile, senderID, apiKey, app, production, log)
 		gcmPusher.Start()
 	},
 }

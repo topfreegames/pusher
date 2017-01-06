@@ -28,8 +28,8 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/google/go-gcm"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -41,6 +41,7 @@ type GCMMessageHandler struct {
 	appName           string
 	Config            *viper.Viper
 	ConfigFile        string
+	IsProduction      bool
 	Logger            *logrus.Logger
 	PushDB            *PGClient
 	responsesReceived int64
@@ -50,11 +51,12 @@ type GCMMessageHandler struct {
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
-func NewGCMMessageHandler(configFile, senderID, apiKey, appName string, logger *logrus.Logger) *GCMMessageHandler {
+func NewGCMMessageHandler(configFile, senderID, apiKey, appName string, isProduction bool, logger *logrus.Logger) *GCMMessageHandler {
 	g := &GCMMessageHandler{
 		apiKey:            apiKey,
 		appName:           appName,
 		ConfigFile:        configFile,
+		IsProduction:      isProduction,
 		Logger:            logger,
 		responsesReceived: 0,
 		senderID:          senderID,
@@ -150,7 +152,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		"message": m,
 	})
 	l.Debugf("sending message to gcm")
-	messageID, bytes, err := gcm.SendXmpp(g.senderID, g.apiKey, m)
+	messageID, bytes, err := gcm.SendXmpp(g.senderID, g.apiKey, g.IsProduction, m)
 	//TODO tratar o erro?
 	if err != nil {
 		l.Errorf("error sending message: %s", err.Error())
@@ -166,7 +168,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 
 // HandleResponses from gcm
 func (g *GCMMessageHandler) HandleResponses() {
-	gcm.Listen(g.senderID, g.apiKey, g.handleGCMResponse, nil)
+	gcm.Listen(g.senderID, g.apiKey, g.IsProduction, g.handleGCMResponse, nil)
 }
 
 // HandleMessages get messages from msgChan and send to GCM

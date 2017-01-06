@@ -35,6 +35,7 @@ var _ = Describe("GCM Pusher", func() {
 	senderID := "sender-id"
 	apiKey := "api-key"
 	appName := "testapp"
+	isProduction := false
 	logger, hook := test.NewNullLogger()
 
 	BeforeEach(func() {
@@ -43,12 +44,13 @@ var _ = Describe("GCM Pusher", func() {
 
 	Describe("Creating new gcm pusher", func() {
 		It("should return configured pusher", func() {
-			pusher := NewGCMPusher(configFile, senderID, apiKey, appName, logger)
+			pusher := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger)
 			Expect(pusher).NotTo(BeNil())
 			Expect(pusher.apiKey).To(Equal(apiKey))
 			Expect(pusher.AppName).To(Equal(appName))
 			Expect(pusher.Config).NotTo(BeNil())
 			Expect(pusher.ConfigFile).To(Equal(configFile))
+			Expect(pusher.IsProduction).To(Equal(isProduction))
 			Expect(pusher.MessageHandler).NotTo(BeNil())
 			Expect(pusher.Queue).NotTo(BeNil())
 			Expect(pusher.run).To(BeFalse())
@@ -58,7 +60,7 @@ var _ = Describe("GCM Pusher", func() {
 
 	Describe("Start gcm pusher", func() {
 		It("should launch go routines and run forever", func() {
-			pusher := NewGCMPusher(configFile, senderID, apiKey, appName, logger)
+			pusher := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger)
 			Expect(pusher).NotTo(BeNil())
 			defer func() { pusher.run = false }()
 			go pusher.Start()
