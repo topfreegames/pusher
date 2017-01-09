@@ -162,6 +162,8 @@ func (q *Kafka) ConsumeLoop(pendingMessagesWG *sync.WaitGroup) {
 				q.msgChan <- e.Value
 			case kafka.PartitionEOF:
 				l.Debugf("reached %v\n", e)
+			case kafka.OffsetsCommitted:
+				l.Debugf("%v\n", e)
 			case kafka.Error:
 				l.Errorf("error: %v\n", e)
 				//TODO ver isso
