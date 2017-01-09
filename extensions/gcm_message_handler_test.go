@@ -88,7 +88,8 @@ var _ = Describe("GCM Message Handler", func() {
 		It("if reponse has nil error", func() {
 			res := gcm.CcsMessage{}
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
-			handler.handleGCMResponse(res)
+			h := handler.handleGCMResponse(nil)
+			h(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(len(hook.Entries)).To(Equal(0))
 		})
@@ -98,7 +99,8 @@ var _ = Describe("GCM Message Handler", func() {
 				Error: "DEVICE_UNREGISTERED",
 			}
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
-			handler.handleGCMResponse(res)
+			h := handler.handleGCMResponse(nil)
+			h(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
 			Expect(hook.LastEntry().Message).To(Equal("deleting token"))
@@ -111,7 +113,8 @@ var _ = Describe("GCM Message Handler", func() {
 				Error: "BAD_REGISTRATION",
 			}
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
-			handler.handleGCMResponse(res)
+			h := handler.handleGCMResponse(nil)
+			h(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
 			Expect(hook.LastEntry().Message).To(Equal("deleting token"))
@@ -124,7 +127,8 @@ var _ = Describe("GCM Message Handler", func() {
 				Error: "INVALID_JSON",
 			}
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
-			handler.handleGCMResponse(res)
+			h := handler.handleGCMResponse(nil)
+			h(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("JsonError"))
@@ -135,7 +139,8 @@ var _ = Describe("GCM Message Handler", func() {
 				Error: "SERVICE_UNAVAILABLE",
 			}
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
-			handler.handleGCMResponse(res)
+			h := handler.handleGCMResponse(nil)
+			h(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("GoogleError"))
@@ -146,7 +151,8 @@ var _ = Describe("GCM Message Handler", func() {
 				Error: "INTERNAL_SERVER_ERROR",
 			}
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
-			handler.handleGCMResponse(res)
+			h := handler.handleGCMResponse(nil)
+			h(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("GoogleError"))
@@ -157,7 +163,8 @@ var _ = Describe("GCM Message Handler", func() {
 				Error: "DEVICE_MESSAGE_RATE_EXCEEDED",
 			}
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
-			handler.handleGCMResponse(res)
+			h := handler.handleGCMResponse(nil)
+			h(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("RateExceededError"))
@@ -168,7 +175,8 @@ var _ = Describe("GCM Message Handler", func() {
 				Error: "TOPICS_MESSAGE_RATE_EXCEEDED",
 			}
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
-			handler.handleGCMResponse(res)
+			h := handler.handleGCMResponse(nil)
+			h(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("RateExceededError"))
@@ -179,7 +187,8 @@ var _ = Describe("GCM Message Handler", func() {
 				Error: "BAD_ACK",
 			}
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
-			handler.handleGCMResponse(res)
+			h := handler.handleGCMResponse(nil)
+			h(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("DefaultError"))
@@ -200,7 +209,7 @@ var _ = Describe("GCM Message Handler", func() {
 	Describe("Handle Responses", func() {
 		It("should be called without panicking", func() {
 			handler := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger)
-			Expect(func() { handler.HandleResponses() }).ShouldNot(Panic())
+			Expect(func() { handler.HandleResponses(nil) }).ShouldNot(Panic())
 		})
 	})
 

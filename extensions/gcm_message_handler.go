@@ -94,7 +94,9 @@ func (g *GCMMessageHandler) handleGCMResponse(pendingMessagesWG *sync.WaitGroup)
 				}).Error("received an error")
 			}
 		}
-		pendingMessagesWG.Done()
+		if pendingMessagesWG != nil {
+			pendingMessagesWG.Done()
+		}
 		return nil
 	}
 }

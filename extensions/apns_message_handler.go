@@ -210,7 +210,9 @@ func (a *APNSMessageHandler) sendMessage(message []byte) {
 func (a *APNSMessageHandler) HandleResponses(pendingMessagesWG *sync.WaitGroup) {
 	for resp := range a.PushQueue.Responses {
 		a.handleAPNSResponse(resp)
-		pendingMessagesWG.Done()
+		if pendingMessagesWG != nil {
+			pendingMessagesWG.Done()
+		}
 	}
 }
 

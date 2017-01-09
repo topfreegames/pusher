@@ -318,7 +318,7 @@ var _ = Describe("APNS Message Handler", func() {
 	Describe("Handle Responses", func() {
 		It("should be called without panicking", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger)
-			Expect(func() { go handler.HandleResponses() }).ShouldNot(Panic())
+			Expect(func() { go handler.HandleResponses(nil) }).ShouldNot(Panic())
 			handler.PushQueue.Responses <- push.Response{}
 			time.Sleep(50 * time.Millisecond)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))

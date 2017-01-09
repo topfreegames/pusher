@@ -156,7 +156,9 @@ func (q *Kafka) ConsumeLoop(pendingMessagesWG *sync.WaitGroup) {
 					l.Infof("messages from kafka: %d", q.messagesReceived)
 				}
 				l.Debugf("message on %s:\n%s\n", e.TopicPartition, string(e.Value))
-				pendingMessagesWG.Add(1)
+				if pendingMessagesWG != nil {
+					pendingMessagesWG.Add(1)
+				}
 				q.msgChan <- e.Value
 			case kafka.PartitionEOF:
 				l.Debugf("reached %v\n", e)

@@ -23,6 +23,7 @@
 package extensions
 
 import (
+	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus/hooks/test"
@@ -54,7 +55,8 @@ var _ = Describe("Kafka Extension", func() {
 			client := NewKafka("../config/test.yaml", logger)
 			Expect(client).NotTo(BeNil())
 			defer client.StopConsuming()
-			go client.ConsumeLoop()
+			var wg sync.WaitGroup
+			go client.ConsumeLoop(&wg)
 
 			time.Sleep(10 * time.Second)
 			p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": client.Brokers})
