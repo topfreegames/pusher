@@ -70,7 +70,7 @@ func (a *APNSPusher) configure() {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
 	a.Queue = extensions.NewKafka(a.ConfigFile, a.Logger)
-	a.MessageHandler = extensions.NewAPNSMessageHandler(a.ConfigFile, a.CertificatePath, a.AppName, a.IsProduction, a.Logger)
+	a.MessageHandler = extensions.NewAPNSMessageHandler(a.ConfigFile, a.CertificatePath, a.AppName, a.IsProduction, a.Logger, a.Queue.PendingMessagesWaitGroup())
 }
 
 // Start starts pusher in apns mode
@@ -83,8 +83,8 @@ func (a *APNSPusher) Start() {
 	})
 	l.Info("starting pusher in apns mode...")
 	go a.MessageHandler.HandleMessages(a.Queue.MessagesChannel())
-	go a.MessageHandler.HandleResponses(a.PendingMessagesWG)
-	go a.Queue.ConsumeLoop(a.PendingMessagesWG)
+	go a.MessageHandler.HandleResponses()
+	go a.Queue.ConsumeLoop()
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -96,8 +96,10 @@ func (a *APNSPusher) Start() {
 		}
 	}
 	//TODO stop queue and message handler before exiting
-	a.Queue.StopConsuming()
 	//TODO maybe put a timeout here
+	a.Queue.StopConsuming()
 	l.Info("pusher is waiting for all inflight messages to receive feedback before exiting...")
-	a.PendingMessagesWG.Wait()
+	if a.Queue.PendingMessagesWaitGroup() != nil {
+		a.Queue.PendingMessagesWaitGroup().Wait()
+	}
 }

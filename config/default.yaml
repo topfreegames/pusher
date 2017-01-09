@@ -1,6 +1,9 @@
 ---
 apns:
   concurrentWorkers: 100
+gcm:
+  pingInterval: 30
+  pingTimeout: 10
 queue:
   topics:
     - "com.games.teste"
@@ -8,6 +11,7 @@ queue:
   group: testGroup
   sessionTimeout: 6000
   offsetResetStrategy: latest
+  handleAllMessagesBeforeExiting: true
 push:
   db:
     host: localhost

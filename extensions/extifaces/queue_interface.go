@@ -27,6 +27,7 @@ import "sync"
 // Queue interface for making new queues pluggable easily
 type Queue interface {
 	MessagesChannel() *chan []byte
-	ConsumeLoop(pendingMessagesWG *sync.WaitGroup)
+	ConsumeLoop()
 	StopConsuming()
+	PendingMessagesWaitGroup() *sync.WaitGroup
 }

@@ -1,10 +1,14 @@
-hash: fb568e4a318f7c2676dbb9458dd9a3c7b9196cb3aa52bdcb506edabc86038825
-updated: 2017-01-06T12:34:40.711280714-02:00
+hash: b2996daf28f12b8048167fd3b9c8e4e7e692a0dbaea39d13d26666a66a79ab5b
+updated: 2017-01-09T17:06:34.271874456-03:00
 imports:
 - name: github.com/confluentinc/confluent-kafka-go
   version: 1a081c6faa129cee96a011a6f6aa289050044539
   subpackages:
   - kafka
+- name: github.com/davecgh/go-spew
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
+  subpackages:
+  - spew
 - name: github.com/fsnotify/fsnotify
   version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
 - name: github.com/hashicorp/hcl
@@ -66,11 +70,17 @@ imports:
   version: df1e16fde7fc330a0ca68167c23bf7ed6ac31d6d
 - name: github.com/pelletier/go-toml
   version: ce7be745f09fe4ff89af8e3ea744e1deabf20ee3
+- name: github.com/pmezard/go-difflib
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  subpackages:
+  - difflib
 - name: github.com/RobotsAndPencils/buford
   version: 1589c179b764ddceb204a439d9bf366f04c55f9b
   subpackages:
   - certificate
   - push
+- name: github.com/rounds/go-gcm
+  version: b2e02c559022865eec01f61f415e1f49fe5dd3de
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
@@ -91,8 +101,13 @@ imports:
   version: 5ccb023bc27df288a957c5e994cd44fd19619465
 - name: github.com/spf13/viper
   version: 651d9d916abc3c3d6a91a12549495caba5edffd2
-- name: github.com/topfreegames/go-gcm
-  version: 6590bf55d9eb7b2c6a0c11aa85a3d087753054b6
+- name: github.com/stretchr/objx
+  version: cbeaeb16a013161a98496fad62933b1d21786672
+- name: github.com/stretchr/testify
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
+  subpackages:
+  - assert
+  - mock
 - name: golang.org/x/crypto
   version: 3f77d695175f990a2967385c493939f380ee40a3
   subpackages:

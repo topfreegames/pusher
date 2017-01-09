@@ -46,15 +46,20 @@ type Kafka struct {
 	SessionTimeout      int
 	Topic               string
 	Topics              []string
+	pendingMessagesWG   *sync.WaitGroup
+	//TODO document that if this bool is set to true, one should call Done() in
+	// q.PendingMessagesWG for each message that was consumed from the queue
+	HandleAllMessagesBeforeExiting bool
 }
 
 // NewKafka for creating a new Kafka instance
 func NewKafka(configFile string, logger *logrus.Logger) *Kafka {
 	q := &Kafka{
-		ConfigFile:       configFile,
-		Logger:           logger,
-		messagesReceived: 0,
-		msgChan:          make(chan []byte),
+		ConfigFile:        configFile,
+		Logger:            logger,
+		messagesReceived:  0,
+		msgChan:           make(chan []byte),
+		pendingMessagesWG: nil,
 	}
 	q.configure()
 	return q
@@ -66,6 +71,7 @@ func (q *Kafka) loadConfigurationDefaults() {
 	q.Config.SetDefault("queue.group", "teste")
 	q.Config.SetDefault("queue.sessionTimeout", 6000)
 	q.Config.SetDefault("queue.offsetResetStrategy", "latest")
+	q.Config.SetDefault("queue.handleAllMessagesBeforeExiting", true)
 }
 
 func (q *Kafka) configure() {
@@ -76,7 +82,19 @@ func (q *Kafka) configure() {
 	q.ConsumerGroup = q.Config.GetString("queue.group")
 	q.SessionTimeout = q.Config.GetInt("queue.sessionTimeout")
 	q.Topics = q.Config.GetStringSlice("queue.topics")
+	q.HandleAllMessagesBeforeExiting = q.Config.GetBool("queue.handleAllMessagesBeforeExiting")
+
+	if q.HandleAllMessagesBeforeExiting {
+		var wg sync.WaitGroup
+		q.pendingMessagesWG = &wg
+	}
+
 	q.configureConsumer()
+}
+
+// PendingMessagesWaitGroup returns the waitGroup that is incremented every time a push is consumed
+func (q *Kafka) PendingMessagesWaitGroup() *sync.WaitGroup {
+	return q.pendingMessagesWG
 }
 
 func (q *Kafka) configureConsumer() {
@@ -126,7 +144,7 @@ func (q *Kafka) MessagesChannel() *chan []byte {
 }
 
 // ConsumeLoop consume messages from the queue and put in messages to send channel
-func (q *Kafka) ConsumeLoop(pendingMessagesWG *sync.WaitGroup) {
+func (q *Kafka) ConsumeLoop() {
 	q.run = true
 	l := q.Logger.WithFields(logrus.Fields{
 		"method": "ConsumeLoop",
@@ -156,8 +174,8 @@ func (q *Kafka) ConsumeLoop(pendingMessagesWG *sync.WaitGroup) {
 					l.Infof("messages from kafka: %d", q.messagesReceived)
 				}
 				l.Debugf("message on %s:\n%s\n", e.TopicPartition, string(e.Value))
-				if pendingMessagesWG != nil {
-					pendingMessagesWG.Add(1)
+				if q.pendingMessagesWG != nil {
+					q.pendingMessagesWG.Add(1)
 				}
 				q.msgChan <- e.Value
 			case kafka.PartitionEOF:

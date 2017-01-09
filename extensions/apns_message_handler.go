@@ -53,6 +53,7 @@ type APNSMessageHandler struct {
 	run               bool
 	sentMessages      int64
 	Topic             string
+	pendingMessagesWG *sync.WaitGroup
 }
 
 // Notification is the notification base struct
@@ -62,7 +63,7 @@ type Notification struct {
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
-func NewAPNSMessageHandler(configFile, certificatePath, appName string, isProduction bool, logger *logrus.Logger) *APNSMessageHandler {
+func NewAPNSMessageHandler(configFile, certificatePath, appName string, isProduction bool, logger *logrus.Logger, pendingMessagesWG *sync.WaitGroup) *APNSMessageHandler {
 	a := &APNSMessageHandler{
 		appName:           appName,
 		CertificatePath:   certificatePath,
@@ -71,6 +72,7 @@ func NewAPNSMessageHandler(configFile, certificatePath, appName string, isProduc
 		Logger:            logger,
 		responsesReceived: 0,
 		sentMessages:      0,
+		pendingMessagesWG: pendingMessagesWG,
 	}
 	a.configure()
 	return a
@@ -207,11 +209,11 @@ func (a *APNSMessageHandler) sendMessage(message []byte) {
 }
 
 // HandleResponses from apns
-func (a *APNSMessageHandler) HandleResponses(pendingMessagesWG *sync.WaitGroup) {
+func (a *APNSMessageHandler) HandleResponses() {
 	for resp := range a.PushQueue.Responses {
 		a.handleAPNSResponse(resp)
-		if pendingMessagesWG != nil {
-			pendingMessagesWG.Done()
+		if a.pendingMessagesWG != nil {
+			a.pendingMessagesWG.Done()
 		}
 	}
 }

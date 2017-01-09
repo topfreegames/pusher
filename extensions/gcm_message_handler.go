@@ -27,9 +27,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
+	"github.com/rounds/go-gcm"
 	"github.com/spf13/viper"
-	"github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -42,67 +42,69 @@ type GCMMessageHandler struct {
 	Config            *viper.Viper
 	ConfigFile        string
 	IsProduction      bool
-	Logger            *logrus.Logger
+	Logger            *log.Logger
 	PushDB            *PGClient
 	responsesReceived int64
 	run               bool
 	senderID          string
 	sentMessages      int64
+	GCMClient         gcm.Client
+	PingInterval      int
+	PingTimeout       int
+	pendingMessagesWG *sync.WaitGroup
 }
 
-func (g *GCMMessageHandler) handleGCMResponse(pendingMessagesWG *sync.WaitGroup) func(gcm.CcsMessage) error {
-	return func(cm gcm.CcsMessage) error {
-		l := g.Logger.WithFields(logrus.Fields{
-			"method":     "handleGCMResponse",
-			"ccsMessage": cm,
-		})
-		l.Debug("got response from gcm")
-		gcmResMutex.Lock()
-		g.responsesReceived++
-		if g.responsesReceived%1000 == 0 {
-			l.Infof("received responses: %d", g.responsesReceived)
-		}
-		gcmResMutex.Unlock()
-		if cm.Error != "" {
-			switch cm.Error {
-			// errors from https://developers.google.com/cloud-messaging/xmpp-server-ref table 4
-			case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
-				l.WithFields(logrus.Fields{
-					"category":      "TokenError",
-					logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
-				}).Error("received an error")
-				g.handleTokenError(cm.From)
-			case "INVALID_JSON":
-				l.WithFields(logrus.Fields{
-					"category":      "JsonError",
-					logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
-				}).Error("received an error")
-			case "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR":
-				l.WithFields(logrus.Fields{
-					"category":      "GoogleError",
-					logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
-				}).Error("received an error")
-			case "DEVICE_MESSAGE_RATE_EXCEEDED", "TOPICS_MESSAGE_RATE_EXCEEDED":
-				l.WithFields(logrus.Fields{
-					"category":      "RateExceededError",
-					logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
-				}).Error("received an error")
-			default:
-				l.WithFields(logrus.Fields{
-					"category":      "DefaultError",
-					logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
-				}).Error("received an error")
-			}
-		}
-		if pendingMessagesWG != nil {
-			pendingMessagesWG.Done()
-		}
-		return nil
+func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
+	l := g.Logger.WithFields(log.Fields{
+		"method":     "handleGCMResponse",
+		"ccsMessage": cm,
+	})
+	l.Debug("got response from gcm")
+	gcmResMutex.Lock()
+	g.responsesReceived++
+	if g.responsesReceived%1000 == 0 {
+		l.Infof("received responses: %d", g.responsesReceived)
 	}
+	gcmResMutex.Unlock()
+	if cm.Error != "" {
+		switch cm.Error {
+		// errors from https://developers.google.com/cloud-messaging/xmpp-server-ref table 4
+		case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
+			l.WithFields(log.Fields{
+				"category":   "TokenError",
+				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			}).Error("received an error")
+			g.handleTokenError(cm.From)
+		case "INVALID_JSON":
+			l.WithFields(log.Fields{
+				"category":   "JsonError",
+				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			}).Error("received an error")
+		case "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR":
+			l.WithFields(log.Fields{
+				"category":   "GoogleError",
+				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			}).Error("received an error")
+		case "DEVICE_MESSAGE_RATE_EXCEEDED", "TOPICS_MESSAGE_RATE_EXCEEDED":
+			l.WithFields(log.Fields{
+				"category":   "RateExceededError",
+				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			}).Error("received an error")
+		default:
+			l.WithFields(log.Fields{
+				"category":   "DefaultError",
+				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			}).Error("received an error")
+		}
+	}
+	if g.pendingMessagesWG != nil {
+		g.pendingMessagesWG.Done()
+	}
+	return nil
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
-func NewGCMMessageHandler(configFile, senderID, apiKey, appName string, isProduction bool, logger *logrus.Logger) *GCMMessageHandler {
+func NewGCMMessageHandler(configFile, senderID, apiKey, appName string, isProduction bool, logger *log.Logger, pendingMessagesWG *sync.WaitGroup) *GCMMessageHandler {
 	g := &GCMMessageHandler{
 		apiKey:            apiKey,
 		appName:           appName,
@@ -112,13 +114,14 @@ func NewGCMMessageHandler(configFile, senderID, apiKey, appName string, isProduc
 		responsesReceived: 0,
 		senderID:          senderID,
 		sentMessages:      0,
+		pendingMessagesWG: pendingMessagesWG,
 	}
 	g.configure()
 	return g
 }
 
 func (g *GCMMessageHandler) handleTokenError(token string) {
-	l := g.Logger.WithFields(logrus.Fields{
+	l := g.Logger.WithFields(log.Fields{
 		"method": "handleTokenError",
 		"token":  token,
 	})
@@ -133,12 +136,34 @@ func (g *GCMMessageHandler) handleTokenError(token string) {
 }
 
 func (g *GCMMessageHandler) loadConfigurationDefaults() {
+	viper.SetDefault("gcm.pingInterval", 20)
+	viper.SetDefault("gcm.pingTimeout", 30)
 }
 
 func (g *GCMMessageHandler) configure() {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
 	g.configurePushDatabase()
+	g.configureGCMClient()
+}
+
+func (g *GCMMessageHandler) configureGCMClient() {
+	g.PingInterval = viper.GetInt("gcm.pingInterval")
+	g.PingTimeout = viper.GetInt("gcm.pingTimeout")
+	gcmConfig := &gcm.Config{
+		SenderID:          g.senderID,
+		APIKey:            g.apiKey,
+		Sandbox:           !g.IsProduction,
+		MonitorConnection: true,
+		Debug:             false,
+		PingInterval:      g.PingInterval,
+		PingTimeout:       g.PingTimeout,
+	}
+	var err error
+	g.GCMClient, err = gcm.NewClient(gcmConfig, g.handleGCMResponse)
+	if err != nil {
+		log.Panicf("error creating gcm client, error: %s", err)
+	}
 }
 
 func (g *GCMMessageHandler) configurePushDatabase() {
@@ -153,7 +178,7 @@ func (g *GCMMessageHandler) configurePushDatabase() {
 func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	l := g.Logger.WithField("method", "sendMessage")
 	ttl := uint(0)
-	m := gcm.XmppMessage{
+	m := gcm.XMPPMessage{
 		TimeToLive:               &ttl,
 		DelayWhileIdle:           false,
 		DeliveryReceiptRequested: false,
@@ -163,18 +188,14 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	l.WithField("message", m).Debug("sending message to gcm")
 	var messageID string
 	var bytes int
-	if g.IsProduction {
-		messageID, bytes, err = gcm.SendXmpp(g.senderID, g.apiKey, m)
-	} else {
-		messageID, bytes, err = gcm.SendXmppStaging(g.senderID, g.apiKey, m)
-	}
+	messageID, bytes, err = g.GCMClient.SendXMPP(m)
 
 	//TODO tratar o erro?
 	if err != nil {
 		l.WithError(err).Error("error sending message")
 	} else {
 		g.sentMessages++
-		l.WithFields(logrus.Fields{
+		l.WithFields(log.Fields{
 			"messageID": messageID,
 			"bytes":     bytes,
 		}).Debug("sent message")
@@ -186,12 +207,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 }
 
 // HandleResponses from gcm
-func (g *GCMMessageHandler) HandleResponses(pendingMessagesWG *sync.WaitGroup) {
-	if g.IsProduction {
-		gcm.Listen(g.senderID, g.apiKey, g.handleGCMResponse(pendingMessagesWG), nil)
-	} else {
-		gcm.ListenStaging(g.senderID, g.apiKey, g.handleGCMResponse(pendingMessagesWG), nil)
-	}
+func (g *GCMMessageHandler) HandleResponses() {
 }
 
 // HandleMessages get messages from msgChan and send to GCM
