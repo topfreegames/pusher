@@ -32,6 +32,7 @@ import (
 var cfgFile string
 var debug bool
 var production bool
+var json bool
 
 // RootCmd for cli
 var RootCmd = &cobra.Command{
@@ -54,4 +55,5 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "./config/default.yaml", "config file")
 	RootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug mode switch")
 	RootCmd.PersistentFlags().BoolVarP(&production, "production", "p", false, "production mode switch")
+	RootCmd.PersistentFlags().BoolVarP(&json, "json", "j", false, "json output mode")
 }

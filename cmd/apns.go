@@ -38,7 +38,9 @@ var apnsCmd = &cobra.Command{
 	Long:  `starts pusher in apns mode`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var log = logrus.New()
-		log.Formatter = new(logrus.JSONFormatter)
+		if json {
+			log.Formatter = new(logrus.JSONFormatter)
+		}
 		if debug {
 			log.Level = logrus.DebugLevel
 		} else {

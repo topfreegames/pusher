@@ -25,6 +25,7 @@ package pusher
 import (
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
@@ -36,35 +37,36 @@ import (
 
 // GCMPusher struct for apns pusher
 type GCMPusher struct {
-	apiKey         string
-	AppName        string
-	Config         *viper.Viper
-	ConfigFile     string
-	IsProduction   bool
-	Logger         *logrus.Logger
-	MessageHandler extifaces.MessageHandler
-	Queue          extifaces.Queue
-	run            bool
-	senderID       string
+	apiKey            string
+	AppName           string
+	Config            *viper.Viper
+	ConfigFile        string
+	IsProduction      bool
+	Logger            *logrus.Logger
+	MessageHandler    extifaces.MessageHandler
+	Queue             extifaces.Queue
+	PendingMessagesWG *sync.WaitGroup
+	run               bool
+	senderID          string
 }
 
 // NewGCMPusher for getting a new GCMPusher instance
 func NewGCMPusher(configFile, senderID, apiKey, appName string, isProduction bool, logger *logrus.Logger) *GCMPusher {
+	var wg sync.WaitGroup
 	g := &GCMPusher{
-		apiKey:       apiKey,
-		AppName:      appName,
-		ConfigFile:   configFile,
-		IsProduction: isProduction,
-		Logger:       logger,
-		senderID:     senderID,
+		apiKey:            apiKey,
+		AppName:           appName,
+		ConfigFile:        configFile,
+		IsProduction:      isProduction,
+		Logger:            logger,
+		senderID:          senderID,
+		PendingMessagesWG: &wg,
 	}
 	g.configure()
 	return g
 }
 
-func (g *GCMPusher) loadConfigurationDefaults() {
-
-}
+func (g *GCMPusher) loadConfigurationDefaults() {}
 
 func (g *GCMPusher) configure() {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
@@ -83,8 +85,8 @@ func (g *GCMPusher) Start() {
 	})
 	l.Info("starting pusher in gcm mode...")
 	go g.MessageHandler.HandleMessages(g.Queue.MessagesChannel())
-	go g.MessageHandler.HandleResponses()
-	go g.Queue.ConsumeLoop()
+	go g.MessageHandler.HandleResponses(g.PendingMessagesWG)
+	go g.Queue.ConsumeLoop(g.PendingMessagesWG)
 
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
@@ -97,5 +99,7 @@ func (g *GCMPusher) Start() {
 		}
 	}
 	//TODO stop queue and message handler before exiting
-	l.Info("exiting pusher...")
+	g.Queue.StopConsuming()
+	g.PendingMessagesWG.Wait()
+	l.Info("pusher is waiting for all inflight messages to receive feedback before exiting...")
 }

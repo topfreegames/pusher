@@ -22,8 +22,10 @@
 
 package extifaces
 
+import "sync"
+
 // MessageHandler interface for making message handlers pluggable easily
 type MessageHandler interface {
 	HandleMessages(msgChan *chan []byte)
-	HandleResponses()
+	HandleResponses(pendingMessagesWG *sync.WaitGroup)
 }

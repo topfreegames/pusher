@@ -50,6 +50,55 @@ type GCMMessageHandler struct {
 	sentMessages      int64
 }
 
+func (g *GCMMessageHandler) handleGCMResponse(pendingMessagesWG *sync.WaitGroup) func(gcm.CcsMessage) error {
+	return func(cm gcm.CcsMessage) error {
+		l := g.Logger.WithFields(logrus.Fields{
+			"method":     "handleGCMResponse",
+			"ccsMessage": cm,
+		})
+		l.Debug("got response from gcm")
+		gcmResMutex.Lock()
+		g.responsesReceived++
+		if g.responsesReceived%1000 == 0 {
+			l.Infof("received responses: %d", g.responsesReceived)
+		}
+		gcmResMutex.Unlock()
+		if cm.Error != "" {
+			switch cm.Error {
+			// errors from https://developers.google.com/cloud-messaging/xmpp-server-ref table 4
+			case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
+				l.WithFields(logrus.Fields{
+					"category":      "TokenError",
+					logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+				}).Error("received an error")
+				g.handleTokenError(cm.From)
+			case "INVALID_JSON":
+				l.WithFields(logrus.Fields{
+					"category":      "JsonError",
+					logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+				}).Error("received an error")
+			case "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR":
+				l.WithFields(logrus.Fields{
+					"category":      "GoogleError",
+					logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+				}).Error("received an error")
+			case "DEVICE_MESSAGE_RATE_EXCEEDED", "TOPICS_MESSAGE_RATE_EXCEEDED":
+				l.WithFields(logrus.Fields{
+					"category":      "RateExceededError",
+					logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+				}).Error("received an error")
+			default:
+				l.WithFields(logrus.Fields{
+					"category":      "DefaultError",
+					logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+				}).Error("received an error")
+			}
+		}
+		pendingMessagesWG.Done()
+		return nil
+	}
+}
+
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
 func NewGCMMessageHandler(configFile, senderID, apiKey, appName string, isProduction bool, logger *logrus.Logger) *GCMMessageHandler {
 	g := &GCMMessageHandler{
@@ -79,52 +128,6 @@ func (g *GCMMessageHandler) handleTokenError(token string) {
 	if err != nil && err.Error() != "pg: no rows in result set" {
 		l.WithError(err).Error("error deleting token")
 	}
-}
-
-func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CcsMessage) error {
-	l := g.Logger.WithFields(logrus.Fields{
-		"method":     "handleGCMResponse",
-		"ccsMessage": cm,
-	})
-	l.Debug("got response from gcm")
-	gcmResMutex.Lock()
-	g.responsesReceived++
-	if g.responsesReceived%1000 == 0 {
-		l.Infof("received responses: %d", g.responsesReceived)
-	}
-	gcmResMutex.Unlock()
-	if cm.Error != "" {
-		switch cm.Error {
-		// errors from https://developers.google.com/cloud-messaging/xmpp-server-ref table 4
-		case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
-			l.WithFields(logrus.Fields{
-				"category":      "TokenError",
-				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
-			}).Error("received an error")
-			g.handleTokenError(cm.From)
-		case "INVALID_JSON":
-			l.WithFields(logrus.Fields{
-				"category":      "JsonError",
-				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
-			}).Error("received an error")
-		case "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR":
-			l.WithFields(logrus.Fields{
-				"category":      "GoogleError",
-				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
-			}).Error("received an error")
-		case "DEVICE_MESSAGE_RATE_EXCEEDED", "TOPICS_MESSAGE_RATE_EXCEEDED":
-			l.WithFields(logrus.Fields{
-				"category":      "RateExceededError",
-				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
-			}).Error("received an error")
-		default:
-			l.WithFields(logrus.Fields{
-				"category":      "DefaultError",
-				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
-			}).Error("received an error")
-		}
-	}
-	return nil
 }
 
 func (g *GCMMessageHandler) loadConfigurationDefaults() {
@@ -181,11 +184,11 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 }
 
 // HandleResponses from gcm
-func (g *GCMMessageHandler) HandleResponses() {
+func (g *GCMMessageHandler) HandleResponses(pendingMessagesWG *sync.WaitGroup) {
 	if g.IsProduction {
-		gcm.Listen(g.senderID, g.apiKey, g.handleGCMResponse, nil)
+		gcm.Listen(g.senderID, g.apiKey, g.handleGCMResponse(pendingMessagesWG), nil)
 	} else {
-		gcm.ListenStaging(g.senderID, g.apiKey, g.handleGCMResponse, nil)
+		gcm.ListenStaging(g.senderID, g.apiKey, g.handleGCMResponse(pendingMessagesWG), nil)
 	}
 }
 

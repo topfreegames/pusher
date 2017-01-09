@@ -23,6 +23,8 @@
 package extensions
 
 import (
+	"sync"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/spf13/viper"
@@ -124,7 +126,7 @@ func (q *Kafka) MessagesChannel() *chan []byte {
 }
 
 // ConsumeLoop consume messages from the queue and put in messages to send channel
-func (q *Kafka) ConsumeLoop() {
+func (q *Kafka) ConsumeLoop(pendingMessagesWG *sync.WaitGroup) {
 	q.run = true
 	l := q.Logger.WithFields(logrus.Fields{
 		"method": "ConsumeLoop",
@@ -154,6 +156,7 @@ func (q *Kafka) ConsumeLoop() {
 					l.Infof("messages from kafka: %d", q.messagesReceived)
 				}
 				l.Debugf("message on %s:\n%s\n", e.TopicPartition, string(e.Value))
+				pendingMessagesWG.Add(1)
 				q.msgChan <- e.Value
 			case kafka.PartitionEOF:
 				l.Debugf("reached %v\n", e)

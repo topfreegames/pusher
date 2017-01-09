@@ -22,9 +22,11 @@
 
 package extifaces
 
+import "sync"
+
 // Queue interface for making new queues pluggable easily
 type Queue interface {
 	MessagesChannel() *chan []byte
-	ConsumeLoop()
+	ConsumeLoop(pendingMessagesWG *sync.WaitGroup)
 	StopConsuming()
 }

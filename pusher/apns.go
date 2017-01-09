@@ -25,6 +25,7 @@ package pusher
 import (
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
@@ -36,25 +37,28 @@ import (
 
 // APNSPusher struct for apns pusher
 type APNSPusher struct {
-	AppName         string
-	CertificatePath string
-	Config          *viper.Viper
-	ConfigFile      string
-	IsProduction    bool
-	Logger          *logrus.Logger
-	MessageHandler  extifaces.MessageHandler
-	Queue           extifaces.Queue
-	run             bool
+	AppName           string
+	CertificatePath   string
+	Config            *viper.Viper
+	ConfigFile        string
+	IsProduction      bool
+	Logger            *logrus.Logger
+	MessageHandler    extifaces.MessageHandler
+	PendingMessagesWG *sync.WaitGroup
+	Queue             extifaces.Queue
+	run               bool
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
 func NewAPNSPusher(configFile, certificatePath, appName string, isProduction bool, logger *logrus.Logger) *APNSPusher {
+	var wg sync.WaitGroup
 	a := &APNSPusher{
-		AppName:         appName,
-		CertificatePath: certificatePath,
-		ConfigFile:      configFile,
-		IsProduction:    isProduction,
-		Logger:          logger,
+		AppName:           appName,
+		CertificatePath:   certificatePath,
+		ConfigFile:        configFile,
+		IsProduction:      isProduction,
+		Logger:            logger,
+		PendingMessagesWG: &wg,
 	}
 	a.configure()
 	return a
@@ -79,8 +83,8 @@ func (a *APNSPusher) Start() {
 	})
 	l.Info("starting pusher in apns mode...")
 	go a.MessageHandler.HandleMessages(a.Queue.MessagesChannel())
-	go a.MessageHandler.HandleResponses()
-	go a.Queue.ConsumeLoop()
+	go a.MessageHandler.HandleResponses(a.PendingMessagesWG)
+	go a.Queue.ConsumeLoop(a.PendingMessagesWG)
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -92,5 +96,8 @@ func (a *APNSPusher) Start() {
 		}
 	}
 	//TODO stop queue and message handler before exiting
-	l.Info("exiting pusher...")
+	a.Queue.StopConsuming()
+	//TODO maybe put a timeout here
+	l.Info("pusher is waiting for all inflight messages to receive feedback before exiting...")
+	a.PendingMessagesWG.Wait()
 }
