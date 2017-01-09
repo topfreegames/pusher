@@ -12,6 +12,10 @@ services:
 
 sudo: false
 
+env:
+    - LIBRDKAFKA_VERSION=0.9.2
+    - LIBRDKAFKA_VERSION=master
+
 before_script: make setup-ci
 
-script: make test
+script: ./travis.sh
