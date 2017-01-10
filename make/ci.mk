@@ -19,8 +19,6 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 setup-ci:
-	@sudo apt-get update -y
-	@sudo apt-get install -y librdkafka
 	@go get github.com/onsi/ginkgo/ginkgo
 	@go get -u github.com/Masterminds/glide/...
 	@glide install
