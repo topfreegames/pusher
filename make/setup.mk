@@ -19,6 +19,18 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 setup:
+	@if [ "${OS}" == "Darwin" ]; then \
+		if [ "`which brew`" != "" ]; then \
+			if [ ! -d "/usr/local/Cellar/librdkafka" ]; then \
+				echo "librdkafka was not found. Installing with brew..." && \
+				brew install librdkafka; \
+			fi \
+		fi \
+	fi
+	@if [ "${OS}" == "Linux" ]; then \
+		echo 'Ensuring librdkafka is installed...' && \
+		sudo apt-get install -y librdkafka; \
+	fi
 	@go get -u github.com/Masterminds/glide/...
 	@go get -u github.com/onsi/ginkgo/ginkgo
 	@go get github.com/gordonklaus/ineffassign
