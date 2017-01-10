@@ -28,8 +28,10 @@ setup:
 		fi \
 	fi
 	@if [ "${OS}" == "Linux" ]; then \
-		echo 'Ensuring librdkafka is installed...' && \
-		sudo apt-get install -y librdkafka; \
+		if [ "`which apt-get`" != "" ]; then \
+			echo 'Ensuring librdkafka is installed...' && \
+			sudo apt-get install -y librdkafka; \
+		fi \
 	fi
 	@go get -u github.com/Masterminds/glide/...
 	@go get -u github.com/onsi/ginkgo/ginkgo
