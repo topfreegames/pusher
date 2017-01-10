@@ -28,6 +28,7 @@ import (
 	"github.com/Sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/topfreegames/pusher/mocks"
 )
 
 var _ = Describe("GCM Pusher", func() {
@@ -44,7 +45,9 @@ var _ = Describe("GCM Pusher", func() {
 
 	Describe("Creating new gcm pusher", func() {
 		It("should return configured pusher", func() {
-			pusher := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger)
+			client := mocks.NewGCMClientMock()
+			pusher, err := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger, client)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(pusher).NotTo(BeNil())
 			Expect(pusher.apiKey).To(Equal(apiKey))
 			Expect(pusher.AppName).To(Equal(appName))
@@ -60,7 +63,9 @@ var _ = Describe("GCM Pusher", func() {
 
 	Describe("Start gcm pusher", func() {
 		It("should launch go routines and run forever", func() {
-			pusher := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger)
+			client := mocks.NewGCMClientMock()
+			pusher, err := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger, client)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(pusher).NotTo(BeNil())
 			defer func() { pusher.run = false }()
 			go pusher.Start()

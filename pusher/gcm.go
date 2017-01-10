@@ -31,10 +31,11 @@ import (
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/extensions/extifaces"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/util"
 )
 
-// GCMPusher struct for apns pusher
+// GCMPusher struct for GCM pusher
 type GCMPusher struct {
 	apiKey         string
 	AppName        string
@@ -49,7 +50,11 @@ type GCMPusher struct {
 }
 
 // NewGCMPusher for getting a new GCMPusher instance
-func NewGCMPusher(configFile, senderID, apiKey, appName string, isProduction bool, logger *logrus.Logger) *GCMPusher {
+func NewGCMPusher(
+	configFile, senderID, apiKey, appName string,
+	isProduction bool, logger *logrus.Logger,
+	clientOrNil ...interfaces.GCMClient,
+) (*GCMPusher, error) {
 	g := &GCMPusher{
 		apiKey:       apiKey,
 		AppName:      appName,
@@ -58,17 +63,38 @@ func NewGCMPusher(configFile, senderID, apiKey, appName string, isProduction boo
 		Logger:       logger,
 		senderID:     senderID,
 	}
-	g.configure()
-	return g
+	var client interfaces.GCMClient
+	if len(clientOrNil) > 0 {
+		client = clientOrNil[0]
+	}
+	err := g.configure(client)
+	if err != nil {
+		return nil, err
+	}
+	return g, nil
 }
 
 func (g *GCMPusher) loadConfigurationDefaults() {}
 
-func (g *GCMPusher) configure() {
+func (g *GCMPusher) configure(client interfaces.GCMClient) error {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
 	g.Queue = extensions.NewKafka(g.ConfigFile, g.Logger)
-	g.MessageHandler = extensions.NewGCMMessageHandler(g.ConfigFile, g.senderID, g.apiKey, g.AppName, g.IsProduction, g.Logger, g.Queue.PendingMessagesWaitGroup())
+	handler, err := extensions.NewGCMMessageHandler(
+		g.ConfigFile,
+		g.senderID,
+		g.apiKey,
+		g.AppName,
+		g.IsProduction,
+		g.Logger,
+		g.Queue.PendingMessagesWaitGroup(),
+		client,
+	)
+	if err != nil {
+		return err
+	}
+	g.MessageHandler = handler
+	return nil
 }
 
 // Start starts pusher in apns mode

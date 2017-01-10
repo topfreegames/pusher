@@ -30,6 +30,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	gcm "github.com/rounds/go-gcm"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -48,10 +49,46 @@ type GCMMessageHandler struct {
 	run               bool
 	senderID          string
 	sentMessages      int64
-	GCMClient         gcm.Client
+	GCMClient         interfaces.GCMClient
 	PingInterval      int
 	PingTimeout       int
 	pendingMessagesWG *sync.WaitGroup
+}
+
+// NewGCMMessageHandler returns a new instance of a GCMMessageHandler
+func NewGCMMessageHandler(
+	configFile, senderID, apiKey, appName string,
+	isProduction bool,
+	logger *log.Logger,
+	pendingMessagesWG *sync.WaitGroup,
+	client interfaces.GCMClient,
+) (*GCMMessageHandler, error) {
+	l := logger.WithFields(log.Fields{
+		"method":       "NewGCMMessageHandler",
+		"configFile":   configFile,
+		"senderID":     senderID,
+		"apiKey":       apiKey,
+		"appName":      appName,
+		"isProduction": isProduction,
+	})
+
+	g := &GCMMessageHandler{
+		apiKey:            apiKey,
+		appName:           appName,
+		ConfigFile:        configFile,
+		IsProduction:      isProduction,
+		Logger:            logger,
+		responsesReceived: 0,
+		senderID:          senderID,
+		sentMessages:      0,
+		pendingMessagesWG: pendingMessagesWG,
+	}
+	err := g.configure(client)
+	if err != nil {
+		l.Error("Failed to create a new GCM Message handler.")
+		return nil, err
+	}
+	return g, nil
 }
 
 func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
@@ -67,6 +104,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	}
 	gcmResMutex.Unlock()
 	if cm.Error != "" {
+		var err error
 		switch cm.Error {
 		// errors from https://developers.google.com/cloud-messaging/xmpp-server-ref table 4
 		case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
@@ -74,28 +112,34 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 				"category":   "TokenError",
 				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
 			}).Error("received an error")
-			g.handleTokenError(cm.From)
+			err = g.handleTokenError(cm.From)
 		case "INVALID_JSON":
+			err = fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription)
 			l.WithFields(log.Fields{
 				"category":   "JsonError",
-				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+				log.ErrorKey: err,
 			}).Error("received an error")
 		case "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR":
+			err = fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription)
 			l.WithFields(log.Fields{
 				"category":   "GoogleError",
-				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+				log.ErrorKey: err,
 			}).Error("received an error")
 		case "DEVICE_MESSAGE_RATE_EXCEEDED", "TOPICS_MESSAGE_RATE_EXCEEDED":
+			err = fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription)
 			l.WithFields(log.Fields{
 				"category":   "RateExceededError",
-				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+				log.ErrorKey: err,
 			}).Error("received an error")
 		default:
+			err = fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription)
 			l.WithFields(log.Fields{
 				"category":   "DefaultError",
-				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+				log.ErrorKey: err,
 			}).Error("received an error")
 		}
+
+		return err
 	}
 	if g.pendingMessagesWG != nil {
 		g.pendingMessagesWG.Done()
@@ -103,37 +147,21 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	return nil
 }
 
-// NewGCMMessageHandler returns a new instance of a GCMMessageHandler
-func NewGCMMessageHandler(configFile, senderID, apiKey, appName string, isProduction bool, logger *log.Logger, pendingMessagesWG *sync.WaitGroup) *GCMMessageHandler {
-	g := &GCMMessageHandler{
-		apiKey:            apiKey,
-		appName:           appName,
-		ConfigFile:        configFile,
-		IsProduction:      isProduction,
-		Logger:            logger,
-		responsesReceived: 0,
-		senderID:          senderID,
-		sentMessages:      0,
-		pendingMessagesWG: pendingMessagesWG,
-	}
-	g.configure()
-	return g
-}
-
-func (g *GCMMessageHandler) handleTokenError(token string) {
+func (g *GCMMessageHandler) handleTokenError(token string) error {
 	l := g.Logger.WithFields(log.Fields{
 		"method": "handleTokenError",
 		"token":  token,
 	})
 	// TODO: before deleting send deleted token info to another queue/db
 	// TODO: if the above is not that specific move this to an util so it can be reused in apns
-	// TODO: should we really delete the token? or move them to another table?
 	l.Info("deleting token")
-	query := fmt.Sprintf("DELETE FROM %s_gcm WHERE token = '%s';", g.appName, token)
-	_, err := g.PushDB.DB.Exec(query)
+	query := fmt.Sprintf("DELETE FROM %s_gcm WHERE token = ?0;", g.appName)
+	_, err := g.PushDB.DB.Exec(query, token)
 	if err != nil && err.Error() != "pg: no rows in result set" {
 		l.WithError(err).Error("error deleting token")
+		return err
 	}
+	return nil
 }
 
 func (g *GCMMessageHandler) loadConfigurationDefaults() {
@@ -141,14 +169,30 @@ func (g *GCMMessageHandler) loadConfigurationDefaults() {
 	viper.SetDefault("gcm.pingTimeout", 30)
 }
 
-func (g *GCMMessageHandler) configure() {
+func (g *GCMMessageHandler) configure(client interfaces.GCMClient) error {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
-	g.configurePushDatabase()
-	g.configureGCMClient()
+	err := g.configurePushDatabase()
+	if err != nil {
+		return err
+	}
+	if client != nil {
+		err = nil
+		g.GCMClient = client
+	} else {
+		err = g.configureGCMClient()
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (g *GCMMessageHandler) configureGCMClient() {
+func (g *GCMMessageHandler) configureGCMClient() error {
+	l := g.Logger.WithFields(log.Fields{
+		"method": "configureGCMClient",
+	})
+
 	g.PingInterval = viper.GetInt("gcm.pingInterval")
 	g.PingTimeout = viper.GetInt("gcm.pingTimeout")
 	gcmConfig := &gcm.Config{
@@ -163,17 +207,21 @@ func (g *GCMMessageHandler) configureGCMClient() {
 	var err error
 	g.GCMClient, err = gcm.NewClient(gcmConfig, g.handleGCMResponse)
 	if err != nil {
-		log.Panicf("error creating gcm client, error: %s", err)
+		l.Error("Failed to create gcm client.")
+		return err
 	}
+	return nil
 }
 
-func (g *GCMMessageHandler) configurePushDatabase() {
+func (g *GCMMessageHandler) configurePushDatabase() error {
 	l := g.Logger.WithField("method", "configurePushDatabase")
 	var err error
 	g.PushDB, err = NewPGClient("push.db", g.Config)
 	if err != nil {
-		l.WithError(err).Panic("could not connect to push database")
+		l.WithError(err).Error("Failed to configure push database.")
+		return err
 	}
+	return nil
 }
 
 func (g *GCMMessageHandler) sendMessage(message []byte) error {
@@ -186,25 +234,29 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		DryRun: true,
 	}
 	err := json.Unmarshal(message, &m)
+	if err != nil {
+		l.WithError(err).Error("Error sending message.")
+		return err
+	}
 	l.WithField("message", m).Debug("sending message to gcm")
 	var messageID string
 	var bytes int
 	messageID, bytes, err = g.GCMClient.SendXMPP(m)
 
-	//TODO tratar o erro?
 	if err != nil {
-		l.WithError(err).Error("error sending message")
-	} else {
-		g.sentMessages++
-		l.WithFields(log.Fields{
-			"messageID": messageID,
-			"bytes":     bytes,
-		}).Debug("sent message")
-		if g.sentMessages%1000 == 0 {
-			l.Infof("sent messages: %d", g.sentMessages)
-		}
+		l.WithError(err).Error("Error sending message.")
+		return err
 	}
-	return err
+
+	g.sentMessages++
+	l.WithFields(log.Fields{
+		"messageID": messageID,
+		"bytes":     bytes,
+	}).Debug("sent message")
+	if g.sentMessages%1000 == 0 {
+		l.Infof("sent messages: %d", g.sentMessages)
+	}
+	return nil
 }
 
 // HandleResponses from gcm

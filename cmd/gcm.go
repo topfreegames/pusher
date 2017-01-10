@@ -51,15 +51,18 @@ var gcmCmd = &cobra.Command{
 			"debug":  debug,
 		})
 		if len(senderID) == 0 {
-			l.Panic("senderId must be set")
+			l.Fatal("senderId must be set")
 		}
 		if len(apiKey) == 0 {
-			l.Panic("apiKey must be set")
+			l.Fatal("apiKey must be set")
 		}
 		if len(app) == 0 {
-			l.Panic("app must be set")
+			l.Fatal("app must be set")
 		}
-		gcmPusher := pusher.NewGCMPusher(cfgFile, senderID, apiKey, app, production, log)
+		gcmPusher, err := pusher.NewGCMPusher(cfgFile, senderID, apiKey, app, production, log)
+		if err != nil {
+			l.WithError(err).Fatal("Failed to start GCM Pusher.")
+		}
 		gcmPusher.Start()
 	},
 }
