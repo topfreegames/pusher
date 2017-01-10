@@ -28,6 +28,7 @@ import (
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
+	gcm "github.com/rounds/go-gcm"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/util"
 )
