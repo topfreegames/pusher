@@ -28,7 +28,6 @@ import (
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/rounds/go-gcm"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/util"
 )
@@ -127,6 +126,7 @@ func (g *GCMMessageHandler) handleTokenError(token string) {
 	})
 	// TODO: before deleting send deleted token info to another queue/db
 	// TODO: if the above is not that specific move this to an util so it can be reused in apns
+	// TODO: should we really delete the token? or move them to another table?
 	l.Info("deleting token")
 	query := fmt.Sprintf("DELETE FROM %s_gcm WHERE token = '%s';", g.appName, token)
 	_, err := g.PushDB.DB.Exec(query)
