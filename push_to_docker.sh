@@ -22,7 +22,7 @@
 
 VERSION=$(cat ./pusher/version.go | grep "var Version" | awk ' { print $4 } ' | sed s/\"//g)
 
-docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
 
 docker build -t pusher .
 docker tag pusher:latest tfgco/pusher:$VERSION.$TRAVIS_BUILD_NUMBER
