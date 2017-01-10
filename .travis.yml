@@ -13,8 +13,11 @@ services:
 sudo: false
 
 env:
-    - LIBRDKAFKA_VERSION=0.9.2.x
+  - LIBRDKAFKA_VERSION=0.9.2.x
 
 before_script: make setup-ci
 
 script: ./travis.sh
+
+after_success:
+  - ./push_to_docker.sh
