@@ -19,15 +19,10 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 setup:
-	@if [ "${OS}" == "Darwin" ]; then \
-		if [ "`which brew`" != "" ]; then \
-			if [ ! -d "/usr/local/Cellar/librdkafka" ]; then \
-				echo "librdkafka was not found. Installing with brew..." && \
-				brew install librdkafka; \
-			fi \
-		fi \
-	fi
-	@/bin/bash -c '[ "`uname -s`" == "Linux" ] && [ "`which apt-get`" != "" ] &&  echo "Ensuring librdkafka is installed..." && ./debian-install-librdkafka.sh'
+	# Ensuring librdkafka is installed in Mac OS
+	@/bin/bash -c '[ "`uname -s`" == "Darwin" ] && [ "`which brew`" != "" ] && [ ! -d "/usr/local/Cellar/librdkafka" ] && echo "librdkafka was not found. Installing with brew..." && brew install librdkafka; exit 0'
+	# Ensuring librdkafka is installed in Debian and Ubuntu
+	@/bin/bash -c '[ "`uname -s`" == "Linux" ] && [ "`which apt-get`" != "" ] && echo "Ensuring librdkafka is installed..." && ./debian-install-librdkafka.sh; exit 0'
 	@go get -u github.com/Masterminds/glide/...
 	@go get -u github.com/onsi/ginkgo/ginkgo
 	@go get github.com/gordonklaus/ineffassign
