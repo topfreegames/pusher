@@ -192,3 +192,18 @@ func (q *Kafka) ConsumeLoop() {
 		}
 	}
 }
+
+//Cleanup closes kafka consumer connection
+func (q *Kafka) Cleanup() error {
+	if q.run {
+		q.StopConsuming()
+	}
+	if q.Consumer != nil {
+		err := q.Consumer.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

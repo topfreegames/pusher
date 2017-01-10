@@ -19,3 +19,8 @@ services:
     image: postgres:9.5
     ports:
       - "8585:5432"
+  statsd:
+    image: hopsoft/graphite-statsd
+    ports:
+      - "8125:8125"
+      - "8126:8126"

@@ -31,7 +31,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
-	"github.com/topfreegames/pusher/extensions/extifaces"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -43,14 +43,15 @@ type APNSPusher struct {
 	ConfigFile        string
 	IsProduction      bool
 	Logger            *logrus.Logger
-	MessageHandler    extifaces.MessageHandler
+	MessageHandler    interfaces.MessageHandler
 	PendingMessagesWG *sync.WaitGroup
-	Queue             extifaces.Queue
+	Queue             interfaces.Queue
 	run               bool
+	StatsReporters    []interfaces.StatsReporter
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
-func NewAPNSPusher(configFile, certificatePath, appName string, isProduction bool, logger *logrus.Logger) *APNSPusher {
+func NewAPNSPusher(configFile, certificatePath, appName string, isProduction bool, logger *logrus.Logger) (*APNSPusher, error) {
 	var wg sync.WaitGroup
 	a := &APNSPusher{
 		AppName:           appName,
@@ -60,17 +61,43 @@ func NewAPNSPusher(configFile, certificatePath, appName string, isProduction boo
 		Logger:            logger,
 		PendingMessagesWG: &wg,
 	}
-	a.configure()
-	return a
+	err := a.configure()
+	if err != nil {
+		return nil, err
+	}
+	return a, nil
 }
 
-func (a *APNSPusher) loadConfigurationDefaults() {}
+func (a *APNSPusher) loadConfigurationDefaults() {
+	a.Config.SetDefault("stats.reporters", []string{"statsd"})
+}
 
-func (a *APNSPusher) configure() {
+func (a *APNSPusher) configure() error {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
+	err := a.configureStatsReporters()
+	if err != nil {
+		return err
+	}
 	a.Queue = extensions.NewKafka(a.ConfigFile, a.Logger)
-	a.MessageHandler = extensions.NewAPNSMessageHandler(a.ConfigFile, a.CertificatePath, a.AppName, a.IsProduction, a.Logger, a.Queue.PendingMessagesWaitGroup())
+	a.MessageHandler = extensions.NewAPNSMessageHandler(
+		a.ConfigFile, a.CertificatePath, a.AppName,
+		a.IsProduction,
+		a.Logger,
+		a.Queue.PendingMessagesWaitGroup(),
+		a.StatsReporters,
+	)
+
+	return nil
+}
+
+func (a *APNSPusher) configureStatsReporters() error {
+	reporters, err := configureStatsReporters(a.ConfigFile, a.Logger, a.AppName, a.Config)
+	if err != nil {
+		return err
+	}
+	a.StatsReporters = reporters
+	return nil
 }
 
 // Start starts pusher in apns mode

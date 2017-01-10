@@ -11,4 +11,5 @@ git clone --depth 1 --branch "$LIBRDKAFKA_VERSION" https://github.com/edenhill/l
 )
 sudo ldconfig
 
+sleep 3
 make test

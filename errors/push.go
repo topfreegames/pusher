@@ -20,32 +20,25 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package mocks
+package errors
 
-import gcm "github.com/rounds/go-gcm"
+import "fmt"
 
-//GCMClientMock should be used for tests that need to send xmpp messages to GCM
-type GCMClientMock struct {
-	MessagesSent []gcm.XMPPMessage
-	Closed       bool
+//PushError reports an error sending a Push Message
+type PushError struct {
+	Key         string
+	Description string
 }
 
-//NewGCMClientMock creates a new instance
-func NewGCMClientMock() *GCMClientMock {
-	return &GCMClientMock{
-		Closed:       false,
-		MessagesSent: []gcm.XMPPMessage{},
+//NewPushError creates a new instance
+func NewPushError(key, description string) *PushError {
+	return &PushError{
+		Key:         key,
+		Description: description,
 	}
 }
 
-//SendXMPP records the sent message in the MessagesSent collection
-func (m *GCMClientMock) SendXMPP(msg gcm.XMPPMessage) (string, int, error) {
-	m.MessagesSent = append(m.MessagesSent, msg)
-	return "", 0, nil
-}
-
-//Close records that it is closed
-func (m *GCMClientMock) Close() error {
-	m.Closed = true
-	return nil
+//Error returns a string
+func (e *PushError) Error() string {
+	return fmt.Sprintf("Sending push notification failed with error %s (%s).", e.Key, e.Description)
 }

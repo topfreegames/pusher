@@ -33,6 +33,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/certificate"
+	"github.com/topfreegames/pusher/errors"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -54,6 +56,7 @@ type APNSMessageHandler struct {
 	sentMessages      int64
 	Topic             string
 	pendingMessagesWG *sync.WaitGroup
+	StatsReporters    []interfaces.StatsReporter
 }
 
 // Notification is the notification base struct
@@ -63,7 +66,13 @@ type Notification struct {
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
-func NewAPNSMessageHandler(configFile, certificatePath, appName string, isProduction bool, logger *logrus.Logger, pendingMessagesWG *sync.WaitGroup) *APNSMessageHandler {
+func NewAPNSMessageHandler(
+	configFile, certificatePath, appName string,
+	isProduction bool,
+	logger *logrus.Logger,
+	pendingMessagesWG *sync.WaitGroup,
+	statsReporters []interfaces.StatsReporter,
+) *APNSMessageHandler {
 	a := &APNSMessageHandler{
 		appName:           appName,
 		CertificatePath:   certificatePath,
@@ -73,6 +82,7 @@ func NewAPNSMessageHandler(configFile, certificatePath, appName string, isProduc
 		responsesReceived: 0,
 		sentMessages:      0,
 		pendingMessagesWG: pendingMessagesWG,
+		StatsReporters:    statsReporters,
 	}
 	a.configure()
 	return a
@@ -105,8 +115,22 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 		l.Infof("received responses: %d", a.responsesReceived)
 	}
 	apnsResMutex.Unlock()
+	var err error
 	if res.Err != nil {
-		switch res.Err.(*push.Error).Reason {
+		pushError, ok := res.Err.(*push.Error)
+		if !ok {
+			l.WithFields(logrus.Fields{
+				"category":      "UnexpectedError",
+				logrus.ErrorKey: res.Err,
+			}).Error("received an error")
+			return res.Err
+		}
+		reason := pushError.Reason
+		pErr := errors.NewPushError(a.mapErrorReason(reason), pushError.Error())
+		a.statsReporterHandleNotificationFailure(pErr)
+
+		err = pErr
+		switch reason {
 		case push.ErrMissingDeviceToken, push.ErrBadDeviceToken:
 			l.WithFields(logrus.Fields{
 				"category":      "TokenError",
@@ -134,7 +158,10 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 				logrus.ErrorKey: res.Err,
 			}).Error("received an error")
 		}
+		return err
 	}
+
+	a.statsReporterHandleNotificationSuccess()
 	return nil
 }
 
@@ -202,6 +229,7 @@ func (a *APNSMessageHandler) sendMessage(message []byte) {
 	if err != nil {
 		l.WithError(err).Error("error marshaling message payload")
 	}
+	a.statsReporterHandleNotificationSent()
 	a.PushQueue.Push(n.DeviceToken, h, payload)
 	a.sentMessages++
 	if a.sentMessages%1000 == 0 {
@@ -228,5 +256,88 @@ func (a *APNSMessageHandler) HandleMessages(msgChan *chan []byte) {
 		case message := <-*msgChan:
 			a.sendMessage(message)
 		}
+	}
+}
+
+func (a *APNSMessageHandler) mapErrorReason(reason error) string {
+	switch reason {
+	case push.ErrPayloadEmpty:
+		return "payload-empty"
+	case push.ErrPayloadTooLarge:
+		return "payload-too-large"
+	case push.ErrMissingDeviceToken:
+		return "missing-device-token"
+	case push.ErrBadDeviceToken:
+		return "bad-device-token"
+	case push.ErrTooManyRequests:
+		return "too-many-requests"
+	case push.ErrBadMessageID:
+		return "bad-message-id"
+	case push.ErrBadExpirationDate:
+		return "bad-expiration-date"
+	case push.ErrBadPriority:
+		return "bad-priority"
+	case push.ErrBadTopic:
+		return "bad-topic"
+	case push.ErrBadCertificate:
+		return "bad-certificate"
+	case push.ErrBadCertificateEnvironment:
+		return "bad-certificate-environment"
+	case push.ErrForbidden:
+		return "forbidden"
+	case push.ErrMissingTopic:
+		return "missing-topic"
+	case push.ErrTopicDisallowed:
+		return "topic-disallowed"
+	case push.ErrUnregistered:
+		return "unregistered"
+	case push.ErrDeviceTokenNotForTopic:
+		return "device-token-not-for-topic"
+	case push.ErrDuplicateHeaders:
+		return "duplicate-headers"
+	case push.ErrBadPath:
+		return "bad-path"
+	case push.ErrMethodNotAllowed:
+		return "method-not-allowed"
+	case push.ErrIdleTimeout:
+		return "idle-timeout"
+	case push.ErrShutdown:
+		return "shutdown"
+	case push.ErrInternalServerError:
+		return "internal-server-error"
+	case push.ErrServiceUnavailable:
+		return "service-unavailable"
+	default:
+		return "unexpected"
+	}
+}
+
+//Cleanup closes connections to APNS
+func (a *APNSMessageHandler) Cleanup() error {
+	err := a.PushDB.Close()
+	if err != nil {
+		return err
+	}
+
+	a.PushQueue.Close()
+
+	return nil
+}
+
+func (a *APNSMessageHandler) statsReporterHandleNotificationSent() {
+	for _, statsReporter := range a.StatsReporters {
+		statsReporter.HandleNotificationSent()
+	}
+}
+
+func (a *APNSMessageHandler) statsReporterHandleNotificationSuccess() {
+	for _, statsReporter := range a.StatsReporters {
+		statsReporter.HandleNotificationSuccess()
+	}
+}
+
+func (a *APNSMessageHandler) statsReporterHandleNotificationFailure(err *errors.PushError) {
+	for _, statsReporter := range a.StatsReporters {
+		statsReporter.HandleNotificationFailure(err)
 	}
 }

@@ -21,3 +21,5 @@ import:
   version: ^1.1.4
   subpackages:
   - mock
+- package: github.com/alexcesaro/statsd
+  version: ^2.0.0

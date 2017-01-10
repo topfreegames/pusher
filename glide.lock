@@ -1,6 +1,12 @@
-hash: b2996daf28f12b8048167fd3b9c8e4e7e692a0dbaea39d13d26666a66a79ab5b
-updated: 2017-01-09T17:06:34.271874456-03:00
+hash: c7aaa13b21e933cf683f0d6cce0d81e93e3108aec45ca0a8c957fbd44e6d8268
+updated: 2017-01-10T17:24:36.406581653-02:00
 imports:
+- name: github.com/alexcesaro/statsd
+  version: 7fea3f0d2fab1ad973e641e51dba45443a311a90
+- name: github.com/cactus/go-statsd-client
+  version: 91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d
+  subpackages:
+  - statsd
 - name: github.com/confluentinc/confluent-kafka-go
   version: 1a081c6faa129cee96a011a6f6aa289050044539
   subpackages:

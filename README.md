@@ -89,3 +89,4 @@ cat test.txt | kafka-console-producer --topic com.games.teste --broker-list loca
 - [ ] README with dev and deployment instructions
 - [ ] Apple JWT tokens instead of certificates https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html#//apple_ref/doc/uid/TP40008194-CH8-SW1
 - [ ] Fix TODOs
+- [ ] Verify string concats specially when building queries (SQL injection susceptible)

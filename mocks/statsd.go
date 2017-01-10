@@ -20,14 +20,28 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package extifaces
+package mocks
 
-import "sync"
+//StatsDClientMock should be used for tests that need to send xmpp messages to StatsD
+type StatsDClientMock struct {
+	Count  map[string]int
+	Closed bool
+}
 
-// Queue interface for making new queues pluggable easily
-type Queue interface {
-	MessagesChannel() *chan []byte
-	ConsumeLoop()
-	StopConsuming()
-	PendingMessagesWaitGroup() *sync.WaitGroup
+//NewStatsDClientMock creates a new instance
+func NewStatsDClientMock() *StatsDClientMock {
+	return &StatsDClientMock{
+		Closed: false,
+		Count:  map[string]int{},
+	}
+}
+
+//Increment stores the new count in a map
+func (m *StatsDClientMock) Increment(bucket string) {
+	m.Count[bucket]++
+}
+
+//Close records that it is closed
+func (m *StatsDClientMock) Close() {
+	m.Closed = true
 }

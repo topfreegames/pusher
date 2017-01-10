@@ -28,6 +28,7 @@ import (
 	"github.com/Sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/mocks"
 )
 
@@ -58,6 +59,8 @@ var _ = Describe("GCM Pusher", func() {
 			Expect(pusher.Queue).NotTo(BeNil())
 			Expect(pusher.run).To(BeFalse())
 			Expect(pusher.senderID).To(Equal(senderID))
+			Expect(pusher.StatsReporters).To(HaveLen(1))
+			Expect(pusher.MessageHandler.(*extensions.GCMMessageHandler).StatsReporters).To(HaveLen(1))
 		})
 	})
 

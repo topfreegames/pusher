@@ -28,6 +28,7 @@ import (
 	"github.com/Sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/topfreegames/pusher/extensions"
 )
 
 var _ = Describe("APNS Pusher", func() {
@@ -43,7 +44,8 @@ var _ = Describe("APNS Pusher", func() {
 
 	Describe("Creating new apns pusher", func() {
 		It("should return configured pusher", func() {
-			pusher := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
+			pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(pusher).NotTo(BeNil())
 			Expect(pusher.AppName).To(Equal(appName))
 			Expect(pusher.ConfigFile).To(Equal(configFile))
@@ -53,12 +55,16 @@ var _ = Describe("APNS Pusher", func() {
 			Expect(pusher.Queue).NotTo(BeNil())
 			Expect(pusher.Config).NotTo(BeNil())
 			Expect(pusher.MessageHandler).NotTo(BeNil())
+
+			Expect(pusher.StatsReporters).To(HaveLen(1))
+			Expect(pusher.MessageHandler.(*extensions.APNSMessageHandler).StatsReporters).To(HaveLen(1))
 		})
 	})
 
 	Describe("Start apns pusher", func() {
 		It("should launch go routines and run forever", func() {
-			pusher := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
+			pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(pusher).NotTo(BeNil())
 			defer func() { pusher.run = false }()
 			go pusher.Start()

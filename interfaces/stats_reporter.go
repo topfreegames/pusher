@@ -20,10 +20,13 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package extifaces
+package interfaces
 
-// MessageHandler interface for making message handlers pluggable easily
-type MessageHandler interface {
-	HandleMessages(msgChan *chan []byte)
-	HandleResponses()
+import "github.com/topfreegames/pusher/errors"
+
+// StatsReporter interface for making stats reporters pluggable easily
+type StatsReporter interface {
+	HandleNotificationSent()
+	HandleNotificationSuccess()
+	HandleNotificationFailure(*errors.PushError)
 }

@@ -30,7 +30,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
-	"github.com/topfreegames/pusher/extensions/extifaces"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/util"
 )
@@ -43,10 +42,11 @@ type GCMPusher struct {
 	ConfigFile     string
 	IsProduction   bool
 	Logger         *logrus.Logger
-	MessageHandler extifaces.MessageHandler
-	Queue          extifaces.Queue
+	MessageHandler interfaces.MessageHandler
+	Queue          interfaces.Queue
 	run            bool
 	senderID       string
+	StatsReporters []interfaces.StatsReporter
 }
 
 // NewGCMPusher for getting a new GCMPusher instance
@@ -74,11 +74,14 @@ func NewGCMPusher(
 	return g, nil
 }
 
-func (g *GCMPusher) loadConfigurationDefaults() {}
+func (g *GCMPusher) loadConfigurationDefaults() {
+	g.Config.SetDefault("stats.reporters", []string{"statsd"})
+}
 
 func (g *GCMPusher) configure(client interfaces.GCMClient) error {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
+	g.configureStatsReporters()
 	g.Queue = extensions.NewKafka(g.ConfigFile, g.Logger)
 	handler, err := extensions.NewGCMMessageHandler(
 		g.ConfigFile,
@@ -88,12 +91,22 @@ func (g *GCMPusher) configure(client interfaces.GCMClient) error {
 		g.IsProduction,
 		g.Logger,
 		g.Queue.PendingMessagesWaitGroup(),
+		g.StatsReporters,
 		client,
 	)
 	if err != nil {
 		return err
 	}
 	g.MessageHandler = handler
+	return nil
+}
+
+func (g *GCMPusher) configureStatsReporters() error {
+	reporters, err := configureStatsReporters(g.ConfigFile, g.Logger, g.AppName, g.Config)
+	if err != nil {
+		return err
+	}
+	g.StatsReporters = reporters
 	return nil
 }
 

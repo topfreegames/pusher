@@ -20,52 +20,41 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package cmd
+package pusher
 
 import (
+	"fmt"
+
 	"github.com/Sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/topfreegames/pusher/pusher"
+	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/extensions"
+	"github.com/topfreegames/pusher/interfaces"
 )
 
-var app string
-var certificate string
+type statsReporterInitializer func(string, *logrus.Logger, string) (interfaces.StatsReporter, error)
 
-// apnsCmd represents the apns command
-var apnsCmd = &cobra.Command{
-	Use:   "apns",
-	Short: "starts pusher in apns mode",
-	Long:  `starts pusher in apns mode`,
-	Run: func(cmd *cobra.Command, args []string) {
-		var log = logrus.New()
-		if json {
-			log.Formatter = new(logrus.JSONFormatter)
-		}
-		if debug {
-			log.Level = logrus.DebugLevel
-		} else {
-			log.Level = logrus.InfoLevel
-		}
-		l := log.WithFields(logrus.Fields{
-			"method": "apnsCmd",
-			"debug":  debug,
-		})
-		if len(certificate) == 0 {
-			l.Panic("pem certificate must be set")
-		}
-		if len(app) == 0 {
-			l.Panic("app must be set")
-		}
-		apnsPusher, err := pusher.NewAPNSPusher(cfgFile, certificate, app, production, log)
-		if err != nil {
-			l.WithError(err).Panic("app could not start")
-		}
-		apnsPusher.Start()
+//AvailableReporters contains functions to initialize all reporters
+var AvailableReporters = map[string]statsReporterInitializer{
+	"statsd": func(configFile string, logger *logrus.Logger, appName string) (interfaces.StatsReporter, error) {
+		return extensions.NewStatsD(configFile, logger, appName)
 	},
 }
 
-func init() {
-	apnsCmd.Flags().StringVar(&certificate, "certificate", "", "pem certificate path")
-	apnsCmd.Flags().StringVar(&app, "app", "", "the app name for the table in pushdb")
-	RootCmd.AddCommand(apnsCmd)
+func configureStatsReporters(configFile string, logger *logrus.Logger, appName string, config *viper.Viper) ([]interfaces.StatsReporter, error) {
+	reporters := []interfaces.StatsReporter{}
+	reporterNames := config.GetStringSlice("stats.reporters")
+	for _, reporterName := range reporterNames {
+		reporterFunc, ok := AvailableReporters[reporterName]
+		if !ok {
+			return nil, fmt.Errorf("Failed to initialize %s. Stats Reporter not available.", reporterName)
+		}
+
+		r, err := reporterFunc(configFile, logger, appName)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to initialize %s. %s", reporterName, err.Error())
+		}
+		reporters = append(reporters, r)
+	}
+
+	return reporters, nil
 }

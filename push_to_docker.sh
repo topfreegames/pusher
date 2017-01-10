@@ -20,6 +20,10 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
+if [ "$TRAVIS_BRANCH" != "master" ]; then
+    exit 0
+fi
+
 VERSION=$(cat ./pusher/version.go | grep "var Version" | awk ' { print $4 } ' | sed s/\"//g)
 
 docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"

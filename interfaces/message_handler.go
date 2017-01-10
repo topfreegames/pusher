@@ -20,32 +20,10 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package mocks
+package interfaces
 
-import gcm "github.com/rounds/go-gcm"
-
-//GCMClientMock should be used for tests that need to send xmpp messages to GCM
-type GCMClientMock struct {
-	MessagesSent []gcm.XMPPMessage
-	Closed       bool
-}
-
-//NewGCMClientMock creates a new instance
-func NewGCMClientMock() *GCMClientMock {
-	return &GCMClientMock{
-		Closed:       false,
-		MessagesSent: []gcm.XMPPMessage{},
-	}
-}
-
-//SendXMPP records the sent message in the MessagesSent collection
-func (m *GCMClientMock) SendXMPP(msg gcm.XMPPMessage) (string, int, error) {
-	m.MessagesSent = append(m.MessagesSent, msg)
-	return "", 0, nil
-}
-
-//Close records that it is closed
-func (m *GCMClientMock) Close() error {
-	m.Closed = true
-	return nil
+// MessageHandler interface for making message handlers pluggable easily
+type MessageHandler interface {
+	HandleMessages(msgChan *chan []byte)
+	HandleResponses()
 }

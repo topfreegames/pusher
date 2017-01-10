@@ -32,9 +32,14 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/topfreegames/pusher/interfaces"
+	"github.com/topfreegames/pusher/mocks"
 )
 
 var _ = Describe("APNS Message Handler", func() {
+	var mockStatsDClient *mocks.StatsDClientMock
+	var statsClients []interfaces.StatsReporter
+
 	configFile := "../config/test.yaml"
 	certificatePath := "../tls/self_signed_cert.pem"
 	isProduction := false
@@ -42,12 +47,18 @@ var _ = Describe("APNS Message Handler", func() {
 	logger, hook := test.NewNullLogger()
 
 	BeforeEach(func() {
+		mockStatsDClient = mocks.NewStatsDClientMock()
+		c, err := NewStatsD(configFile, logger, appName, mockStatsDClient)
+		Expect(err).NotTo(HaveOccurred())
+
+		statsClients = []interfaces.StatsReporter{c}
+
 		hook.Reset()
 	})
 
 	Describe("Creating new handler", func() {
 		It("should return configured handler", func() {
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			Expect(handler).NotTo(BeNil())
 			Expect(handler.appName).To(Equal(appName))
 			Expect(handler.CertificatePath).To(Equal(certificatePath))
@@ -60,7 +71,7 @@ var _ = Describe("APNS Message Handler", func() {
 
 	Describe("Handle token error", func() {
 		It("should delete token", func() {
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			token := uuid.NewV4().String()
 			insertQuery := fmt.Sprintf("INSERT INTO %s_apns (user_id, token, region, locale, tz) VALUES ('%s', '%s', 'BR', 'pt', '-0300');", appName, token, token)
 			_, err := handler.PushDB.DB.ExecOne(insertQuery)
@@ -75,7 +86,7 @@ var _ = Describe("APNS Message Handler", func() {
 		})
 
 		It("should not break if token does not exist in db", func() {
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			token := uuid.NewV4().String()
 			Expect(func() { handler.handleTokenError(token) }).ShouldNot(Panic())
 		})
@@ -87,7 +98,7 @@ var _ = Describe("APNS Message Handler", func() {
 				DeviceToken: uuid.NewV4().String(),
 				ID:          uuid.NewV4().String(),
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(len(hook.Entries)).To(Equal(0))
@@ -102,7 +113,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
@@ -120,7 +131,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
@@ -138,7 +149,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
@@ -154,7 +165,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
@@ -170,7 +181,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
@@ -186,7 +197,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
@@ -202,7 +213,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
@@ -218,7 +229,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
@@ -234,7 +245,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
@@ -250,7 +261,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
@@ -266,7 +277,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
@@ -282,7 +293,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
@@ -298,7 +309,7 @@ var _ = Describe("APNS Message Handler", func() {
 				ID:          uuid.NewV4().String(),
 				Err:         pushError,
 			}
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
@@ -308,7 +319,7 @@ var _ = Describe("APNS Message Handler", func() {
 
 	Describe("Send message", func() {
 		It("should add message to push queue and increment sentMessages", func() {
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
 			Eventually(handler.PushQueue.Responses, 5*time.Second).Should(Receive())
 			Expect(handler.sentMessages).To(Equal(int64(1)))
@@ -317,7 +328,7 @@ var _ = Describe("APNS Message Handler", func() {
 
 	Describe("Handle Responses", func() {
 		It("should be called without panicking", func() {
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			Expect(func() { go handler.HandleResponses() }).ShouldNot(Panic())
 			handler.PushQueue.Responses <- push.Response{}
 			time.Sleep(50 * time.Millisecond)
@@ -327,11 +338,62 @@ var _ = Describe("APNS Message Handler", func() {
 
 	Describe("Handle Messages", func() {
 		It("should start without panicking and set run to true", func() {
-			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil)
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			queue := NewKafka(configFile, logger)
 			Expect(func() { go handler.HandleMessages(queue.MessagesChannel()) }).ShouldNot(Panic())
 			time.Sleep(50 * time.Millisecond)
 			Expect(handler.run).To(BeTrue())
+		})
+	})
+
+	Describe("Stats Reporter sent message", func() {
+		It("should call HandleNotificationSent upon message sent to queue", func() {
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
+
+			Expect(handler).NotTo(BeNil())
+			Expect(handler.StatsReporters).To(Equal(statsClients))
+
+			handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+			handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+
+			Expect(mockStatsDClient.Count["sent"]).To(Equal(2))
+		})
+
+		It("should call HandleNotificationSuccess upon message response received", func() {
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
+
+			Expect(handler).NotTo(BeNil())
+			Expect(handler.StatsReporters).To(Equal(statsClients))
+
+			res := push.Response{
+				DeviceToken: uuid.NewV4().String(),
+				ID:          uuid.NewV4().String(),
+			}
+			handler.handleAPNSResponse(res)
+			handler.handleAPNSResponse(res)
+
+			Expect(mockStatsDClient.Count["ack"]).To(Equal(2))
+		})
+
+		It("should call HandleNotificationFailure upon message response received", func() {
+			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
+
+			Expect(handler).NotTo(BeNil())
+			Expect(handler.StatsReporters).To(Equal(statsClients))
+
+			pushError := &push.Error{
+				Reason: push.ErrMissingDeviceToken,
+			}
+			res := push.Response{
+				DeviceToken: uuid.NewV4().String(),
+				ID:          uuid.NewV4().String(),
+				Err:         pushError,
+			}
+			handler.handleAPNSResponse(res)
+			handler.handleAPNSResponse(res)
+
+			Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
+			Expect(mockStatsDClient.Count["missing-device-token"]).To(Equal(2))
 		})
 	})
 })

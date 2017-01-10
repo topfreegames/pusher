@@ -35,34 +35,46 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rounds/go-gcm"
 	uuid "github.com/satori/go.uuid"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 )
 
 var _ = Describe("GCM Message Handler", func() {
+	var mockClient *mocks.GCMClientMock
+	var handler *GCMMessageHandler
+	var mockStatsDClient *mocks.StatsDClientMock
+	var statsClients []interfaces.StatsReporter
+
 	configFile := "../config/test.yaml"
 	senderID := "sender-id"
 	apiKey := "api-key"
 	appName := "testapp"
 	isProduction := false
 	logger, hook := test.NewNullLogger()
-	var mockClient *mocks.GCMClientMock
-	var handler *GCMMessageHandler
 
 	BeforeEach(func() {
 		var err error
-		hook.Reset()
+
+		mockStatsDClient = mocks.NewStatsDClientMock()
+		c, err := NewStatsD(configFile, logger, appName, mockStatsDClient)
+		Expect(err).NotTo(HaveOccurred())
+
+		statsClients = []interfaces.StatsReporter{c}
+
 		mockClient = mocks.NewGCMClientMock()
 		handler, err = NewGCMMessageHandler(
 			configFile, senderID, apiKey, appName,
 			isProduction, logger,
-			nil, mockClient,
+			nil, statsClients, mockClient,
 		)
 		Expect(err).NotTo(HaveOccurred())
+
+		hook.Reset()
 	})
 
 	Describe("Creating new handler", func() {
 		It("should fail when real client", func() {
-			handler, err := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger, nil, nil)
+			handler, err := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger, nil, statsClients, nil)
 			Expect(handler).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("error connecting gcm xmpp client: auth failure: not-authorized"))
@@ -110,38 +122,38 @@ var _ = Describe("GCM Message Handler", func() {
 	})
 
 	Describe("Handle GCM response", func() {
-		It("if reponse has nil error", func() {
+		It("if response has nil error", func() {
 			res := gcm.CCSMessage{}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(len(hook.Entries)).To(Equal(0))
 		})
 
-		It("if reponse has error DEVICE_UNREGISTERED", func() {
+		It("if response has error DEVICE_UNREGISTERED", func() {
 			res := gcm.CCSMessage{
 				Error: "DEVICE_UNREGISTERED",
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
-			Expect(hook.LastEntry().Message).To(Equal("deleting token"))
+			Expect(hook.LastEntry().Message).To(Equal("Deleting token..."))
 			Expect(hook.Entries[len(hook.Entries)-2].Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
-		It("if reponse has error BAD_REGISTRATION", func() {
+		It("if response has error BAD_REGISTRATION", func() {
 			res := gcm.CCSMessage{
 				Error: "BAD_REGISTRATION",
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
 			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
-			Expect(hook.LastEntry().Message).To(Equal("deleting token"))
+			Expect(hook.LastEntry().Message).To(Equal("Deleting token..."))
 			Expect(hook.Entries[len(hook.Entries)-2].Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
-		It("if reponse has error INVALID_JSON", func() {
+		It("if response has error INVALID_JSON", func() {
 			res := gcm.CCSMessage{
 				Error: "INVALID_JSON",
 			}
@@ -151,7 +163,7 @@ var _ = Describe("GCM Message Handler", func() {
 			Expect(hook.LastEntry().Data["category"]).To(Equal("JsonError"))
 		})
 
-		It("if reponse has error SERVICE_UNAVAILABLE", func() {
+		It("if response has error SERVICE_UNAVAILABLE", func() {
 			res := gcm.CCSMessage{
 				Error: "SERVICE_UNAVAILABLE",
 			}
@@ -161,7 +173,7 @@ var _ = Describe("GCM Message Handler", func() {
 			Expect(hook.LastEntry().Data["category"]).To(Equal("GoogleError"))
 		})
 
-		It("if reponse has error INTERNAL_SERVER_ERROR", func() {
+		It("if response has error INTERNAL_SERVER_ERROR", func() {
 			res := gcm.CCSMessage{
 				Error: "INTERNAL_SERVER_ERROR",
 			}
@@ -171,7 +183,7 @@ var _ = Describe("GCM Message Handler", func() {
 			Expect(hook.LastEntry().Data["category"]).To(Equal("GoogleError"))
 		})
 
-		It("if reponse has error DEVICE_MESSAGE_RATE_EXCEEDED", func() {
+		It("if response has error DEVICE_MESSAGE_RATE_EXCEEDED", func() {
 			res := gcm.CCSMessage{
 				Error: "DEVICE_MESSAGE_RATE_EXCEEDED",
 			}
@@ -181,7 +193,7 @@ var _ = Describe("GCM Message Handler", func() {
 			Expect(hook.LastEntry().Data["category"]).To(Equal("RateExceededError"))
 		})
 
-		It("if reponse has error TOPICS_MESSAGE_RATE_EXCEEDED", func() {
+		It("if response has error TOPICS_MESSAGE_RATE_EXCEEDED", func() {
 			res := gcm.CCSMessage{
 				Error: "TOPICS_MESSAGE_RATE_EXCEEDED",
 			}
@@ -191,7 +203,7 @@ var _ = Describe("GCM Message Handler", func() {
 			Expect(hook.LastEntry().Data["category"]).To(Equal("RateExceededError"))
 		})
 
-		It("if reponse has untracked error", func() {
+		It("if response has untracked error", func() {
 			res := gcm.CCSMessage{
 				Error: "BAD_ACK",
 			}
@@ -240,6 +252,49 @@ var _ = Describe("GCM Message Handler", func() {
 			Expect(func() { go handler.HandleMessages(queue.MessagesChannel()) }).ShouldNot(Panic())
 			time.Sleep(time.Millisecond)
 			Expect(handler.run).To(BeTrue())
+		})
+	})
+
+	Describe("Stats Reporter sent message", func() {
+		It("should call HandleNotificationSent upon message sent to queue", func() {
+			ttl := uint(0)
+			msg := &gcm.XMPPMessage{
+				TimeToLive:               &ttl,
+				DelayWhileIdle:           false,
+				DeliveryReceiptRequested: false,
+				DryRun: true,
+				To:     uuid.NewV4().String(),
+				Data:   map[string]interface{}{},
+			}
+			msgBytes, err := json.Marshal(msg)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = handler.sendMessage(msgBytes)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = handler.sendMessage(msgBytes)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(mockStatsDClient.Count["sent"]).To(Equal(2))
+		})
+
+		It("should call HandleNotificationSuccess upon message response received", func() {
+			res := gcm.CCSMessage{}
+			handler.handleGCMResponse(res)
+			handler.handleGCMResponse(res)
+
+			Expect(mockStatsDClient.Count["ack"]).To(Equal(2))
+		})
+
+		It("should call HandleNotificationFailure upon message response received", func() {
+			res := gcm.CCSMessage{
+				Error: "DEVICE_UNREGISTERED",
+			}
+			handler.handleGCMResponse(res)
+			handler.handleGCMResponse(res)
+
+			Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
+			Expect(mockStatsDClient.Count["device_unregistered"]).To(Equal(2))
 		})
 	})
 })

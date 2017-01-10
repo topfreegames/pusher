@@ -84,7 +84,10 @@ func (c *PGClient) IsConnected() bool {
 
 // Close the connections to PG
 func (c *PGClient) Close() error {
-	c.DB.Close()
+	err := c.DB.Close()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -97,6 +100,15 @@ func (c *PGClient) WaitForConnection(timeout int) error {
 
 	if time.Now().Unix()-start > int64(timeout) {
 		return fmt.Errorf("Timed out waiting for Zookeeper to connect.")
+	}
+	return nil
+}
+
+//Cleanup closes PG connection
+func (c *PGClient) Cleanup() error {
+	err := c.Close()
+	if err != nil {
+		return err
 	}
 	return nil
 }
