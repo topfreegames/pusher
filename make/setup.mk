@@ -27,12 +27,7 @@ setup:
 			fi \
 		fi \
 	fi
-	@if [ "${OS}" == "Linux" ]; then \
-		if [ "`which apt-get`" != "" ]; then \
-			echo 'Ensuring librdkafka is installed...' && \
-			sudo apt-get install -y librdkafka; \
-		fi \
-	fi
+	@/bin/bash -c '[ "`uname -s`" == "Linux" ] && [ "`which apt-get`" != "" ] &&  echo "Ensuring librdkafka is installed..." && ./debian-install-librdkafka.sh'
 	@go get -u github.com/Masterminds/glide/...
 	@go get -u github.com/onsi/ginkgo/ginkgo
 	@go get github.com/gordonklaus/ineffassign
