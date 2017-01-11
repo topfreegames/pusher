@@ -76,17 +76,18 @@ cat test.txt | kafka-console-producer --topic com.games.teste --broker-list loca
 - [x] Handle all responses from APNS and GCM
 - [x] Test Everything
 - [x] GCM staging support (send PR to https://github.com/google/go-gcm ?)
-- [ ] Logging and stats
-- [ ] Auto recovery when connection to kafka is lost (I think it already does, we only need to check for how much time it will try to recover)
 - [x] Graceful shutdown should empty channels before dying (the signal is already being caught)
 - [x] Recover when connection to GCM or APNS is lost
-- [ ] Send successfuly sent messages somewhere (kafka? psql?), including metadata to identify the app, push type, user id, etc. (extension successful_message_handler with a method Handle(chan <-token) that is easy to turn on/off and replace)
-- [ ] Send logs of deleted tokens somewhere (kafka? psql?), including metadata to identify the app, push type, user id, when the token was created etc. (extension bad_token_handler with a method Handle(chan <-token) that is easy to turn on/off and replace)
-- [ ] Report stats to graphite including deleted token stats
-- [ ] Do we need concurrency control e.g. max buffer for inflight messages, I think so, https://github.com/google/go-gcm/blob/master/gcm.go#L373 ?
-- [ ] Define kafka offset commit strategy (auto? Manual? One by one? In batches?)
+- [x] Define kafka offset commit strategy (auto? Manual? One by one? In batches?)
 - [x] Grab from kafka in batches? (I think it already does that)
-- [ ] README with dev and deployment instructions
-- [ ] Apple JWT tokens instead of certificates https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html#//apple_ref/doc/uid/TP40008194-CH8-SW1
+- [x] Logging and stats
+- [ ] Send feedbacks to another kafka queue including metadata
+- [ ] Support metadata in incoming messages and include them in the feedback sent to the other queue
+- [ ] Do we need concurrency control e.g. max buffer for inflight messages, I think so, https://github.com/google/go-gcm/blob/master/gcm.go#L373 ?
+- [ ] Auto recovery when connection to kafka is lost (I think it already does, we only need to check for how much time it will try to recover)
 - [ ] Fix TODOs
 - [ ] Verify string concats specially when building queries (SQL injection susceptible)
+- [ ] README with dev and deployment instructions
+- [ ] Apple JWT tokens instead of certificates https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html#//apple_ref/doc/uid/TP40008194-CH8-SW1
+- [ ] Retry pushes depending on the failure?
+- [ ] Threads fot gcm sender?
