@@ -60,6 +60,11 @@ func (m *PGMock) getResult() *types.Result {
 //Close records that it is closed
 func (m *PGMock) Close() error {
 	m.Closed = true
+
+	if m.Error != nil {
+		return m.Error
+	}
+
 	return nil
 }
 
