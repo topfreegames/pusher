@@ -32,11 +32,19 @@ import (
 )
 
 type statsReporterInitializer func(string, *logrus.Logger, string) (interfaces.StatsReporter, error)
+type feedbackReporterInitializer func(string, *logrus.Logger) (interfaces.FeedbackReporter, error)
 
-//AvailableReporters contains functions to initialize all reporters
-var AvailableReporters = map[string]statsReporterInitializer{
+//AvailableStatsReporters contains functions to initialize all stats reporters
+var AvailableStatsReporters = map[string]statsReporterInitializer{
 	"statsd": func(configFile string, logger *logrus.Logger, appName string) (interfaces.StatsReporter, error) {
 		return extensions.NewStatsD(configFile, logger, appName)
+	},
+}
+
+//AvailableFeedbackReporters contains functions to initialize all feedback reporters
+var AvailableFeedbackReporters = map[string]feedbackReporterInitializer{
+	"kafka": func(configFile string, logger *logrus.Logger) (interfaces.FeedbackReporter, error) {
+		return extensions.NewKafkaProducer(configFile, logger)
 	},
 }
 
@@ -44,12 +52,31 @@ func configureStatsReporters(configFile string, logger *logrus.Logger, appName s
 	reporters := []interfaces.StatsReporter{}
 	reporterNames := config.GetStringSlice("stats.reporters")
 	for _, reporterName := range reporterNames {
-		reporterFunc, ok := AvailableReporters[reporterName]
+		reporterFunc, ok := AvailableStatsReporters[reporterName]
 		if !ok {
 			return nil, fmt.Errorf("Failed to initialize %s. Stats Reporter not available.", reporterName)
 		}
 
 		r, err := reporterFunc(configFile, logger, appName)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to initialize %s. %s", reporterName, err.Error())
+		}
+		reporters = append(reporters, r)
+	}
+
+	return reporters, nil
+}
+
+func configureFeedbackReporters(configFile string, logger *logrus.Logger, config *viper.Viper) ([]interfaces.FeedbackReporter, error) {
+	reporters := []interfaces.FeedbackReporter{}
+	reporterNames := config.GetStringSlice("feedback.reporters")
+	for _, reporterName := range reporterNames {
+		reporterFunc, ok := AvailableFeedbackReporters[reporterName]
+		if !ok {
+			return nil, fmt.Errorf("Failed to initialize %s. Feedback Reporter not available.", reporterName)
+		}
+
+		r, err := reporterFunc(configFile, logger)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to initialize %s. %s", reporterName, err.Error())
 		}
