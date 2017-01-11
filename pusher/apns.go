@@ -79,7 +79,7 @@ func (a *APNSPusher) configure() error {
 	if err != nil {
 		return err
 	}
-	a.Queue = extensions.NewKafka(a.ConfigFile, a.Logger)
+	a.Queue = extensions.NewKafkaConsumer(a.ConfigFile, a.Logger)
 	a.MessageHandler = extensions.NewAPNSMessageHandler(
 		a.ConfigFile, a.CertificatePath, a.AppName,
 		a.IsProduction,

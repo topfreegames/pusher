@@ -82,7 +82,7 @@ func (g *GCMPusher) configure(client interfaces.GCMClient) error {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
 	g.configureStatsReporters()
-	g.Queue = extensions.NewKafka(g.ConfigFile, g.Logger)
+	g.Queue = extensions.NewKafkaConsumer(g.ConfigFile, g.Logger)
 	handler, err := extensions.NewGCMMessageHandler(
 		g.ConfigFile,
 		g.senderID,

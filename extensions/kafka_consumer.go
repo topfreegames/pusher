@@ -31,8 +31,8 @@ import (
 	"github.com/topfreegames/pusher/util"
 )
 
-// Kafka for getting push requests
-type Kafka struct {
+// KafkaConsumer for getting push requests
+type KafkaConsumer struct {
 	Brokers             string
 	Config              *viper.Viper
 	ConfigFile          string
@@ -52,9 +52,9 @@ type Kafka struct {
 	HandleAllMessagesBeforeExiting bool
 }
 
-// NewKafka for creating a new Kafka instance
-func NewKafka(configFile string, logger *logrus.Logger) *Kafka {
-	q := &Kafka{
+// NewKafkaConsumer for creating a new KafkaConsumer instance
+func NewKafkaConsumer(configFile string, logger *logrus.Logger) *KafkaConsumer {
+	q := &KafkaConsumer{
 		ConfigFile:        configFile,
 		Logger:            logger,
 		messagesReceived:  0,
@@ -65,7 +65,7 @@ func NewKafka(configFile string, logger *logrus.Logger) *Kafka {
 	return q
 }
 
-func (q *Kafka) loadConfigurationDefaults() {
+func (q *KafkaConsumer) loadConfigurationDefaults() {
 	q.Config.SetDefault("queue.topics", []string{"com.games.teste"})
 	q.Config.SetDefault("queue.brokers", "localhost:9092")
 	q.Config.SetDefault("queue.group", "teste")
@@ -74,7 +74,7 @@ func (q *Kafka) loadConfigurationDefaults() {
 	q.Config.SetDefault("queue.handleAllMessagesBeforeExiting", true)
 }
 
-func (q *Kafka) configure() {
+func (q *KafkaConsumer) configure() {
 	q.Config = util.NewViperWithConfigFile(q.ConfigFile)
 	q.loadConfigurationDefaults()
 	q.OffsetResetStrategy = q.Config.GetString("queue.offsetResetStrategy")
@@ -93,11 +93,11 @@ func (q *Kafka) configure() {
 }
 
 // PendingMessagesWaitGroup returns the waitGroup that is incremented every time a push is consumed
-func (q *Kafka) PendingMessagesWaitGroup() *sync.WaitGroup {
+func (q *KafkaConsumer) PendingMessagesWaitGroup() *sync.WaitGroup {
 	return q.pendingMessagesWG
 }
 
-func (q *Kafka) configureConsumer() {
+func (q *KafkaConsumer) configureConsumer() {
 	//TODO auto commit needs to be false
 	l := q.Logger.WithFields(logrus.Fields{
 		"method":                          "configureConsumer",
@@ -134,17 +134,17 @@ func (q *Kafka) configureConsumer() {
 }
 
 // StopConsuming stops consuming messages from the queue
-func (q *Kafka) StopConsuming() {
+func (q *KafkaConsumer) StopConsuming() {
 	q.run = false
 }
 
 // MessagesChannel returns the channel that will receive all messages got from kafka
-func (q *Kafka) MessagesChannel() *chan []byte {
+func (q *KafkaConsumer) MessagesChannel() *chan []byte {
 	return &q.msgChan
 }
 
 // ConsumeLoop consume messages from the queue and put in messages to send channel
-func (q *Kafka) ConsumeLoop() {
+func (q *KafkaConsumer) ConsumeLoop() {
 	q.run = true
 	l := q.Logger.WithFields(logrus.Fields{
 		"method": "ConsumeLoop",
@@ -194,7 +194,7 @@ func (q *Kafka) ConsumeLoop() {
 }
 
 //Cleanup closes kafka consumer connection
-func (q *Kafka) Cleanup() error {
+func (q *KafkaConsumer) Cleanup() error {
 	if q.run {
 		q.StopConsuming()
 	}
