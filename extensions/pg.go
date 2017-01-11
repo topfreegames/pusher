@@ -55,6 +55,12 @@ func NewPGClient(prefix string, config *viper.Viper, pgOrNil ...interfaces.DB) (
 		return nil, err
 	}
 
+	timeout := config.GetInt(fmt.Sprintf("%s.connectionTimeout", prefix))
+	err = client.WaitForConnection(timeout)
+	if err != nil {
+		return nil, err
+	}
+
 	return client, nil
 }
 
@@ -104,7 +110,7 @@ func (c *PGClient) Close() error {
 	return nil
 }
 
-// WaitForConnection loops until kafka is connected
+// WaitForConnection loops until PG is connected
 func (c *PGClient) WaitForConnection(timeout int) error {
 	start := time.Now().UnixNano() / 1000000
 	t := int64(timeout)

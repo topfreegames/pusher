@@ -80,14 +80,18 @@ func (a *APNSPusher) configure() error {
 		return err
 	}
 	a.Queue = extensions.NewKafkaConsumer(a.ConfigFile, a.Logger)
-	a.MessageHandler = extensions.NewAPNSMessageHandler(
+	handler, err := extensions.NewAPNSMessageHandler(
 		a.ConfigFile, a.CertificatePath, a.AppName,
 		a.IsProduction,
 		a.Logger,
 		a.Queue.PendingMessagesWaitGroup(),
 		a.StatsReporters,
+		nil,
 	)
-
+	if err != nil {
+		return err
+	}
+	a.MessageHandler = handler
 	return nil
 }
 

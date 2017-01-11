@@ -72,7 +72,8 @@ func NewAPNSMessageHandler(
 	logger *logrus.Logger,
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
-) *APNSMessageHandler {
+	db interfaces.DB,
+) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
 		appName:           appName,
 		CertificatePath:   certificatePath,
@@ -84,115 +85,54 @@ func NewAPNSMessageHandler(
 		pendingMessagesWG: pendingMessagesWG,
 		StatsReporters:    statsReporters,
 	}
-	a.configure()
-	return a
-}
-
-func (a *APNSMessageHandler) handleTokenError(token string) {
-	l := a.Logger.WithFields(logrus.Fields{
-		"method": "handleTokenError",
-		"token":  token,
-	})
-	// TODO: should we really delete the token? or move them to another table?
-	// TODO: before deleting send deleted token info to another queue/db
-	l.Debug("deleting token")
-	query := fmt.Sprintf("DELETE FROM %s_apns WHERE token = '%s';", a.appName, token)
-	_, err := a.PushDB.DB.Exec(query)
-	if err != nil && err.Error() != "pg: no rows in result set" {
-		l.WithError(err).Error("error deleting token")
+	err := a.configure(db)
+	if err != nil {
+		return nil, err
 	}
-}
-
-func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
-	l := a.Logger.WithFields(logrus.Fields{
-		"method": "handleAPNSResponse",
-		"res":    res,
-	})
-	l.Debug("got response from apns")
-	apnsResMutex.Lock()
-	a.responsesReceived++
-	if a.responsesReceived%1000 == 0 {
-		l.Infof("received responses: %d", a.responsesReceived)
-	}
-	apnsResMutex.Unlock()
-	var err error
-	if res.Err != nil {
-		pushError, ok := res.Err.(*push.Error)
-		if !ok {
-			l.WithFields(logrus.Fields{
-				"category":      "UnexpectedError",
-				logrus.ErrorKey: res.Err,
-			}).Debug("received an error")
-			return res.Err
-		}
-		reason := pushError.Reason
-		pErr := errors.NewPushError(a.mapErrorReason(reason), pushError.Error())
-		a.statsReporterHandleNotificationFailure(pErr)
-
-		err = pErr
-		switch reason {
-		case push.ErrMissingDeviceToken, push.ErrBadDeviceToken:
-			l.WithFields(logrus.Fields{
-				"category":      "TokenError",
-				logrus.ErrorKey: res.Err,
-			}).Debug("received an error")
-			a.handleTokenError(res.DeviceToken)
-		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
-			l.WithFields(logrus.Fields{
-				"category":      "CertificateError",
-				logrus.ErrorKey: res.Err,
-			}).Debug("received an error")
-		case push.ErrMissingTopic, push.ErrTopicDisallowed, push.ErrDeviceTokenNotForTopic:
-			l.WithFields(logrus.Fields{
-				"category":      "TopicError",
-				logrus.ErrorKey: res.Err,
-			}).Debug("received an error")
-		case push.ErrIdleTimeout, push.ErrShutdown, push.ErrInternalServerError, push.ErrServiceUnavailable:
-			l.WithFields(logrus.Fields{
-				"category":      "AppleError",
-				logrus.ErrorKey: res.Err,
-			}).Debug("received an error")
-		default:
-			l.WithFields(logrus.Fields{
-				"category":      "DefaultError",
-				logrus.ErrorKey: res.Err,
-			}).Debug("received an error")
-		}
-		return err
-	}
-
-	a.statsReporterHandleNotificationSuccess()
-	return nil
+	return a, nil
 }
 
 func (a *APNSMessageHandler) loadConfigurationDefaults() {
 	a.Config.SetDefault("apns.concurrentWorkers", 10)
 }
 
-func (a *APNSMessageHandler) configure() {
+func (a *APNSMessageHandler) configure(db interfaces.DB) error {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
-	a.configureCertificate()
-	a.configureAPNSPushQueue()
-	a.configurePushDatabase()
+	err := a.configureCertificate()
+	if err != nil {
+		return err
+	}
+	err = a.configureAPNSPushQueue()
+	if err != nil {
+		return err
+	}
+	err = a.configurePushDatabase(db)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (a *APNSMessageHandler) configureCertificate() {
+func (a *APNSMessageHandler) configureCertificate() error {
 	l := a.Logger.WithField("method", "configureCertificate")
 	c, err := certificate.FromPemFile(a.CertificatePath, "")
 	if err != nil {
-		l.WithError(err).Panic("error loading pem certificate")
+		l.WithError(err).Error("error loading pem certificate")
+		return err
 	}
 	a.certificate = c
 	a.Topic = cert.TopicFromCert(c)
 	l.WithField("topic", a.Topic).Debug("loaded apns certificate")
+	return nil
 }
 
-func (a *APNSMessageHandler) configureAPNSPushQueue() {
+func (a *APNSMessageHandler) configureAPNSPushQueue() error {
 	l := a.Logger.WithField("method", "configureAPNSPushQueue")
 	client, err := push.NewClient(a.certificate)
 	if err != nil {
-		l.WithError(err).Panic("could not create apns client")
+		l.WithError(err).Error("could not create apns client")
+		return err
 	}
 	var svc *push.Service
 	if a.IsProduction {
@@ -206,15 +146,18 @@ func (a *APNSMessageHandler) configureAPNSPushQueue() {
 	workers := uint(concurrentWorkers)
 	queue := push.NewQueue(svc, workers)
 	a.PushQueue = queue
+	return nil
 }
 
-func (a *APNSMessageHandler) configurePushDatabase() {
+func (a *APNSMessageHandler) configurePushDatabase(db interfaces.DB) error {
 	l := a.Logger.WithField("method", "configurePushDatabase")
 	var err error
-	a.PushDB, err = NewPGClient("push.db", a.Config)
+	a.PushDB, err = NewPGClient("push.db", a.Config, db)
 	if err != nil {
-		l.WithError(err).Panic("could not connect to push database")
+		l.WithError(err).Error("could not connect to push database")
+		return err
 	}
+	return nil
 }
 
 func (a *APNSMessageHandler) sendMessage(message []byte) {
@@ -257,6 +200,83 @@ func (a *APNSMessageHandler) HandleMessages(msgChan *chan []byte) {
 			a.sendMessage(message)
 		}
 	}
+}
+
+func (a *APNSMessageHandler) handleTokenError(token string) {
+	l := a.Logger.WithFields(logrus.Fields{
+		"method": "handleTokenError",
+		"token":  token,
+	})
+	// TODO: should we really delete the token? or move them to another table?
+	// TODO: before deleting send deleted token info to another queue/db
+	l.Debug("deleting token")
+	query := fmt.Sprintf("DELETE FROM %s_apns WHERE token = '%s';", a.appName, token)
+	_, err := a.PushDB.DB.Exec(query)
+	if err != nil && err.Error() != "pg: no rows in result set" {
+		l.WithError(err).Error("error deleting token")
+	}
+}
+
+func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
+	l := a.Logger.WithFields(logrus.Fields{
+		"method": "handleAPNSResponse",
+		"res":    res,
+	})
+	l.Debug("got response from apns")
+	apnsResMutex.Lock()
+	a.responsesReceived++
+	if a.responsesReceived%1000 == 0 {
+		l.Infof("received responses: %d", a.responsesReceived)
+	}
+	apnsResMutex.Unlock()
+	var err error
+	if res.Err != nil {
+		pushError, ok := res.Err.(*push.Error)
+		if !ok {
+			l.WithFields(logrus.Fields{
+				"category":      "UnexpectedError",
+				logrus.ErrorKey: res.Err,
+			}).Error("received an error")
+			return res.Err
+		}
+		reason := pushError.Reason
+		pErr := errors.NewPushError(a.mapErrorReason(reason), pushError.Error())
+		a.statsReporterHandleNotificationFailure(pErr)
+
+		err = pErr
+		switch reason {
+		case push.ErrMissingDeviceToken, push.ErrBadDeviceToken:
+			l.WithFields(logrus.Fields{
+				"category":      "TokenError",
+				logrus.ErrorKey: res.Err,
+			}).Debug("received an error")
+			a.handleTokenError(res.DeviceToken)
+		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
+			l.WithFields(logrus.Fields{
+				"category":      "CertificateError",
+				logrus.ErrorKey: res.Err,
+			}).Debug("received an error")
+		case push.ErrMissingTopic, push.ErrTopicDisallowed, push.ErrDeviceTokenNotForTopic:
+			l.WithFields(logrus.Fields{
+				"category":      "TopicError",
+				logrus.ErrorKey: res.Err,
+			}).Debug("received an error")
+		case push.ErrIdleTimeout, push.ErrShutdown, push.ErrInternalServerError, push.ErrServiceUnavailable:
+			l.WithFields(logrus.Fields{
+				"category":      "AppleError",
+				logrus.ErrorKey: res.Err,
+			}).Debug("received an error")
+		default:
+			l.WithFields(logrus.Fields{
+				"category":      "DefaultError",
+				logrus.ErrorKey: res.Err,
+			}).Debug("received an error")
+		}
+		return err
+	}
+
+	a.statsReporterHandleNotificationSuccess()
+	return nil
 }
 
 func (a *APNSMessageHandler) mapErrorReason(reason error) string {

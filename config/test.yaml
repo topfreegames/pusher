@@ -21,6 +21,7 @@ push:
     poolSize: 20
     maxRetries: 3
     database: push
+    connectionTimeout: 1
 statsreporter:
   host: "localhost:8125"
   prefix: "push"
