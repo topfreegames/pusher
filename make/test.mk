@@ -39,7 +39,7 @@ test-coverage-run:
 	@echo "mode: count" > _build/test-coverage-all.out
 	@bash -c 'for f in $$(find . -name "*.coverprofile"); do tail -n +2 $$f >> _build/test-coverage-all.out; done'
 
-test-coverage-html: test-coverage
+test-coverage-html cover:
 	@go tool cover -html=_build/test-coverage-all.out
 
 test-coverage-write-html:

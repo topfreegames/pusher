@@ -23,9 +23,12 @@
 package extensions
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/mocks"
 )
 
 var _ = Describe("PG Extension", func() {
@@ -37,14 +40,58 @@ var _ = Describe("PG Extension", func() {
 		Expect(config.ReadInConfig()).NotTo(HaveOccurred())
 	})
 
-	Describe("Creating new client", func() {
-		It("should return connected client", func() {
-			client, err := NewPGClient("push.db", config)
-			Expect(err).NotTo(HaveOccurred())
-			defer client.Close()
-			Expect(client).NotTo(BeNil())
-			client.WaitForConnection(10)
-			Expect(client.IsConnected()).To(BeTrue())
+	Describe("[Unit]", func() {
+		var mockDb *mocks.PGMock
+		BeforeEach(func() {
+			mockDb = mocks.NewPGMock(0, 0)
+		})
+
+		Describe("Connect", func() {
+			It("Should use config to load connection details", func() {
+				client, err := NewPGClient("push.db", config, mockDb)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client.Options).NotTo(BeNil())
+			})
+		})
+
+		FDescribe("IsConnected", func() {
+			It("should verify that db is connected", func() {
+				mockDb = mocks.NewPGMock(0, 1)
+				client, err := NewPGClient("push.db", config, mockDb)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client.IsConnected()).To(BeTrue())
+				Expect(mockDb.Execs).To(HaveLen(1))
+			})
+
+			It("should not be connected if error", func() {
+				connErr := fmt.Errorf("Could not connect")
+				mockDb = mocks.NewPGMock(0, 1, connErr)
+				client, err := NewPGClient("push.db", config, mockDb)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client.IsConnected()).To(BeFalse())
+				Expect(mockDb.Execs).To(HaveLen(1))
+			})
+
+			It("should not be connected if zero rows returned", func() {
+				mockDb = mocks.NewPGMock(0, 0)
+				client, err := NewPGClient("push.db", config, mockDb)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client.IsConnected()).To(BeFalse())
+				Expect(mockDb.Execs).To(HaveLen(1))
+			})
+		})
+	})
+
+	Describe("[Integration]", func() {
+		Describe("Creating new client", func() {
+			It("should return connected client", func() {
+				client, err := NewPGClient("push.db", config)
+				Expect(err).NotTo(HaveOccurred())
+				defer client.Close()
+				Expect(client).NotTo(BeNil())
+				client.WaitForConnection(10)
+				Expect(client.IsConnected()).To(BeTrue())
+			})
 		})
 	})
 })

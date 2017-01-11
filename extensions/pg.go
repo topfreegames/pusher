@@ -29,20 +29,28 @@ import (
 	pg "gopkg.in/pg.v5"
 
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/interfaces"
 )
 
 // PGClient is the struct that connects to PostgreSQL
 type PGClient struct {
-	Config *viper.Viper
-	DB     *pg.DB
+	Config  *viper.Viper
+	DB      interfaces.DB
+	Options *pg.Options
 }
 
 // NewPGClient creates a new client
-func NewPGClient(prefix string, config *viper.Viper) (*PGClient, error) {
+func NewPGClient(prefix string, config *viper.Viper, pgOrNil ...interfaces.DB) (*PGClient, error) {
 	client := &PGClient{
 		Config: config,
 	}
-	err := client.Connect(prefix)
+
+	var db interfaces.DB
+	if len(pgOrNil) == 1 {
+		db = pgOrNil[0]
+	}
+
+	err := client.Connect(prefix, db)
 	if err != nil {
 		return nil, err
 	}
@@ -51,24 +59,29 @@ func NewPGClient(prefix string, config *viper.Viper) (*PGClient, error) {
 }
 
 // Connect to PG
-func (c *PGClient) Connect(prefix string) error {
+func (c *PGClient) Connect(prefix string, db interfaces.DB) error {
 	user := c.Config.GetString(fmt.Sprintf("%s.user", prefix))
 	pass := c.Config.GetString(fmt.Sprintf("%s.pass", prefix))
 	host := c.Config.GetString(fmt.Sprintf("%s.host", prefix))
-	db := c.Config.GetString(fmt.Sprintf("%s.database", prefix))
+	database := c.Config.GetString(fmt.Sprintf("%s.database", prefix))
 	port := c.Config.GetInt(fmt.Sprintf("%s.port", prefix))
 	poolSize := c.Config.GetInt(fmt.Sprintf("%s.poolSize", prefix))
 	maxRetries := c.Config.GetInt(fmt.Sprintf("%s.maxRetries", prefix))
 
-	conn := pg.Connect(&pg.Options{
+	c.Options = &pg.Options{
 		Addr:       fmt.Sprintf("%s:%d", host, port),
 		User:       user,
 		Password:   pass,
-		Database:   db,
+		Database:   database,
 		PoolSize:   poolSize,
 		MaxRetries: maxRetries,
-	})
-	c.DB = conn
+	}
+
+	if db == nil {
+		c.DB = pg.Connect(c.Options)
+	} else {
+		c.DB = db
+	}
 
 	return nil
 }
