@@ -121,7 +121,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 			l.WithFields(log.Fields{
 				"category":   "TokenError",
 				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
-			}).Error("received an error")
+			}).Debug("received an error")
 			tErr := g.handleTokenError(cm.From)
 			if tErr != nil {
 				return tErr
@@ -130,22 +130,22 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 			l.WithFields(log.Fields{
 				"category":   "JsonError",
 				log.ErrorKey: cm.Error,
-			}).Error("received an error")
+			}).Debug("received an error")
 		case "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR":
 			l.WithFields(log.Fields{
 				"category":   "GoogleError",
 				log.ErrorKey: cm.Error,
-			}).Error("received an error")
+			}).Debug("received an error")
 		case "DEVICE_MESSAGE_RATE_EXCEEDED", "TOPICS_MESSAGE_RATE_EXCEEDED":
 			l.WithFields(log.Fields{
 				"category":   "RateExceededError",
 				log.ErrorKey: cm.Error,
-			}).Error("received an error")
+			}).Debug("received an error")
 		default:
 			l.WithFields(log.Fields{
 				"category":   "DefaultError",
 				log.ErrorKey: cm.Error,
-			}).Error("received an error")
+			}).Debug("received an error")
 		}
 
 		return err
@@ -167,7 +167,7 @@ func (g *GCMMessageHandler) handleTokenError(token string) error {
 	})
 	// TODO: before deleting send deleted token info to another queue/db
 	// TODO: if the above is not that specific move this to an util so it can be reused in apns
-	l.Info("Deleting token...")
+	l.Debug("Deleting token...")
 	query := fmt.Sprintf("DELETE FROM %s_gcm WHERE token = ?0;", g.appName)
 	_, err := g.PushDB.DB.Exec(query, token)
 	if err != nil && err.Error() != "pg: no rows in result set" {
@@ -249,7 +249,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	}
 	err := json.Unmarshal(message, &m)
 	if err != nil {
-		l.WithError(err).Error("Error sending message.")
+		l.WithError(err).Error("Error unmarshaling message.")
 		return err
 	}
 	l.WithField("message", m).Debug("sending message to gcm")

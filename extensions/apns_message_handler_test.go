@@ -45,6 +45,7 @@ var _ = Describe("APNS Message Handler", func() {
 	isProduction := false
 	appName := "testapp"
 	logger, hook := test.NewNullLogger()
+	logger.Level = logrus.DebugLevel
 
 	BeforeEach(func() {
 		mockStatsDClient = mocks.NewStatsDClientMock()
@@ -101,7 +102,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(len(hook.Entries)).To(Equal(0))
 		})
 
 		It("if reponse has error push.ErrMissingDeviceToken", func() {
@@ -116,9 +116,7 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
 			Expect(hook.LastEntry().Message).To(Equal("deleting token"))
-			Expect(hook.Entries[len(hook.Entries)-2].Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
@@ -134,9 +132,7 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
 			Expect(hook.LastEntry().Message).To(Equal("deleting token"))
-			Expect(hook.Entries[len(hook.Entries)-2].Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
@@ -152,7 +148,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 		})
 
@@ -168,7 +163,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 		})
 
@@ -184,7 +178,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 		})
 
@@ -200,7 +193,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 		})
 
@@ -216,7 +208,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 		})
 
@@ -232,7 +223,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 		})
 
@@ -248,7 +238,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 		})
 
@@ -264,7 +253,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 		})
 
@@ -280,7 +268,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 		})
 
@@ -296,7 +283,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 		})
 
@@ -312,7 +298,6 @@ var _ = Describe("APNS Message Handler", func() {
 			handler := NewAPNSMessageHandler(configFile, certificatePath, appName, isProduction, logger, nil, statsClients)
 			handler.handleAPNSResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("DefaultError"))
 		})
 	})

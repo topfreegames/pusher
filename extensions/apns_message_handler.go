@@ -95,7 +95,7 @@ func (a *APNSMessageHandler) handleTokenError(token string) {
 	})
 	// TODO: should we really delete the token? or move them to another table?
 	// TODO: before deleting send deleted token info to another queue/db
-	l.Info("deleting token")
+	l.Debug("deleting token")
 	query := fmt.Sprintf("DELETE FROM %s_apns WHERE token = '%s';", a.appName, token)
 	_, err := a.PushDB.DB.Exec(query)
 	if err != nil && err.Error() != "pg: no rows in result set" {
@@ -122,7 +122,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 			l.WithFields(logrus.Fields{
 				"category":      "UnexpectedError",
 				logrus.ErrorKey: res.Err,
-			}).Error("received an error")
+			}).Debug("received an error")
 			return res.Err
 		}
 		reason := pushError.Reason
@@ -135,28 +135,28 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 			l.WithFields(logrus.Fields{
 				"category":      "TokenError",
 				logrus.ErrorKey: res.Err,
-			}).Error("received an error")
+			}).Debug("received an error")
 			a.handleTokenError(res.DeviceToken)
 		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
 			l.WithFields(logrus.Fields{
 				"category":      "CertificateError",
 				logrus.ErrorKey: res.Err,
-			}).Error("received an error")
+			}).Debug("received an error")
 		case push.ErrMissingTopic, push.ErrTopicDisallowed, push.ErrDeviceTokenNotForTopic:
 			l.WithFields(logrus.Fields{
 				"category":      "TopicError",
 				logrus.ErrorKey: res.Err,
-			}).Error("received an error")
+			}).Debug("received an error")
 		case push.ErrIdleTimeout, push.ErrShutdown, push.ErrInternalServerError, push.ErrServiceUnavailable:
 			l.WithFields(logrus.Fields{
 				"category":      "AppleError",
 				logrus.ErrorKey: res.Err,
-			}).Error("received an error")
+			}).Debug("received an error")
 		default:
 			l.WithFields(logrus.Fields{
 				"category":      "DefaultError",
 				logrus.ErrorKey: res.Err,
-			}).Error("received an error")
+			}).Debug("received an error")
 		}
 		return err
 	}

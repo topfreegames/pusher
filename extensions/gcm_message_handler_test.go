@@ -51,6 +51,7 @@ var _ = Describe("GCM Message Handler", func() {
 	appName := "testapp"
 	isProduction := false
 	logger, hook := test.NewNullLogger()
+	logger.Level = logrus.DebugLevel
 
 	BeforeEach(func() {
 		var err error
@@ -126,7 +127,6 @@ var _ = Describe("GCM Message Handler", func() {
 			res := gcm.CCSMessage{}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(len(hook.Entries)).To(Equal(0))
 		})
 
 		It("if response has error DEVICE_UNREGISTERED", func() {
@@ -135,9 +135,7 @@ var _ = Describe("GCM Message Handler", func() {
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
 			Expect(hook.LastEntry().Message).To(Equal("Deleting token..."))
-			Expect(hook.Entries[len(hook.Entries)-2].Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
@@ -147,9 +145,7 @@ var _ = Describe("GCM Message Handler", func() {
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.InfoLevel))
 			Expect(hook.LastEntry().Message).To(Equal("Deleting token..."))
-			Expect(hook.Entries[len(hook.Entries)-2].Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
@@ -159,7 +155,6 @@ var _ = Describe("GCM Message Handler", func() {
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("JsonError"))
 		})
 
@@ -169,7 +164,6 @@ var _ = Describe("GCM Message Handler", func() {
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("GoogleError"))
 		})
 
@@ -179,7 +173,6 @@ var _ = Describe("GCM Message Handler", func() {
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("GoogleError"))
 		})
 
@@ -189,7 +182,6 @@ var _ = Describe("GCM Message Handler", func() {
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("RateExceededError"))
 		})
 
@@ -199,7 +191,6 @@ var _ = Describe("GCM Message Handler", func() {
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("RateExceededError"))
 		})
 
@@ -209,7 +200,6 @@ var _ = Describe("GCM Message Handler", func() {
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
 			Expect(hook.LastEntry().Data["category"]).To(Equal("DefaultError"))
 		})
 	})
@@ -220,8 +210,7 @@ var _ = Describe("GCM Message Handler", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(handler.sentMessages).To(Equal(int64(0)))
 			Expect(hook.LastEntry()).NotTo(BeNil())
-			Expect(hook.LastEntry().Level).To(Equal(logrus.ErrorLevel))
-			Expect(hook.LastEntry().Message).To(ContainSubstring("Error sending message."))
+			Expect(hook.LastEntry().Message).To(ContainSubstring("Error unmarshaling message."))
 			Expect(mockClient.MessagesSent).To(HaveLen(0))
 		})
 
@@ -241,7 +230,7 @@ var _ = Describe("GCM Message Handler", func() {
 			err = handler.sendMessage(msgBytes)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(handler.sentMessages).To(Equal(int64(1)))
-			Expect(hook.LastEntry()).To(BeNil())
+			Expect(hook.LastEntry().Message).To(Equal("sent message"))
 			Expect(mockClient.MessagesSent).To(HaveLen(1))
 		})
 	})
