@@ -68,7 +68,7 @@ test-unit unit: stop-deps
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
 
-test-integration integration func: test-services
+test-integration integration func: deps test-db-drop test-db-create
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo "=               Running integration tests...             ="

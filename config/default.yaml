@@ -16,6 +16,11 @@ feedback:
   reporters:
 stats:
   reporters:
+    - statsd
+  statsd:
+    host: "localhost:8125"
+    prefix: "push"
+    flushIntervalMs: 5000
 feedbackQueue:
   topics: "com.games.teste.feedbacks"
   brokers: "localhost:9941"
@@ -28,7 +33,3 @@ push:
     poolSize: 20
     maxRetries: 3
     database: push
-statsreporter:
-  host: "localhost:8125"
-  prefix: "push"
-  flushintervalms: 5000
