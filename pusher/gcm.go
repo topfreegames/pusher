@@ -88,7 +88,7 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB) err
 	if err := g.configureFeedbackReporters(); err != nil {
 		return err
 	}
-	g.Queue = extensions.NewKafkaConsumer(g.ConfigFile, g.Logger)
+	g.Queue = extensions.NewKafkaConsumer(g.Config, g.Logger)
 	handler, err := extensions.NewGCMMessageHandler(
 		g.ConfigFile,
 		g.senderID,

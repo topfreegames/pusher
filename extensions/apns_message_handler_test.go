@@ -370,7 +370,7 @@ var _ = Describe("APNS Message Handler", func() {
 
 		Describe("Handle Messages", func() {
 			It("should start without panicking and set run to true", func() {
-				queue := NewKafkaConsumer(configFile, logger)
+				queue := NewKafkaConsumer(handler.Config, logger)
 				Expect(func() { go handler.HandleMessages(queue.MessagesChannel()) }).ShouldNot(Panic())
 				time.Sleep(50 * time.Millisecond)
 				Expect(handler.run).To(BeTrue())

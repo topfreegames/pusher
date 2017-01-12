@@ -65,3 +65,71 @@ func (k *KafkaProducerClientMock) Events() chan kafka.Event {
 func (k *KafkaProducerClientMock) ProduceChannel() chan *kafka.Message {
 	return k.ProduceChan
 }
+
+// KafkaConsumerClientMock  should be used for tests that need to send messages to Kafka
+type KafkaConsumerClientMock struct {
+	SubscribedTopics   map[string]interface{}
+	EventsChan         chan kafka.Event
+	AssignedPartitions []kafka.TopicPartition
+	Closed             bool
+	Error              error
+}
+
+// NewKafkaConsumerClientMock creates a new instance
+func NewKafkaConsumerClientMock(errorOrNil ...error) *KafkaConsumerClientMock {
+	var err error
+	if len(errorOrNil) == 1 {
+		err = errorOrNil[0]
+	}
+	k := &KafkaConsumerClientMock{
+		SubscribedTopics:   map[string]interface{}{},
+		EventsChan:         make(chan kafka.Event),
+		AssignedPartitions: []kafka.TopicPartition{},
+		Closed:             false,
+		Error:              err,
+	}
+	return k
+}
+
+//SubscribeTopics mock
+func (k *KafkaConsumerClientMock) SubscribeTopics(topics []string, callback kafka.RebalanceCb) error {
+	if k.Error != nil {
+		return k.Error
+	}
+	for _, topic := range topics {
+		k.SubscribedTopics[topic] = callback
+	}
+	return nil
+}
+
+//Events mock
+func (k *KafkaConsumerClientMock) Events() chan kafka.Event {
+	return k.EventsChan
+}
+
+//Assign mock
+func (k *KafkaConsumerClientMock) Assign(partitions []kafka.TopicPartition) error {
+	if k.Error != nil {
+		return k.Error
+	}
+	k.AssignedPartitions = partitions
+	return nil
+}
+
+//Unassign mock
+func (k *KafkaConsumerClientMock) Unassign() error {
+	if k.Error != nil {
+		return k.Error
+	}
+	k.AssignedPartitions = []kafka.TopicPartition{}
+	return nil
+}
+
+//Close mock
+func (k *KafkaConsumerClientMock) Close() error {
+	if k.Error != nil {
+		return k.Error
+	}
+	k.Closed = true
+	return nil
+}

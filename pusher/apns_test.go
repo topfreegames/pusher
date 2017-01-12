@@ -42,38 +42,61 @@ var _ = Describe("APNS Pusher", func() {
 		hook.Reset()
 	})
 
-	Describe("Creating new apns pusher", func() {
-		It("should return configured pusher", func() {
-			pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(pusher).NotTo(BeNil())
-			Expect(pusher.AppName).To(Equal(appName))
-			Expect(pusher.ConfigFile).To(Equal(configFile))
-			Expect(pusher.CertificatePath).To(Equal(certificatePath))
-			Expect(pusher.IsProduction).To(Equal(isProduction))
-			Expect(pusher.run).To(BeFalse())
-			Expect(pusher.Queue).NotTo(BeNil())
-			Expect(pusher.Config).NotTo(BeNil())
-			Expect(pusher.MessageHandler).NotTo(BeNil())
+	//Describe("[Unit]", func() {
+	//Describe("Creating new apns pusher", func() {
+	//It("should return configured pusher", func() {
+	//pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
+	//Expect(err).NotTo(HaveOccurred())
+	//Expect(pusher).NotTo(BeNil())
+	//Expect(pusher.AppName).To(Equal(appName))
+	//Expect(pusher.ConfigFile).To(Equal(configFile))
+	//Expect(pusher.CertificatePath).To(Equal(certificatePath))
+	//Expect(pusher.IsProduction).To(Equal(isProduction))
+	//Expect(pusher.run).To(BeFalse())
+	//Expect(pusher.Queue).NotTo(BeNil())
+	//Expect(pusher.Config).NotTo(BeNil())
+	//Expect(pusher.MessageHandler).NotTo(BeNil())
 
-			Expect(pusher.StatsReporters).To(HaveLen(1))
-			Expect(pusher.MessageHandler.(*extensions.APNSMessageHandler).StatsReporters).To(HaveLen(1))
+	//Expect(pusher.StatsReporters).To(HaveLen(1))
+	//Expect(pusher.MessageHandler.(*extensions.APNSMessageHandler).StatsReporters).To(HaveLen(1))
+	//})
+	//})
+	//})
+
+	Describe("[Integration]", func() {
+		Describe("Creating new apns pusher", func() {
+			It("should return configured pusher", func() {
+				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pusher).NotTo(BeNil())
+				Expect(pusher.AppName).To(Equal(appName))
+				Expect(pusher.ConfigFile).To(Equal(configFile))
+				Expect(pusher.CertificatePath).To(Equal(certificatePath))
+				Expect(pusher.IsProduction).To(Equal(isProduction))
+				Expect(pusher.run).To(BeFalse())
+				Expect(pusher.Queue).NotTo(BeNil())
+				Expect(pusher.Config).NotTo(BeNil())
+				Expect(pusher.MessageHandler).NotTo(BeNil())
+
+				Expect(pusher.StatsReporters).To(HaveLen(1))
+				Expect(pusher.MessageHandler.(*extensions.APNSMessageHandler).StatsReporters).To(HaveLen(1))
+			})
 		})
-	})
 
-	Describe("Start apns pusher", func() {
-		It("should launch go routines and run forever", func() {
-			pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(pusher).NotTo(BeNil())
-			defer func() { pusher.run = false }()
-			go pusher.Start()
-			time.Sleep(50 * time.Millisecond)
-			Expect(pusher.run).To(BeTrue())
-			// TODO test signals
-			// Sending SIGTERM makes the test abort
-			// syscall.Kill(os.Getpid(), syscall.SIGTERM)
-			// Expect(pusher.run).To(BeFalse())
+		Describe("Start apns pusher", func() {
+			It("should launch go routines and run forever", func() {
+				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pusher).NotTo(BeNil())
+				defer func() { pusher.run = false }()
+				go pusher.Start()
+				time.Sleep(50 * time.Millisecond)
+				Expect(pusher.run).To(BeTrue())
+				// TODO test signals
+				// Sending SIGTERM makes the test abort
+				// syscall.Kill(os.Getpid(), syscall.SIGTERM)
+				// Expect(pusher.run).To(BeFalse())
+			})
 		})
 	})
 })

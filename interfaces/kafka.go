@@ -29,3 +29,12 @@ type KafkaProducerClient interface {
 	Events() chan kafka.Event
 	ProduceChannel() chan *kafka.Message
 }
+
+// KafkaConsumerClient interface
+type KafkaConsumerClient interface {
+	SubscribeTopics([]string, kafka.RebalanceCb) error
+	Events() chan kafka.Event
+	Assign([]kafka.TopicPartition) error
+	Unassign() error
+	Close() error
+}

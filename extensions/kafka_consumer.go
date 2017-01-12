@@ -23,20 +23,20 @@
 package extensions
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/spf13/viper"
-	"github.com/topfreegames/pusher/util"
+	"github.com/topfreegames/pusher/interfaces"
 )
 
 // KafkaConsumer for getting push requests
 type KafkaConsumer struct {
 	Brokers             string
 	Config              *viper.Viper
-	ConfigFile          string
-	Consumer            *kafka.Consumer
+	Consumer            interfaces.KafkaConsumerClient
 	ConsumerGroup       string
 	Logger              *logrus.Logger
 	messagesReceived    int64
@@ -52,15 +52,19 @@ type KafkaConsumer struct {
 }
 
 // NewKafkaConsumer for creating a new KafkaConsumer instance
-func NewKafkaConsumer(configFile string, logger *logrus.Logger) *KafkaConsumer {
+func NewKafkaConsumer(config *viper.Viper, logger *logrus.Logger, clientOrNil ...interfaces.KafkaConsumerClient) *KafkaConsumer {
 	q := &KafkaConsumer{
-		ConfigFile:        configFile,
+		Config:            config,
 		Logger:            logger,
 		messagesReceived:  0,
 		msgChan:           make(chan []byte),
 		pendingMessagesWG: nil,
 	}
-	q.configure()
+	var client interfaces.KafkaConsumerClient
+	if len(clientOrNil) == 1 {
+		client = clientOrNil[0]
+	}
+	q.configure(client)
 	return q
 }
 
@@ -73,9 +77,7 @@ func (q *KafkaConsumer) loadConfigurationDefaults() {
 	q.Config.SetDefault("queue.handleAllMessagesBeforeExiting", true)
 }
 
-func (q *KafkaConsumer) configure() {
-	q.Config = util.NewViperWithConfigFile(q.ConfigFile)
-	q.loadConfigurationDefaults()
+func (q *KafkaConsumer) configure(client interfaces.KafkaConsumerClient) {
 	q.OffsetResetStrategy = q.Config.GetString("queue.offsetResetStrategy")
 	q.Brokers = q.Config.GetString("queue.brokers")
 	q.ConsumerGroup = q.Config.GetString("queue.group")
@@ -88,15 +90,10 @@ func (q *KafkaConsumer) configure() {
 		q.pendingMessagesWG = &wg
 	}
 
-	q.configureConsumer()
+	q.configureConsumer(client)
 }
 
-// PendingMessagesWaitGroup returns the waitGroup that is incremented every time a push is consumed
-func (q *KafkaConsumer) PendingMessagesWaitGroup() *sync.WaitGroup {
-	return q.pendingMessagesWG
-}
-
-func (q *KafkaConsumer) configureConsumer() {
+func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient) {
 	//TODO auto commit needs to be false
 	l := q.Logger.WithFields(logrus.Fields{
 		"method":                          "configureConsumer",
@@ -113,23 +110,33 @@ func (q *KafkaConsumer) configureConsumer() {
 		"topics": q.Topics,
 	})
 	l.Debug("configuring kafka queue extension")
-	c, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers":               q.Brokers,
-		"group.id":                        q.ConsumerGroup,
-		"session.timeout.ms":              q.SessionTimeout,
-		"go.events.channel.enable":        true,
-		"go.application.rebalance.enable": true,
-		"enable.auto.commit":              true,
-		"default.topic.config": kafka.ConfigMap{
-			"auto.offset.reset":  q.OffsetResetStrategy,
-			"auto.commit.enable": true,
-		},
-	})
-	if err != nil {
-		l.WithError(err).Panic("error configuring kafka queue")
+
+	if client == nil {
+		c, err := kafka.NewConsumer(&kafka.ConfigMap{
+			"bootstrap.servers":               q.Brokers,
+			"group.id":                        q.ConsumerGroup,
+			"session.timeout.ms":              q.SessionTimeout,
+			"go.events.channel.enable":        true,
+			"go.application.rebalance.enable": true,
+			"enable.auto.commit":              true,
+			"default.topic.config": kafka.ConfigMap{
+				"auto.offset.reset":  q.OffsetResetStrategy,
+				"auto.commit.enable": true,
+			},
+		})
+		if err != nil {
+			l.WithError(err).Panic("error configuring kafka queue")
+		}
+		q.Consumer = c
+	} else {
+		q.Consumer = client
 	}
 	l.Info("kafka queue configured")
-	q.Consumer = c
+}
+
+// PendingMessagesWaitGroup returns the waitGroup that is incremented every time a push is consumed
+func (q *KafkaConsumer) PendingMessagesWaitGroup() *sync.WaitGroup {
+	return q.pendingMessagesWG
 }
 
 // StopConsuming stops consuming messages from the queue
@@ -143,7 +150,7 @@ func (q *KafkaConsumer) MessagesChannel() *chan []byte {
 }
 
 // ConsumeLoop consume messages from the queue and put in messages to send channel
-func (q *KafkaConsumer) ConsumeLoop() {
+func (q *KafkaConsumer) ConsumeLoop() error {
 	q.run = true
 	l := q.Logger.WithFields(logrus.Fields{
 		"method": "ConsumeLoop",
@@ -152,7 +159,8 @@ func (q *KafkaConsumer) ConsumeLoop() {
 
 	err := q.Consumer.SubscribeTopics(q.Topics, nil)
 	if err != nil {
-		l.WithError(err).Panic("error subscribing to topics")
+		l.WithError(err).Error("error subscribing to topics")
+		return err
 	}
 
 	l.Info("successfully subscribed to topics")
@@ -162,34 +170,96 @@ func (q *KafkaConsumer) ConsumeLoop() {
 		case ev := <-q.Consumer.Events():
 			switch e := ev.(type) {
 			case kafka.AssignedPartitions:
-				l.Infof("%v\n", e)
-				q.Consumer.Assign(e.Partitions)
+				err := q.assignPartitions(e.Partitions)
+				//TODO: Should we exit the loop if this fails?
+				if err != nil {
+					q.StopConsuming()
+					return err
+				}
 			case kafka.RevokedPartitions:
-				l.Warnf("%v\n", e)
-				q.Consumer.Unassign()
+				err := q.unassignPartitions()
+				//TODO: Should we exit the loop if this fails?
+				if err != nil {
+					q.StopConsuming()
+					return err
+				}
 			case *kafka.Message:
-				q.messagesReceived++
-				if q.messagesReceived%1000 == 0 {
-					l.Infof("messages from kafka: %d", q.messagesReceived)
-				}
-				l.Debugf("message on %s:\n%s\n", e.TopicPartition, string(e.Value))
-				if q.pendingMessagesWG != nil {
-					q.pendingMessagesWG.Add(1)
-				}
-				q.msgChan <- e.Value
+				q.receiveMessage(e.TopicPartition, e.Value)
 			case kafka.PartitionEOF:
-				l.Debugf("reached %v\n", e)
+				q.handlePartitionEOF(ev)
 			case kafka.OffsetsCommitted:
 				l.Debugf("%v\n", e)
 			case kafka.Error:
 				l.Errorf("error: %v\n", e)
 				//TODO ver isso
-				q.run = false
+				q.StopConsuming()
+				return err
 			default:
 				l.Warnf("ev not recognized: %v\n", e)
 			}
 		}
 	}
+
+	return nil
+}
+
+func (q *KafkaConsumer) assignPartitions(partitions []kafka.TopicPartition) error {
+	l := q.Logger.WithFields(logrus.Fields{
+		"method":     "assignPartitions",
+		"partitions": fmt.Sprintf("%v", partitions),
+	})
+
+	l.Debug("Assigning partitions...")
+	err := q.Consumer.Assign(partitions)
+	if err != nil {
+		l.WithError(err).Error("Failed to assign partitions.")
+		return err
+	}
+	l.Info("Partitions assigned.")
+	return nil
+}
+
+func (q *KafkaConsumer) unassignPartitions() error {
+	l := q.Logger.WithFields(logrus.Fields{
+		"method": "unassignPartitions",
+	})
+
+	l.Debug("Unassigning partitions...")
+	err := q.Consumer.Unassign()
+	if err != nil {
+		l.WithError(err).Error("Failed to unassign partitions.")
+		return err
+	}
+	l.Info("Partitions unassigned.")
+	return nil
+}
+
+func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, value []byte) {
+	l := q.Logger.WithFields(logrus.Fields{
+		"method": "receiveMessage",
+	})
+
+	l.Debug("Processing received message...")
+
+	q.messagesReceived++
+	if q.messagesReceived%1000 == 0 {
+		l.Infof("messages from kafka: %d", q.messagesReceived)
+	}
+	l.Debugf("message on %s:\n%s\n", topicPartition, string(value))
+	if q.pendingMessagesWG != nil {
+		q.pendingMessagesWG.Add(1)
+	}
+	q.msgChan <- value
+
+	l.Debug("Received message processed.")
+}
+
+func (q *KafkaConsumer) handlePartitionEOF(ev kafka.Event) {
+	l := q.Logger.WithFields(logrus.Fields{
+		"method": "handlePartitionEOF",
+	})
+
+	l.Debugf("Reached partition EOF: %v\n", ev)
 }
 
 //Cleanup closes kafka consumer connection
