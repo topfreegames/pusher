@@ -86,6 +86,7 @@ cat test.txt | kafka-console-producer --topic com.games.test --broker-list local
 - [x] Do we need concurrency control e.g. max buffer for inflight messages, I think so, https://github.com/google/go-gcm/blob/master/gcm.go#L373 ?
 - [x] Auto recovery when connection to kafka is lost (I think it already does, we only need to check for how much time it will try to recover)
 - [ ] Fix TODOs
+- [ ] Improve code coverage and make sure unit tests don't have external dependencies
 - [ ] Verify string concats specially when building queries (SQL injection susceptible)
 - [ ] README with dev and deployment instructions
 - [ ] Apple JWT tokens instead of certificates https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html#//apple_ref/doc/uid/TP40008194-CH8-SW1
