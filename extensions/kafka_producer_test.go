@@ -23,6 +23,7 @@
 package extensions
 
 import (
+	"github.com/Sirupsen/logrus"
 	"github.com/Sirupsen/logrus/hooks/test"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	. "github.com/onsi/ginkgo"
@@ -33,6 +34,7 @@ import (
 var _ = Describe("KafkaProducer Extension", func() {
 	var mockProducer *mocks.KafkaProducerClientMock
 	logger, hook := test.NewNullLogger()
+	logger.Level = logrus.DebugLevel
 
 	BeforeEach(func() {
 		mockProducer = mocks.NewKafkaProducerClientMock()
@@ -62,8 +64,9 @@ var _ = Describe("KafkaProducer Extension", func() {
 						Error:     nil,
 					},
 				}
-				//time.Sleep(time.Millisecond * 100)
-				//Expect(hook.LastEntry().Message).To(ContainSubstring("ignored kafka response"))
+				Eventually(func() string {
+					return hook.LastEntry().Message
+				}).Should(ContainSubstring("delivered feedback to topic ttopic"))
 			})
 		})
 	})
