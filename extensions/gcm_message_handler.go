@@ -177,6 +177,12 @@ func (g *GCMMessageHandler) sendToFeedbackReporters(res *gcm.CCSMessage) error {
 }
 
 func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
+	defer func() {
+		if g.pendingMessagesWG != nil {
+			g.pendingMessagesWG.Done()
+		}
+	}()
+
 	l := g.Logger.WithFields(log.Fields{
 		"method":     "handleGCMResponse",
 		"ccsMessage": cm,
@@ -244,10 +250,6 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	}
 
 	g.statsReporterHandleNotificationSuccess()
-
-	if g.pendingMessagesWG != nil {
-		g.pendingMessagesWG.Done()
-	}
 
 	return nil
 }

@@ -233,6 +233,12 @@ func (a *APNSMessageHandler) sendToFeedbackReporters(res *push.Response) error {
 }
 
 func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
+	defer func() {
+		if a.pendingMessagesWG != nil {
+			a.pendingMessagesWG.Done()
+		}
+	}()
+
 	l := a.Logger.WithFields(log.Fields{
 		"method": "handleAPNSResponse",
 		"res":    res,
