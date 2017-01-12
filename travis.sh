@@ -32,5 +32,3 @@ fi
 )
 
 cd $BUILD_PATH
-sleep 3
-make test

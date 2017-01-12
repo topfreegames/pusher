@@ -20,9 +20,14 @@ cache:
   directories:
     - $HOME/.cache/librdkafka
 
-before_script: make setup-ci
+before_install:
+  - sudo ./travis.sh
 
-script: sudo ./travis.sh
+install:
+  - make setup-ci
+
+script:
+  - make test
 
 after_success:
   - ./push_to_docker.sh
