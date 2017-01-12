@@ -36,7 +36,3 @@ push:
     maxRetries: 3
     database: push
     connectionTimeout: 100
-statsreporter:
-  host: "localhost:8125"
-  prefix: "push"
-  flushintervalms: 5000
