@@ -14,6 +14,7 @@ queue:
   handleAllMessagesBeforeExiting: true
 feedback:
   reporters:
+    - kafka
 stats:
   reporters:
     - statsd

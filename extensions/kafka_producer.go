@@ -60,7 +60,6 @@ func (q *KafkaProducer) loadConfigurationDefaults() {
 }
 
 func (q *KafkaProducer) configure(producer interfaces.KafkaProducerClient) error {
-	q.Logger.Debug("configuring kafka producer")
 	q.Config = util.NewViperWithConfigFile(q.ConfigFile)
 	q.loadConfigurationDefaults()
 	q.Brokers = q.Config.GetString("feedbackQueue.brokers")
@@ -68,11 +67,12 @@ func (q *KafkaProducer) configure(producer interfaces.KafkaProducerClient) error
 	c := &kafka.ConfigMap{
 		"bootstrap.servers": q.Brokers,
 	}
-
 	l := q.Logger.WithFields(log.Fields{
-		"brokers": q.Brokers,
-		"topics":  q.Topic,
+		"brokers":    q.Brokers,
+		"configFile": q.ConfigFile,
+		"topic":      q.Topic,
 	})
+	l.Debug("configuring kafka producer")
 
 	if producer == nil {
 		p, err := kafka.NewProducer(c)
@@ -85,7 +85,7 @@ func (q *KafkaProducer) configure(producer interfaces.KafkaProducerClient) error
 		q.Producer = producer
 	}
 	go q.listenForKafkaResponses()
-	q.Logger.Info("kafka producer initialized")
+	l.Info("kafka producer initialized")
 	return nil
 }
 

@@ -14,6 +14,7 @@ queue:
   handleAllMessagesBeforeExiting: true
 feedback:
   reporters:
+    - kafka
 stats:
   reporters:
     - statsd
@@ -33,3 +34,8 @@ push:
     poolSize: 20
     maxRetries: 3
     database: push
+    connectionTimeout: 500
+statsreporter:
+  host: "localhost:8125"
+  prefix: "push"
+  flushintervalms: 5000

@@ -94,19 +94,6 @@ func NewAPNSMessageHandler(
 	return a, nil
 }
 
-func (a *APNSMessageHandler) sendToFeedbackReporters(res *push.Response) error {
-	jres, err := json.Marshal(res)
-	if err != nil {
-		return err
-	}
-	if a.feedbackReporters != nil {
-		for _, feedbackReporter := range a.feedbackReporters {
-			feedbackReporter.SendFeedback(jres)
-		}
-	}
-	return nil
-}
-
 func (a *APNSMessageHandler) loadConfigurationDefaults() {
 	a.Config.SetDefault("apns.concurrentWorkers", 10)
 }
@@ -232,6 +219,19 @@ func (a *APNSMessageHandler) handleTokenError(token string) {
 	}
 }
 
+func (a *APNSMessageHandler) sendToFeedbackReporters(res *push.Response) error {
+	jres, err := json.Marshal(res)
+	if err != nil {
+		return err
+	}
+	if a.feedbackReporters != nil {
+		for _, feedbackReporter := range a.feedbackReporters {
+			feedbackReporter.SendFeedback(jres)
+		}
+	}
+	return nil
+}
+
 func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	l := a.Logger.WithFields(log.Fields{
 		"method": "handleAPNSResponse",
@@ -245,6 +245,11 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	}
 	apnsResMutex.Unlock()
 	var err error
+	err = a.sendToFeedbackReporters(&res)
+
+	if err != nil {
+		l.Errorf("error sending feedback to reporter: %v", err)
+	}
 	if res.Err != nil {
 		pushError, ok := res.Err.(*push.Error)
 		if !ok {
