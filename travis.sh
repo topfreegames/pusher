@@ -17,12 +17,13 @@ fi
 (
     cd $LIBRDKAFKA_PATH
     git remote update
-    if [ "`git status -uno | grep --color=no \"Your branch is up-to-date\"`" == "" ]; then
+    UPTODATE=`git status -uno | grep "Your branch is up-to-date"`
+    if [ "$UPTODATE" == "" ]; then
 	(
-	git reset --hard
-	git pull
-	./configure
-	make
+	    git reset --hard
+	    git pull
+	    ./configure
+	    make
 	)
     fi
     sudo make install
