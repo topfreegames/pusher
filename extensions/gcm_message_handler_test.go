@@ -353,7 +353,8 @@ var _ = Describe("GCM Message Handler", func() {
 
 		Describe("Creating new handler", func() {
 			It("should fail when real client", func() {
-				handler, err := NewGCMMessageHandler(
+				var err error
+				handler, err = NewGCMMessageHandler(
 					configFile,
 					senderID,
 					apiKey,

@@ -170,14 +170,14 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 		case ev := <-q.Consumer.Events():
 			switch e := ev.(type) {
 			case kafka.AssignedPartitions:
-				err := q.assignPartitions(e.Partitions)
+				err = q.assignPartitions(e.Partitions)
 				//TODO: Should we exit the loop if this fails?
 				if err != nil {
 					q.StopConsuming()
 					return err
 				}
 			case kafka.RevokedPartitions:
-				err := q.unassignPartitions()
+				err = q.unassignPartitions()
 				//TODO: Should we exit the loop if this fails?
 				if err != nil {
 					q.StopConsuming()
