@@ -22,7 +22,7 @@ cache:
 
 before_script: make setup-ci
 
-script: ./travis.sh
+script: sudo ./travis.sh
 
 after_success:
   - ./push_to_docker.sh
