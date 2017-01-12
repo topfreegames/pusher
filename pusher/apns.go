@@ -48,6 +48,7 @@ type APNSPusher struct {
 	Queue             interfaces.Queue
 	run               bool
 	StatsReporters    []interfaces.StatsReporter
+	feedbackReporters []interfaces.FeedbackReporter
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
@@ -69,14 +70,15 @@ func NewAPNSPusher(configFile, certificatePath, appName string, isProduction boo
 }
 
 func (a *APNSPusher) loadConfigurationDefaults() {
-	a.Config.SetDefault("stats.reporters", []string{"statsd"})
 }
 
 func (a *APNSPusher) configure() error {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
-	err := a.configureStatsReporters()
-	if err != nil {
+	if err := a.configureStatsReporters(); err != nil {
+		return err
+	}
+	if err := a.configureFeedbackReporters(); err != nil {
 		return err
 	}
 	a.Queue = extensions.NewKafkaConsumer(a.ConfigFile, a.Logger)
@@ -86,12 +88,22 @@ func (a *APNSPusher) configure() error {
 		a.Logger,
 		a.Queue.PendingMessagesWaitGroup(),
 		a.StatsReporters,
+		a.feedbackReporters,
 		nil,
 	)
 	if err != nil {
 		return err
 	}
 	a.MessageHandler = handler
+	return nil
+}
+
+func (a *APNSPusher) configureFeedbackReporters() error {
+	reporters, err := configureFeedbackReporters(a.ConfigFile, a.Logger, a.Config)
+	if err != nil {
+		return err
+	}
+	a.feedbackReporters = reporters
 	return nil
 }
 

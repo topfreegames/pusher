@@ -30,7 +30,7 @@ import (
 
 	cert "github.com/RobotsAndPencils/buford/certificate"
 	"github.com/RobotsAndPencils/buford/push"
-	"github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/certificate"
 	"github.com/topfreegames/pusher/errors"
@@ -48,7 +48,7 @@ type APNSMessageHandler struct {
 	Config            *viper.Viper
 	ConfigFile        string
 	IsProduction      bool
-	Logger            *logrus.Logger
+	Logger            *log.Logger
 	PushDB            *PGClient
 	PushQueue         *push.Queue
 	responsesReceived int64
@@ -57,6 +57,7 @@ type APNSMessageHandler struct {
 	Topic             string
 	pendingMessagesWG *sync.WaitGroup
 	StatsReporters    []interfaces.StatsReporter
+	feedbackReporters []interfaces.FeedbackReporter
 }
 
 // Notification is the notification base struct
@@ -69,9 +70,10 @@ type Notification struct {
 func NewAPNSMessageHandler(
 	configFile, certificatePath, appName string,
 	isProduction bool,
-	logger *logrus.Logger,
+	logger *log.Logger,
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
+	feedbackReporters []interfaces.FeedbackReporter,
 	db interfaces.DB,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
@@ -84,12 +86,25 @@ func NewAPNSMessageHandler(
 		sentMessages:      0,
 		pendingMessagesWG: pendingMessagesWG,
 		StatsReporters:    statsReporters,
+		feedbackReporters: feedbackReporters,
 	}
-	err := a.configure(db)
-	if err != nil {
+	if err := a.configure(db); err != nil {
 		return nil, err
 	}
 	return a, nil
+}
+
+func (a *APNSMessageHandler) sendToFeedbackReporters(res *push.Response) error {
+	jres, err := json.Marshal(res)
+	if err != nil {
+		return err
+	}
+	if a.feedbackReporters != nil {
+		for _, feedbackReporter := range a.feedbackReporters {
+			feedbackReporter.SendFeedback(jres)
+		}
+	}
+	return nil
 }
 
 func (a *APNSMessageHandler) loadConfigurationDefaults() {
@@ -203,7 +218,7 @@ func (a *APNSMessageHandler) HandleMessages(msgChan *chan []byte) {
 }
 
 func (a *APNSMessageHandler) handleTokenError(token string) {
-	l := a.Logger.WithFields(logrus.Fields{
+	l := a.Logger.WithFields(log.Fields{
 		"method": "handleTokenError",
 		"token":  token,
 	})
@@ -218,7 +233,7 @@ func (a *APNSMessageHandler) handleTokenError(token string) {
 }
 
 func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
-	l := a.Logger.WithFields(logrus.Fields{
+	l := a.Logger.WithFields(log.Fields{
 		"method": "handleAPNSResponse",
 		"res":    res,
 	})
@@ -233,9 +248,9 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	if res.Err != nil {
 		pushError, ok := res.Err.(*push.Error)
 		if !ok {
-			l.WithFields(logrus.Fields{
-				"category":      "UnexpectedError",
-				logrus.ErrorKey: res.Err,
+			l.WithFields(log.Fields{
+				"category":   "UnexpectedError",
+				log.ErrorKey: res.Err,
 			}).Error("received an error")
 			return res.Err
 		}
@@ -246,30 +261,30 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 		err = pErr
 		switch reason {
 		case push.ErrMissingDeviceToken, push.ErrBadDeviceToken:
-			l.WithFields(logrus.Fields{
-				"category":      "TokenError",
-				logrus.ErrorKey: res.Err,
+			l.WithFields(log.Fields{
+				"category":   "TokenError",
+				log.ErrorKey: res.Err,
 			}).Debug("received an error")
 			a.handleTokenError(res.DeviceToken)
 		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
-			l.WithFields(logrus.Fields{
-				"category":      "CertificateError",
-				logrus.ErrorKey: res.Err,
+			l.WithFields(log.Fields{
+				"category":   "CertificateError",
+				log.ErrorKey: res.Err,
 			}).Debug("received an error")
 		case push.ErrMissingTopic, push.ErrTopicDisallowed, push.ErrDeviceTokenNotForTopic:
-			l.WithFields(logrus.Fields{
-				"category":      "TopicError",
-				logrus.ErrorKey: res.Err,
+			l.WithFields(log.Fields{
+				"category":   "TopicError",
+				log.ErrorKey: res.Err,
 			}).Debug("received an error")
 		case push.ErrIdleTimeout, push.ErrShutdown, push.ErrInternalServerError, push.ErrServiceUnavailable:
-			l.WithFields(logrus.Fields{
-				"category":      "AppleError",
-				logrus.ErrorKey: res.Err,
+			l.WithFields(log.Fields{
+				"category":   "AppleError",
+				log.ErrorKey: res.Err,
 			}).Debug("received an error")
 		default:
-			l.WithFields(logrus.Fields{
-				"category":      "DefaultError",
-				logrus.ErrorKey: res.Err,
+			l.WithFields(log.Fields{
+				"category":   "DefaultError",
+				log.ErrorKey: res.Err,
 			}).Debug("received an error")
 		}
 		return err

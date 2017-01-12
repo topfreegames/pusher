@@ -26,6 +26,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -34,18 +35,22 @@ type KafkaProducer struct {
 	Brokers    string
 	ConfigFile string
 	Config     *viper.Viper
-	Producer   *kafka.Producer
+	Producer   interfaces.KafkaProducerClient
 	Logger     *log.Logger
 	Topic      string
 }
 
 // NewKafkaProducer for creating a new KafkaProducer instance
-func NewKafkaProducer(configFile string, logger *log.Logger) (*KafkaProducer, error) {
+func NewKafkaProducer(configFile string, logger *log.Logger, clientOrNil ...interfaces.KafkaProducerClient) (*KafkaProducer, error) {
 	q := &KafkaProducer{
 		ConfigFile: configFile,
 		Logger:     logger,
 	}
-	err := q.configure()
+	var producer interfaces.KafkaProducerClient
+	if len(clientOrNil) == 1 {
+		producer = clientOrNil[0]
+	}
+	err := q.configure(producer)
 	return q, err
 }
 
@@ -54,7 +59,7 @@ func (q *KafkaProducer) loadConfigurationDefaults() {
 	q.Config.SetDefault("feedbackQueue.brokers", "localhost:9941")
 }
 
-func (q *KafkaProducer) configure() error {
+func (q *KafkaProducer) configure(producer interfaces.KafkaProducerClient) error {
 	q.Logger.Debug("configuring kafka producer")
 	q.Config = util.NewViperWithConfigFile(q.ConfigFile)
 	q.loadConfigurationDefaults()
@@ -63,11 +68,25 @@ func (q *KafkaProducer) configure() error {
 	c := &kafka.ConfigMap{
 		"bootstrap.servers": q.Brokers,
 	}
-	p, err := kafka.NewProducer(c)
-	q.Producer = p
+
+	l := q.Logger.WithFields(log.Fields{
+		"brokers": q.Brokers,
+		"topics":  q.Topic,
+	})
+
+	if producer == nil {
+		p, err := kafka.NewProducer(c)
+		q.Producer = p
+		if err != nil {
+			l.WithError(err).Error("error configuring kafka producer client")
+			return err
+		}
+	} else {
+		q.Producer = producer
+	}
 	go q.listenForKafkaResponses()
 	q.Logger.Info("kafka producer initialized")
-	return err
+	return nil
 }
 
 func (q *KafkaProducer) listenForKafkaResponses() {

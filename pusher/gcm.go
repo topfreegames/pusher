@@ -36,17 +36,18 @@ import (
 
 // GCMPusher struct for GCM pusher
 type GCMPusher struct {
-	apiKey         string
-	AppName        string
-	Config         *viper.Viper
-	ConfigFile     string
-	IsProduction   bool
-	Logger         *logrus.Logger
-	MessageHandler interfaces.MessageHandler
-	Queue          interfaces.Queue
-	run            bool
-	senderID       string
-	StatsReporters []interfaces.StatsReporter
+	apiKey            string
+	AppName           string
+	Config            *viper.Viper
+	ConfigFile        string
+	IsProduction      bool
+	Logger            *logrus.Logger
+	MessageHandler    interfaces.MessageHandler
+	Queue             interfaces.Queue
+	run               bool
+	senderID          string
+	StatsReporters    []interfaces.StatsReporter
+	feedbackReporters []interfaces.FeedbackReporter
 }
 
 // NewGCMPusher for getting a new GCMPusher instance
@@ -75,13 +76,17 @@ func NewGCMPusher(
 }
 
 func (g *GCMPusher) loadConfigurationDefaults() {
-	g.Config.SetDefault("stats.reporters", []string{"statsd"})
 }
 
 func (g *GCMPusher) configure(client interfaces.GCMClient) error {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
-	g.configureStatsReporters()
+	if err := g.configureStatsReporters(); err != nil {
+		return err
+	}
+	if err := g.configureFeedbackReporters(); err != nil {
+		return err
+	}
 	g.Queue = extensions.NewKafkaConsumer(g.ConfigFile, g.Logger)
 	handler, err := extensions.NewGCMMessageHandler(
 		g.ConfigFile,
@@ -92,6 +97,7 @@ func (g *GCMPusher) configure(client interfaces.GCMClient) error {
 		g.Logger,
 		g.Queue.PendingMessagesWaitGroup(),
 		g.StatsReporters,
+		g.feedbackReporters,
 		client,
 	)
 	if err != nil {
@@ -107,6 +113,15 @@ func (g *GCMPusher) configureStatsReporters() error {
 		return err
 	}
 	g.StatsReporters = reporters
+	return nil
+}
+
+func (g *GCMPusher) configureFeedbackReporters() error {
+	reporters, err := configureFeedbackReporters(g.ConfigFile, g.Logger, g.Config)
+	if err != nil {
+		return err
+	}
+	g.feedbackReporters = reporters
 	return nil
 }
 

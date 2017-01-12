@@ -56,6 +56,7 @@ type GCMMessageHandler struct {
 	PingTimeout       int
 	pendingMessagesWG *sync.WaitGroup
 	StatsReporters    []interfaces.StatsReporter
+	feedbackReporters []interfaces.FeedbackReporter
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
@@ -65,6 +66,7 @@ func NewGCMMessageHandler(
 	logger *log.Logger,
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
+	feedbackReporters []interfaces.FeedbackReporter,
 	client interfaces.GCMClient,
 ) (*GCMMessageHandler, error) {
 	l := logger.WithFields(log.Fields{
@@ -87,6 +89,7 @@ func NewGCMMessageHandler(
 		sentMessages:      0,
 		pendingMessagesWG: pendingMessagesWG,
 		StatsReporters:    statsReporters,
+		feedbackReporters: feedbackReporters,
 	}
 	err := g.configure(client)
 	if err != nil {
@@ -94,6 +97,19 @@ func NewGCMMessageHandler(
 		return nil, err
 	}
 	return g, nil
+}
+
+func (g *GCMMessageHandler) sendToFeedbackReporters(res *gcm.CCSMessage) error {
+	jres, err := json.Marshal(res)
+	if err != nil {
+		return err
+	}
+	if g.feedbackReporters != nil {
+		for _, feedbackReporter := range g.feedbackReporters {
+			feedbackReporter.SendFeedback(jres)
+		}
+	}
+	return nil
 }
 
 func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
@@ -108,8 +124,12 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 		l.Infof("received responses: %d", g.responsesReceived)
 	}
 	gcmResMutex.Unlock()
-	var err error
 
+	var err error
+	err = g.sendToFeedbackReporters(&cm)
+	if err != nil {
+		l.Errorf("error sending feedback to reporter: %v", err)
+	}
 	if cm.Error != "" {
 		pErr := errors.NewPushError(strings.ToLower(cm.Error), cm.ErrorDescription)
 		g.statsReporterHandleNotificationFailure(pErr)

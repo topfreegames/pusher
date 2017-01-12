@@ -44,7 +44,6 @@ type KafkaConsumer struct {
 	OffsetResetStrategy string
 	run                 bool
 	SessionTimeout      int
-	Topic               string
 	Topics              []string
 	pendingMessagesWG   *sync.WaitGroup
 	//TODO document that if this bool is set to true, one should call Done() in

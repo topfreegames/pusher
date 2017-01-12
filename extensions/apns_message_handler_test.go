@@ -38,7 +38,9 @@ import (
 
 var _ = Describe("APNS Message Handler", func() {
 	var mockStatsDClient *mocks.StatsDClientMock
+	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var statsClients []interfaces.StatsReporter
+	var feedbackClients []interfaces.FeedbackReporter
 	var db interfaces.DB
 	var handler *APNSMessageHandler
 
@@ -52,10 +54,14 @@ var _ = Describe("APNS Message Handler", func() {
 	Describe("[Unit]", func() {
 		BeforeEach(func() {
 			mockStatsDClient = mocks.NewStatsDClientMock()
+			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			c, err := NewStatsD(configFile, logger, appName, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
+			kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+
 			statsClients = []interfaces.StatsReporter{c}
+			feedbackClients = []interfaces.FeedbackReporter{kc}
 
 			db = mocks.NewPGMock(0, 1)
 			handler, err = NewAPNSMessageHandler(
@@ -64,6 +70,7 @@ var _ = Describe("APNS Message Handler", func() {
 				logger,
 				nil,
 				statsClients,
+				feedbackClients,
 				db,
 			)
 			Expect(err).NotTo(HaveOccurred())

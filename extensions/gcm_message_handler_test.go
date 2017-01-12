@@ -41,8 +41,10 @@ import (
 
 var _ = Describe("GCM Message Handler", func() {
 	var mockClient *mocks.GCMClientMock
+	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var handler *GCMMessageHandler
 	var mockStatsDClient *mocks.StatsDClientMock
+	var feedbackClients []interfaces.FeedbackReporter
 	var statsClients []interfaces.StatsReporter
 
 	configFile := "../config/test.yaml"
@@ -57,16 +59,26 @@ var _ = Describe("GCM Message Handler", func() {
 		var err error
 
 		mockStatsDClient = mocks.NewStatsDClientMock()
+		mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 		c, err := NewStatsD(configFile, logger, appName, mockStatsDClient)
 		Expect(err).NotTo(HaveOccurred())
 
+		kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
 		statsClients = []interfaces.StatsReporter{c}
+		feedbackClients = []interfaces.FeedbackReporter{kc}
 
 		mockClient = mocks.NewGCMClientMock()
 		handler, err = NewGCMMessageHandler(
-			configFile, senderID, apiKey, appName,
-			isProduction, logger,
-			nil, statsClients, mockClient,
+			configFile,
+			senderID,
+			apiKey,
+			appName,
+			isProduction,
+			logger,
+			nil,
+			statsClients,
+			feedbackClients,
+			mockClient,
 		)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -75,7 +87,17 @@ var _ = Describe("GCM Message Handler", func() {
 
 	Describe("Creating new handler", func() {
 		It("should fail when real client", func() {
-			handler, err := NewGCMMessageHandler(configFile, senderID, apiKey, appName, isProduction, logger, nil, statsClients, nil)
+			handler, err := NewGCMMessageHandler(
+				configFile,
+				senderID,
+				apiKey,
+				appName,
+				isProduction,
+				logger,
+				nil,
+				statsClients,
+				feedbackClients,
+				nil)
 			Expect(handler).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("error connecting gcm xmpp client: auth failure: not-authorized"))

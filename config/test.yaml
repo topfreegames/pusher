@@ -12,6 +12,13 @@ queue:
   sessionTimeout: 6000
   offsetResetStrategy: latest
   handleAllMessagesBeforeExiting: true
+feedback:
+  reporters:
+stats:
+  reporters:
+feedbackQueue:
+  topics: "com.games.teste.feedbacks"
+  brokers: "localhost:9941"
 push:
   db:
     host: localhost
