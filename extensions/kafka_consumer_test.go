@@ -312,7 +312,9 @@ var _ = Describe("Kafka Extension", func() {
 				defer client.StopConsuming()
 				go client.ConsumeLoop()
 
-				time.Sleep(10 * time.Second)
+				Eventually(func() []*logrus.Entry {
+					return hook.Entries
+				}, 10*time.Second).Should(ContainLogMessage("reached EOF at com.games.teste[0]@0(Broker: No more messages)"))
 				p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": client.Brokers})
 				Expect(err).NotTo(HaveOccurred())
 				err = p.Produce(

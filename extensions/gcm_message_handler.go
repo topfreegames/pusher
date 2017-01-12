@@ -38,26 +38,39 @@ import (
 
 var gcmResMutex sync.Mutex
 
+// KafkaGCMMessage is a enriched XMPPMessage with a Metadata field
+type KafkaGCMMessage struct {
+	gcm.XMPPMessage
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// CCSMessageWithMetadata is a enriched CCSMessage with a metadata field
+type CCSMessageWithMetadata struct {
+	gcm.CCSMessage
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
 // GCMMessageHandler implements the messagehandler interface
 type GCMMessageHandler struct {
-	apiKey            string
-	appName           string
-	Config            *viper.Viper
-	ConfigFile        string
-	feedbackReporters []interfaces.FeedbackReporter
-	GCMClient         interfaces.GCMClient
-	IsProduction      bool
-	Logger            *log.Logger
-	pendingMessages   chan bool
-	pendingMessagesWG *sync.WaitGroup
-	PingInterval      int
-	PingTimeout       int
-	PushDB            *PGClient
-	responsesReceived int64
-	run               bool
-	senderID          string
-	sentMessages      int64
-	StatsReporters    []interfaces.StatsReporter
+	apiKey                   string
+	appName                  string
+	Config                   *viper.Viper
+	ConfigFile               string
+	feedbackReporters        []interfaces.FeedbackReporter
+	GCMClient                interfaces.GCMClient
+	InflightMessagesMetadata map[string]interface{}
+	IsProduction             bool
+	Logger                   *log.Logger
+	pendingMessages          chan bool
+	pendingMessagesWG        *sync.WaitGroup
+	PingInterval             int
+	PingTimeout              int
+	PushDB                   *PGClient
+	responsesReceived        int64
+	run                      bool
+	senderID                 string
+	sentMessages             int64
+	StatsReporters           []interfaces.StatsReporter
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
@@ -81,17 +94,18 @@ func NewGCMMessageHandler(
 	})
 
 	g := &GCMMessageHandler{
-		apiKey:            apiKey,
-		appName:           appName,
-		ConfigFile:        configFile,
-		IsProduction:      isProduction,
-		Logger:            logger,
-		responsesReceived: 0,
-		senderID:          senderID,
-		sentMessages:      0,
-		pendingMessagesWG: pendingMessagesWG,
-		StatsReporters:    statsReporters,
-		feedbackReporters: feedbackReporters,
+		apiKey:                   apiKey,
+		appName:                  appName,
+		ConfigFile:               configFile,
+		InflightMessagesMetadata: map[string]interface{}{},
+		IsProduction:             isProduction,
+		Logger:                   logger,
+		responsesReceived:        0,
+		senderID:                 senderID,
+		sentMessages:             0,
+		pendingMessagesWG:        pendingMessagesWG,
+		StatsReporters:           statsReporters,
+		feedbackReporters:        feedbackReporters,
 	}
 	err := g.configure(client, db)
 	if err != nil {
@@ -163,7 +177,7 @@ func (g *GCMMessageHandler) configureGCMClient() error {
 	return nil
 }
 
-func (g *GCMMessageHandler) sendToFeedbackReporters(res *gcm.CCSMessage) error {
+func (g *GCMMessageHandler) sendToFeedbackReporters(res *CCSMessageWithMetadata) error {
 	jres, err := json.Marshal(res)
 	if err != nil {
 		return err
@@ -204,7 +218,14 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	gcmResMutex.Unlock()
 
 	var err error
-	err = g.sendToFeedbackReporters(&cm)
+	ccsMessageWithMetadata := &CCSMessageWithMetadata{
+		CCSMessage: cm,
+	}
+	if val, ok := g.InflightMessagesMetadata[cm.MessageID]; ok {
+		ccsMessageWithMetadata.Metadata = val.(map[string]interface{})
+	}
+	err = g.sendToFeedbackReporters(ccsMessageWithMetadata)
+	delete(g.InflightMessagesMetadata, cm.MessageID)
 	if err != nil {
 		l.Errorf("error sending feedback to reporter: %v", err)
 	}
@@ -274,28 +295,30 @@ func (g *GCMMessageHandler) handleTokenError(token string) error {
 func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	g.pendingMessages <- true
 	l := g.Logger.WithField("method", "sendMessage")
-	ttl := uint(0)
-	m := gcm.XMPPMessage{
-		TimeToLive:               &ttl,
-		DelayWhileIdle:           false,
-		DeliveryReceiptRequested: false,
-		DryRun: true,
-	}
-	err := json.Unmarshal(message, &m)
+	//ttl := uint(0)
+	km := KafkaGCMMessage{}
+	err := json.Unmarshal(message, &km)
 	if err != nil {
 		<-g.pendingMessages
 		l.WithError(err).Error("Error unmarshaling message.")
 		return err
 	}
-	l.WithField("message", m).Debug("sending message to gcm")
+	l.WithField("message", km).Debug("sending message to gcm")
 	var messageID string
 	var bytes int
-	messageID, bytes, err = g.GCMClient.SendXMPP(m)
+
+	messageID, bytes, err = g.GCMClient.SendXMPP(km.XMPPMessage)
 
 	if err != nil {
 		<-g.pendingMessages
 		l.WithError(err).Error("Error sending message.")
 		return err
+	}
+
+	if messageID != "" {
+		if km.Metadata != nil && len(km.Metadata) > 0 {
+			g.InflightMessagesMetadata[messageID] = km.Metadata
+		}
 	}
 
 	g.statsReporterHandleNotificationSent()
