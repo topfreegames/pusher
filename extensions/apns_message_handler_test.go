@@ -62,6 +62,7 @@ var _ = Describe("APNS Message Handler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+			Expect(err).NotTo(HaveOccurred())
 
 			statsClients = []interfaces.StatsReporter{c}
 			feedbackClients = []interfaces.FeedbackReporter{kc}

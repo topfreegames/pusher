@@ -69,6 +69,7 @@ var _ = Describe("GCM Message Handler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+			Expect(err).NotTo(HaveOccurred())
 			statsClients = []interfaces.StatsReporter{c}
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
@@ -333,6 +334,7 @@ var _ = Describe("GCM Message Handler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			kc, err := NewKafkaProducer(configFile, logger)
+			Expect(err).NotTo(HaveOccurred())
 			statsClients = []interfaces.StatsReporter{c}
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 

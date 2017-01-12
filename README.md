@@ -84,7 +84,7 @@ cat test.txt | kafka-console-producer --topic com.games.test --broker-list local
 - [ ] Send feedbacks to another kafka queue including metadata
 - [ ] Support metadata in incoming messages and include them in the feedback sent to the other queue
 - [x] Do we need concurrency control e.g. max buffer for inflight messages, I think so, https://github.com/google/go-gcm/blob/master/gcm.go#L373 ?
-- [ ] Auto recovery when connection to kafka is lost (I think it already does, we only need to check for how much time it will try to recover)
+- [x] Auto recovery when connection to kafka is lost (I think it already does, we only need to check for how much time it will try to recover)
 - [ ] Fix TODOs
 - [ ] Verify string concats specially when building queries (SQL injection susceptible)
 - [ ] README with dev and deployment instructions
