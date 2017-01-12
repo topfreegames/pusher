@@ -2,6 +2,7 @@
 
 set -xe
 
+BUILD_PATH=`pwd`
 LIBRDKAFKA_PATH=$HOME/.cache/librdkafka/$LIBRDKAFKA_VERSION
 
 mkdir -p $HOME/.cache/librdkafka
@@ -30,5 +31,6 @@ fi
     ldconfig
 )
 
+cd $BUILD_PATH
 sleep 3
 make test
