@@ -36,6 +36,11 @@ type MockEvent struct {
 	Message *kafka.Message
 }
 
+//String returns string
+func (m *MockEvent) String() string {
+	return string(m.Message.Value)
+}
+
 // NewKafkaProducerClientMock creates a new instance
 func NewKafkaProducerClientMock() *KafkaProducerClientMock {
 	k := &KafkaProducerClientMock{

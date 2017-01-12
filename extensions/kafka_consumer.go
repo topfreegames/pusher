@@ -52,7 +52,11 @@ type KafkaConsumer struct {
 }
 
 // NewKafkaConsumer for creating a new KafkaConsumer instance
-func NewKafkaConsumer(config *viper.Viper, logger *logrus.Logger, clientOrNil ...interfaces.KafkaConsumerClient) *KafkaConsumer {
+func NewKafkaConsumer(
+	config *viper.Viper,
+	logger *logrus.Logger,
+	clientOrNil ...interfaces.KafkaConsumerClient,
+) (*KafkaConsumer, error) {
 	q := &KafkaConsumer{
 		Config:            config,
 		Logger:            logger,
@@ -64,20 +68,23 @@ func NewKafkaConsumer(config *viper.Viper, logger *logrus.Logger, clientOrNil ..
 	if len(clientOrNil) == 1 {
 		client = clientOrNil[0]
 	}
-	q.configure(client)
-	return q
+	err := q.configure(client)
+	if err != nil {
+		return nil, err
+	}
+	return q, nil
 }
 
 func (q *KafkaConsumer) loadConfigurationDefaults() {
-	q.Config.SetDefault("queue.topics", []string{"com.games.teste"})
+	q.Config.SetDefault("queue.topics", []string{"com.games.test"})
 	q.Config.SetDefault("queue.brokers", "localhost:9092")
-	q.Config.SetDefault("queue.group", "teste")
+	q.Config.SetDefault("queue.group", "test")
 	q.Config.SetDefault("queue.sessionTimeout", 6000)
 	q.Config.SetDefault("queue.offsetResetStrategy", "latest")
 	q.Config.SetDefault("queue.handleAllMessagesBeforeExiting", true)
 }
 
-func (q *KafkaConsumer) configure(client interfaces.KafkaConsumerClient) {
+func (q *KafkaConsumer) configure(client interfaces.KafkaConsumerClient) error {
 	q.OffsetResetStrategy = q.Config.GetString("queue.offsetResetStrategy")
 	q.Brokers = q.Config.GetString("queue.brokers")
 	q.ConsumerGroup = q.Config.GetString("queue.group")
@@ -90,10 +97,14 @@ func (q *KafkaConsumer) configure(client interfaces.KafkaConsumerClient) {
 		q.pendingMessagesWG = &wg
 	}
 
-	q.configureConsumer(client)
+	err := q.configureConsumer(client)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient) {
+func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient) error {
 	//TODO auto commit needs to be false
 	l := q.Logger.WithFields(logrus.Fields{
 		"method":                          "configureConsumer",
@@ -125,13 +136,15 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 			},
 		})
 		if err != nil {
-			l.WithError(err).Panic("error configuring kafka queue")
+			l.WithError(err).Error("error configuring kafka queue")
+			return err
 		}
 		q.Consumer = c
 	} else {
 		q.Consumer = client
 	}
 	l.Info("kafka queue configured")
+	return nil
 }
 
 // PendingMessagesWaitGroup returns the waitGroup that is incremented every time a push is consumed
@@ -188,14 +201,13 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 			case kafka.PartitionEOF:
 				q.handlePartitionEOF(ev)
 			case kafka.OffsetsCommitted:
-				l.Debugf("%v\n", e)
+				q.handleOffsetsCommitted(ev)
 			case kafka.Error:
-				l.Errorf("error: %v\n", e)
-				//TODO ver isso
+				q.handleError(ev)
 				q.StopConsuming()
-				return err
+				return e
 			default:
-				l.Warnf("ev not recognized: %v\n", e)
+				q.handleUnrecognized(e)
 			}
 		}
 	}
@@ -256,10 +268,36 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 
 func (q *KafkaConsumer) handlePartitionEOF(ev kafka.Event) {
 	l := q.Logger.WithFields(logrus.Fields{
-		"method": "handlePartitionEOF",
+		"method":    "handlePartitionEOF",
+		"partition": fmt.Sprintf("%v", ev),
 	})
 
-	l.Debugf("Reached partition EOF: %v\n", ev)
+	l.Debugf("Reached partition EOF.")
+}
+
+func (q *KafkaConsumer) handleOffsetsCommitted(ev kafka.Event) {
+	l := q.Logger.WithFields(logrus.Fields{
+		"method":    "handleOffsetsCommitted",
+		"partition": fmt.Sprintf("%v", ev),
+	})
+
+	l.Debugf("Offsets committed successfully.")
+}
+
+func (q *KafkaConsumer) handleError(ev kafka.Event) {
+	l := q.Logger.WithFields(logrus.Fields{
+		"method": "handleError",
+	})
+	err := ev.(error)
+	l.WithError(err).Error("Error in Kafka connection.")
+}
+
+func (q *KafkaConsumer) handleUnrecognized(ev kafka.Event) {
+	l := q.Logger.WithFields(logrus.Fields{
+		"method": "handleUnrecognized",
+		"event":  fmt.Sprintf("%v", ev),
+	})
+	l.Warn("Kafka event not recognized.")
 }
 
 //Cleanup closes kafka consumer connection

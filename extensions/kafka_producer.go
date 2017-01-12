@@ -55,7 +55,7 @@ func NewKafkaProducer(configFile string, logger *log.Logger, clientOrNil ...inte
 }
 
 func (q *KafkaProducer) loadConfigurationDefaults() {
-	q.Config.SetDefault("feedbackQueue.topic", "com.games.teste.feedbacks")
+	q.Config.SetDefault("feedbackQueue.topic", "com.games.test.feedbacks")
 	q.Config.SetDefault("feedbackQueue.brokers", "localhost:9941")
 }
 

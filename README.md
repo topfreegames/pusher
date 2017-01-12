@@ -68,7 +68,7 @@ If you want to actually send the pushes you need to set `dry_run: false` (defaul
 
 #### Send pushes using the fake data:
 
-cat test.txt | kafka-console-producer --topic com.games.teste --broker-list localhost:9941
+cat test.txt | kafka-console-producer --topic com.games.test --broker-list localhost:9941
 
 
 ### TODO

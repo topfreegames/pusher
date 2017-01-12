@@ -60,7 +60,7 @@ func NewStatsD(configFile string, logger *logrus.Logger, appName string, clientO
 
 func (s *StatsD) loadConfigurationDefaults() {
 	s.Config.SetDefault("stats.statsd.host", "localhost:8125")
-	s.Config.SetDefault("stats.statsd.prefix", "teste")
+	s.Config.SetDefault("stats.statsd.prefix", "test")
 	s.Config.SetDefault("stats.statsd.flushIntervalMs", 5000)
 }
 

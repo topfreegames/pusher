@@ -7,7 +7,7 @@ gcm:
   maxPendingMessages: 3
 queue:
   topics:
-    - "com.games.teste"
+    - "com.games.test"
   brokers: "localhost:9941"
   group: testGroup
   sessionTimeout: 6000
@@ -24,7 +24,7 @@ stats:
     prefix: "push"
     flushIntervalMs: 5000
 feedbackQueue:
-  topics: "com.games.teste.feedbacks"
+  topics: "com.games.test.feedbacks"
   brokers: "localhost:9941"
 push:
   db:
