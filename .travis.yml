@@ -21,7 +21,7 @@ cache:
     - $HOME/.cache/librdkafka
 
 before_install:
-  - sudo ./travis.sh
+  - sudo /bin/bash ./travis.sh
 
 install:
   - make setup-ci
