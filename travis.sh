@@ -17,7 +17,7 @@ fi
 (
     cd $LIBRDKAFKA_PATH
     git remote update
-    UPTODATE=`git status -uno | grep "Your branch is up-to-date"`
+    UPTODATE='`git status -uno | grep "Your branch is up-to-date"`'
     if [ "$UPTODATE" == "" ]; then
 	(
 	    git reset --hard
