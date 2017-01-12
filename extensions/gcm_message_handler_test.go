@@ -43,6 +43,7 @@ import (
 var _ = Describe("GCM Message Handler", func() {
 	var mockClient *mocks.GCMClientMock
 	var mockDb *mocks.PGMock
+	var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var handler *GCMMessageHandler
 	var mockStatsDClient *mocks.StatsDClientMock
@@ -63,6 +64,7 @@ var _ = Describe("GCM Message Handler", func() {
 
 			mockStatsDClient = mocks.NewStatsDClientMock()
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
+			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
 			c, err := NewStatsD(configFile, logger, appName, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -239,7 +241,7 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(len(handler.pendingMessages)).To(Equal(1))
 			})
 
-			FIt("should wait to send message if maxPendingMessages limit is reached", func() {
+			It("should wait to send message if maxPendingMessages limit is reached", func() {
 				ttl := uint(0)
 				msg := &gcm.XMPPMessage{
 					TimeToLive:               &ttl,
@@ -271,7 +273,7 @@ var _ = Describe("GCM Message Handler", func() {
 
 		Describe("Handle Messages", func() {
 			It("should start without panicking and set run to true", func() {
-				queue, err := NewKafkaConsumer(handler.Config, logger)
+				queue, err := NewKafkaConsumer(handler.Config, logger, mockKafkaConsumerClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(func() { go handler.HandleMessages(queue.MessagesChannel()) }).ShouldNot(Panic())
 				time.Sleep(time.Millisecond)

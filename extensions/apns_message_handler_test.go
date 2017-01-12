@@ -34,10 +34,12 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
+	. "github.com/topfreegames/pusher/testing"
 )
 
 var _ = Describe("APNS Message Handler", func() {
 	var mockStatsDClient *mocks.StatsDClientMock
+	var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var statsClients []interfaces.StatsReporter
 	var feedbackClients []interfaces.FeedbackReporter
@@ -55,6 +57,7 @@ var _ = Describe("APNS Message Handler", func() {
 		BeforeEach(func() {
 			mockStatsDClient = mocks.NewStatsDClientMock()
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
+			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
 			c, err := NewStatsD(configFile, logger, appName, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -177,7 +180,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Message).To(Equal("deleting token"))
+				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
 				Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 
@@ -192,7 +195,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Message).To(Equal("deleting token"))
+				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
 				Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 
@@ -352,6 +355,7 @@ var _ = Describe("APNS Message Handler", func() {
 		})
 
 		Describe("Send message", func() {
+			//TODO: Why is this so slow?
 			It("should add message to push queue and increment sentMessages", func() {
 				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
 				Eventually(handler.PushQueue.Responses, 5*time.Second).Should(Receive())
@@ -370,7 +374,7 @@ var _ = Describe("APNS Message Handler", func() {
 
 		Describe("Handle Messages", func() {
 			It("should start without panicking and set run to true", func() {
-				queue, err := NewKafkaConsumer(handler.Config, logger)
+				queue, err := NewKafkaConsumer(handler.Config, logger, mockKafkaConsumerClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(func() { go handler.HandleMessages(queue.MessagesChannel()) }).ShouldNot(Panic())
 				time.Sleep(50 * time.Millisecond)
