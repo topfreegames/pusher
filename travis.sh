@@ -16,9 +16,15 @@ if [ ! -d $LIBRDKAFKA_PATH ]; then
 fi
 (
     cd $LIBRDKAFKA_PATH
-    git fetch -a
-    git reset --hard
-    git pull
+    git remote update
+    if [ "`git status -uno | grep --color=no \"Your branch is up-to-date\"`" == "" ]; then
+	(
+	git reset --hard
+	git pull
+	./configure
+	make
+	)
+    fi
     sudo make install
     sudo ldconfig
 )
