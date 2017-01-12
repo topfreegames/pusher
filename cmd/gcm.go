@@ -59,7 +59,7 @@ var gcmCmd = &cobra.Command{
 		if len(app) == 0 {
 			l.Fatal("app must be set")
 		}
-		gcmPusher, err := pusher.NewGCMPusher(cfgFile, senderID, apiKey, app, production, log)
+		gcmPusher, err := pusher.NewGCMPusher(cfgFile, senderID, apiKey, app, production, log, nil)
 		if err != nil {
 			l.WithError(err).Fatal("Failed to start GCM Pusher.")
 		}
