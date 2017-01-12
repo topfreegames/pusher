@@ -14,12 +14,14 @@ if [ ! -d $LIBRDKAFKA_PATH ]; then
 	make
     )
 fi
-cd $LIBRDKAFKA_PATH
-git fetch -a
-git reset --hard
-git pull
-sudo make install
-sudo ldconfig
+(
+    cd $LIBRDKAFKA_PATH
+    git fetch -a
+    git reset --hard
+    git pull
+    sudo make install
+    sudo ldconfig
+)
 
 sleep 3
 make test
