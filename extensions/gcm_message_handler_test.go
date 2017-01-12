@@ -215,6 +215,7 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(handler.sentMessages).To(Equal(int64(0)))
 				Expect(hook.Entries).To(ContainLogMessage("Error unmarshaling message."))
 				Expect(mockClient.MessagesSent).To(HaveLen(0))
+				Expect(len(handler.pendingMessages)).To(Equal(0))
 			})
 
 			It("should send xmpp message", func() {
@@ -235,6 +236,36 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 				Expect(hook.LastEntry().Message).To(Equal("sent message"))
 				Expect(mockClient.MessagesSent).To(HaveLen(1))
+				Expect(len(handler.pendingMessages)).To(Equal(1))
+			})
+
+			FIt("should wait to send message if maxPendingMessages limit is reached", func() {
+				ttl := uint(0)
+				msg := &gcm.XMPPMessage{
+					TimeToLive:               &ttl,
+					DelayWhileIdle:           false,
+					DeliveryReceiptRequested: false,
+					DryRun: true,
+					To:     uuid.NewV4().String(),
+					Data:   map[string]interface{}{},
+				}
+				msgBytes, err := json.Marshal(msg)
+				Expect(err).NotTo(HaveOccurred())
+
+				for i := 1; i <= 3; i++ {
+					err = handler.sendMessage(msgBytes)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(handler.sentMessages).To(Equal(int64(i)))
+					Expect(len(handler.pendingMessages)).To(Equal(i))
+				}
+
+				go handler.sendMessage(msgBytes)
+				Consistently(handler.sentMessages).Should(Equal(int64(3)))
+				Consistently(len(handler.pendingMessages)).Should(Equal(3))
+
+				time.Sleep(100 * time.Millisecond)
+				<-handler.pendingMessages
+				Eventually(func() int64 { return handler.sentMessages }).Should(Equal(int64(4)))
 			})
 		})
 

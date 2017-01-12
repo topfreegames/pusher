@@ -150,7 +150,8 @@ func (g *GCMPusher) Start() {
 			g.run = false
 		}
 	}
-	//TODO stop queue and message handler before exiting
+	// TODO: should we gracefuly close gcm client as well? func (c *gcmXMPP) Close(graceful bool)
+	// TODO stop queue and message handler before exiting
 	g.Queue.StopConsuming()
 	l.Info("pusher is waiting for all inflight messages to receive feedback before exiting...")
 	if g.Queue.PendingMessagesWaitGroup() != nil {

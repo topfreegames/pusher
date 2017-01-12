@@ -44,19 +44,20 @@ type GCMMessageHandler struct {
 	appName           string
 	Config            *viper.Viper
 	ConfigFile        string
+	feedbackReporters []interfaces.FeedbackReporter
+	GCMClient         interfaces.GCMClient
 	IsProduction      bool
 	Logger            *log.Logger
+	pendingMessages   chan bool
+	pendingMessagesWG *sync.WaitGroup
+	PingInterval      int
+	PingTimeout       int
 	PushDB            *PGClient
 	responsesReceived int64
 	run               bool
 	senderID          string
 	sentMessages      int64
-	GCMClient         interfaces.GCMClient
-	PingInterval      int
-	PingTimeout       int
-	pendingMessagesWG *sync.WaitGroup
 	StatsReporters    []interfaces.StatsReporter
-	feedbackReporters []interfaces.FeedbackReporter
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
@@ -103,6 +104,7 @@ func NewGCMMessageHandler(
 func (g *GCMMessageHandler) configure(client interfaces.GCMClient, db interfaces.DB) error {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
+	g.pendingMessages = make(chan bool, g.Config.GetInt("gcm.maxPendingMessages"))
 	err := g.configurePushDatabase(db)
 	if err != nil {
 		return err
@@ -120,8 +122,9 @@ func (g *GCMMessageHandler) configure(client interfaces.GCMClient, db interfaces
 }
 
 func (g *GCMMessageHandler) loadConfigurationDefaults() {
-	viper.SetDefault("gcm.pingInterval", 20)
-	viper.SetDefault("gcm.pingTimeout", 30)
+	g.Config.SetDefault("gcm.pingInterval", 20)
+	g.Config.SetDefault("gcm.pingTimeout", 30)
+	g.Config.SetDefault("gcm.maxPendingMessages", 100)
 }
 
 func (g *GCMMessageHandler) configurePushDatabase(db interfaces.DB) error {
@@ -139,9 +142,8 @@ func (g *GCMMessageHandler) configureGCMClient() error {
 	l := g.Logger.WithFields(log.Fields{
 		"method": "configureGCMClient",
 	})
-
-	g.PingInterval = viper.GetInt("gcm.pingInterval")
-	g.PingTimeout = viper.GetInt("gcm.pingTimeout")
+	g.PingInterval = g.Config.GetInt("gcm.pingInterval")
+	g.PingTimeout = g.Config.GetInt("gcm.pingTimeout")
 	gcmConfig := &gcm.Config{
 		SenderID:          g.senderID,
 		APIKey:            g.apiKey,
@@ -181,6 +183,14 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	})
 	l.Debug("Got response from gcm.")
 	gcmResMutex.Lock()
+
+	select {
+	case <-g.pendingMessages:
+		l.Debug("Freeing pendingMessages channel")
+	default:
+		l.Warn("No pending messages in channel but received response.")
+	}
+
 	g.responsesReceived++
 	if g.responsesReceived%1000 == 0 {
 		l.Infof("received responses: %d", g.responsesReceived)
@@ -260,6 +270,7 @@ func (g *GCMMessageHandler) handleTokenError(token string) error {
 }
 
 func (g *GCMMessageHandler) sendMessage(message []byte) error {
+	g.pendingMessages <- true
 	l := g.Logger.WithField("method", "sendMessage")
 	ttl := uint(0)
 	m := gcm.XMPPMessage{
@@ -270,6 +281,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	}
 	err := json.Unmarshal(message, &m)
 	if err != nil {
+		<-g.pendingMessages
 		l.WithError(err).Error("Error unmarshaling message.")
 		return err
 	}
@@ -279,6 +291,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	messageID, bytes, err = g.GCMClient.SendXMPP(m)
 
 	if err != nil {
+		<-g.pendingMessages
 		l.WithError(err).Error("Error sending message.")
 		return err
 	}

@@ -4,6 +4,7 @@ apns:
 gcm:
   pingInterval: 30
   pingTimeout: 10
+  maxPendingMessages: 3
 queue:
   topics:
     - "com.games.teste"
