@@ -54,6 +54,7 @@ type GCMPusher struct {
 func NewGCMPusher(
 	configFile, senderID, apiKey, appName string,
 	isProduction bool, logger *logrus.Logger,
+	db interfaces.DB,
 	clientOrNil ...interfaces.GCMClient,
 ) (*GCMPusher, error) {
 	g := &GCMPusher{
@@ -68,7 +69,7 @@ func NewGCMPusher(
 	if len(clientOrNil) > 0 {
 		client = clientOrNil[0]
 	}
-	err := g.configure(client)
+	err := g.configure(client, db)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +79,7 @@ func NewGCMPusher(
 func (g *GCMPusher) loadConfigurationDefaults() {
 }
 
-func (g *GCMPusher) configure(client interfaces.GCMClient) error {
+func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB) error {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
 	if err := g.configureStatsReporters(); err != nil {
@@ -99,6 +100,7 @@ func (g *GCMPusher) configure(client interfaces.GCMClient) error {
 		g.StatsReporters,
 		g.feedbackReporters,
 		client,
+		db,
 	)
 	if err != nil {
 		return err

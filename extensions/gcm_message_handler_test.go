@@ -37,10 +37,12 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
+	. "github.com/topfreegames/pusher/testing"
 )
 
 var _ = Describe("GCM Message Handler", func() {
 	var mockClient *mocks.GCMClientMock
+	var mockDb *mocks.PGMock
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var handler *GCMMessageHandler
 	var mockStatsDClient *mocks.StatsDClientMock
@@ -67,6 +69,8 @@ var _ = Describe("GCM Message Handler", func() {
 		statsClients = []interfaces.StatsReporter{c}
 		feedbackClients = []interfaces.FeedbackReporter{kc}
 
+		mockDb = mocks.NewPGMock(0, 1)
+
 		mockClient = mocks.NewGCMClientMock()
 		handler, err = NewGCMMessageHandler(
 			configFile,
@@ -79,6 +83,7 @@ var _ = Describe("GCM Message Handler", func() {
 			statsClients,
 			feedbackClients,
 			mockClient,
+			mockDb,
 		)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -97,7 +102,9 @@ var _ = Describe("GCM Message Handler", func() {
 				nil,
 				statsClients,
 				feedbackClients,
-				nil)
+				nil,
+				nil,
+			)
 			Expect(handler).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("error connecting gcm xmpp client: auth failure: not-authorized"))
@@ -157,7 +164,7 @@ var _ = Describe("GCM Message Handler", func() {
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Message).To(Equal("Deleting token..."))
+			Expect(hook.Entries).To(ContainLogMessage("Deleting token..."))
 			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
@@ -167,7 +174,7 @@ var _ = Describe("GCM Message Handler", func() {
 			}
 			handler.handleGCMResponse(res)
 			Expect(handler.responsesReceived).To(Equal(int64(1)))
-			Expect(hook.LastEntry().Message).To(Equal("Deleting token..."))
+			Expect(hook.Entries).To(ContainLogMessage("Deleting token..."))
 			Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 		})
 
@@ -231,8 +238,7 @@ var _ = Describe("GCM Message Handler", func() {
 			err := handler.sendMessage([]byte("gogogo"))
 			Expect(err).To(HaveOccurred())
 			Expect(handler.sentMessages).To(Equal(int64(0)))
-			Expect(hook.LastEntry()).NotTo(BeNil())
-			Expect(hook.LastEntry().Message).To(ContainSubstring("Error unmarshaling message."))
+			Expect(hook.Entries).To(ContainLogMessage("Error unmarshaling message."))
 			Expect(mockClient.MessagesSent).To(HaveLen(0))
 		})
 

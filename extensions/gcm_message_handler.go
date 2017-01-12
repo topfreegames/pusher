@@ -68,6 +68,7 @@ func NewGCMMessageHandler(
 	statsReporters []interfaces.StatsReporter,
 	feedbackReporters []interfaces.FeedbackReporter,
 	client interfaces.GCMClient,
+	db interfaces.DB,
 ) (*GCMMessageHandler, error) {
 	l := logger.WithFields(log.Fields{
 		"method":       "NewGCMMessageHandler",
@@ -91,12 +92,73 @@ func NewGCMMessageHandler(
 		StatsReporters:    statsReporters,
 		feedbackReporters: feedbackReporters,
 	}
-	err := g.configure(client)
+	err := g.configure(client, db)
 	if err != nil {
 		l.Error("Failed to create a new GCM Message handler.")
 		return nil, err
 	}
 	return g, nil
+}
+
+func (g *GCMMessageHandler) configure(client interfaces.GCMClient, db interfaces.DB) error {
+	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
+	g.loadConfigurationDefaults()
+	err := g.configurePushDatabase(db)
+	if err != nil {
+		return err
+	}
+	if client != nil {
+		err = nil
+		g.GCMClient = client
+	} else {
+		err = g.configureGCMClient()
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (g *GCMMessageHandler) loadConfigurationDefaults() {
+	viper.SetDefault("gcm.pingInterval", 20)
+	viper.SetDefault("gcm.pingTimeout", 30)
+}
+
+func (g *GCMMessageHandler) configurePushDatabase(db interfaces.DB) error {
+	l := g.Logger.WithField("method", "configurePushDatabase")
+	var err error
+	g.PushDB, err = NewPGClient("push.db", g.Config, db)
+	if err != nil {
+		l.WithError(err).Error("Failed to configure push database.")
+		return err
+	}
+	return nil
+}
+
+func (g *GCMMessageHandler) configureGCMClient() error {
+	l := g.Logger.WithFields(log.Fields{
+		"method": "configureGCMClient",
+	})
+
+	g.PingInterval = viper.GetInt("gcm.pingInterval")
+	g.PingTimeout = viper.GetInt("gcm.pingTimeout")
+	gcmConfig := &gcm.Config{
+		SenderID:          g.senderID,
+		APIKey:            g.apiKey,
+		Sandbox:           !g.IsProduction,
+		MonitorConnection: true,
+		Debug:             false,
+		PingInterval:      g.PingInterval,
+		PingTimeout:       g.PingTimeout,
+	}
+	var err error
+	cl, err := gcm.NewClient(gcmConfig, g.handleGCMResponse)
+	if err != nil {
+		l.Error("Failed to create gcm client.")
+		return err
+	}
+	g.GCMClient = cl
+	return nil
 }
 
 func (g *GCMMessageHandler) sendToFeedbackReporters(res *gcm.CCSMessage) error {
@@ -192,67 +254,6 @@ func (g *GCMMessageHandler) handleTokenError(token string) error {
 	_, err := g.PushDB.DB.Exec(query, token)
 	if err != nil && err.Error() != "pg: no rows in result set" {
 		l.WithError(err).Error("error deleting token")
-		return err
-	}
-	return nil
-}
-
-func (g *GCMMessageHandler) loadConfigurationDefaults() {
-	viper.SetDefault("gcm.pingInterval", 20)
-	viper.SetDefault("gcm.pingTimeout", 30)
-}
-
-func (g *GCMMessageHandler) configure(client interfaces.GCMClient) error {
-	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
-	g.loadConfigurationDefaults()
-	err := g.configurePushDatabase()
-	if err != nil {
-		return err
-	}
-	if client != nil {
-		err = nil
-		g.GCMClient = client
-	} else {
-		err = g.configureGCMClient()
-	}
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (g *GCMMessageHandler) configureGCMClient() error {
-	l := g.Logger.WithFields(log.Fields{
-		"method": "configureGCMClient",
-	})
-
-	g.PingInterval = viper.GetInt("gcm.pingInterval")
-	g.PingTimeout = viper.GetInt("gcm.pingTimeout")
-	gcmConfig := &gcm.Config{
-		SenderID:          g.senderID,
-		APIKey:            g.apiKey,
-		Sandbox:           !g.IsProduction,
-		MonitorConnection: true,
-		Debug:             false,
-		PingInterval:      g.PingInterval,
-		PingTimeout:       g.PingTimeout,
-	}
-	var err error
-	cl, err := gcm.NewClient(gcmConfig, g.handleGCMResponse)
-	if err != nil {
-		l.Error("Failed to create gcm client.")
-		return err
-	}
-	g.GCMClient = cl
-	return nil
-}
-
-func (g *GCMMessageHandler) configurePushDatabase() error {
-	l := g.Logger.WithField("method", "configurePushDatabase")
-	var err error
-	g.PushDB, err = NewPGClient("push.db", g.Config)
-	if err != nil {
-		l.WithError(err).Error("Failed to configure push database.")
 		return err
 	}
 	return nil

@@ -47,7 +47,7 @@ var _ = Describe("GCM Pusher", func() {
 	Describe("Creating new gcm pusher", func() {
 		It("should return configured pusher", func() {
 			client := mocks.NewGCMClientMock()
-			pusher, err := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger, client)
+			pusher, err := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger, nil, client)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pusher).NotTo(BeNil())
 			Expect(pusher.apiKey).To(Equal(apiKey))
@@ -67,7 +67,7 @@ var _ = Describe("GCM Pusher", func() {
 	Describe("Start gcm pusher", func() {
 		It("should launch go routines and run forever", func() {
 			client := mocks.NewGCMClientMock()
-			pusher, err := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger, client)
+			pusher, err := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger, nil, client)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pusher).NotTo(BeNil())
 			defer func() { pusher.run = false }()
