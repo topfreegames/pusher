@@ -82,8 +82,8 @@ cat test.txt | kafka-console-producer --topic com.games.test --broker-list local
 - [x] Define kafka offset commit strategy (auto? Manual? One by one? In batches?)
 - [x] Grab from kafka in batches? (I think it already does that)
 - [x] Logging and stats
-- [ ] Send feedbacks to another kafka queue including metadata
-- [ ] Support metadata in incoming messages and include them in the feedback sent to the other queue
+- [x] Send feedbacks to another kafka queue including metadata
+- [x] Support metadata in incoming messages and include them in the feedback sent to the other queue
 - [x] Do we need concurrency control e.g. max buffer for inflight messages, I think so, https://github.com/google/go-gcm/blob/master/gcm.go#L373 ?
 - [x] Auto recovery when connection to kafka is lost (I think it already does, we only need to check for how much time it will try to recover)
 - [ ] Fix TODOs

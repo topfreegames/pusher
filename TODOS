@@ -1,0 +1,17 @@
+README.md:75:### TODO
+README.md:89:- [ ] Fix TODOs
+extensions/apns_message_handler.go:220:	// TODO: should we really delete the token? or move them to another table?
+extensions/apns_message_handler.go:221:	// TODO: before deleting send deleted token info to another queue/db
+extensions/apns_message_handler_test.go:361:			//TODO: Why is this so slow?
+extensions/gcm_message_handler.go:283:	// TODO: before deleting send deleted token info to another queue/db
+extensions/gcm_message_handler.go:284:	// TODO: if the above is not that specific move this to an util so it can be reused in apns
+extensions/kafka_consumer.go:49:	//TODO document that if this bool is set to true, one should call Done() in
+extensions/kafka_consumer.go:108:	//TODO auto commit needs to be false
+extensions/kafka_consumer.go:187:				//TODO: Should we exit the loop if this fails?
+extensions/kafka_consumer.go:194:				//TODO: Should we exit the loop if this fails?
+pusher/apns.go:145:	//TODO stop queue and message handler before exiting
+pusher/apns.go:146:	//TODO maybe put a timeout here
+pusher/apns_test.go:95:				// TODO test signals
+pusher/gcm.go:157:	// TODO: should we gracefuly close gcm client as well? func (c *gcmXMPP) Close(graceful bool)
+pusher/gcm.go:158:	// TODO stop queue and message handler before exiting
+pusher/gcm_test.go:77:			// TODO test signals
