@@ -39,18 +39,19 @@ import (
 
 // APNSPusher struct for apns pusher
 type APNSPusher struct {
-	AppName           string
-	CertificatePath   string
-	Config            *viper.Viper
-	ConfigFile        string
-	IsProduction      bool
-	Logger            *logrus.Logger
-	MessageHandler    interfaces.MessageHandler
-	PendingMessagesWG *sync.WaitGroup
-	Queue             interfaces.Queue
-	run               bool
-	StatsReporters    []interfaces.StatsReporter
-	feedbackReporters []interfaces.FeedbackReporter
+	AppName                 string
+	CertificatePath         string
+	Config                  *viper.Viper
+	ConfigFile              string
+	GracefulShutdownTimeout int
+	IsProduction            bool
+	Logger                  *logrus.Logger
+	MessageHandler          interfaces.MessageHandler
+	PendingMessagesWG       *sync.WaitGroup
+	Queue                   interfaces.Queue
+	run                     bool
+	StatsReporters          []interfaces.StatsReporter
+	feedbackReporters       []interfaces.FeedbackReporter
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
@@ -72,11 +73,13 @@ func NewAPNSPusher(configFile, certificatePath, appName string, isProduction boo
 }
 
 func (a *APNSPusher) loadConfigurationDefaults() {
+	a.Config.SetDefault("gracefullShutdownTimeout", 10)
 }
 
 func (a *APNSPusher) configure() error {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
+	a.GracefulShutdownTimeout = a.Config.GetInt("gracefullShutdownTimeout")
 	if err := a.configureStatsReporters(); err != nil {
 		return err
 	}
@@ -136,7 +139,7 @@ func (a *APNSPusher) Start() {
 	go a.Queue.ConsumeLoop()
 	go a.reportGoStats()
 	sigchan := make(chan os.Signal)
-	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	for a.run == true {
 		select {
@@ -145,12 +148,10 @@ func (a *APNSPusher) Start() {
 			a.run = false
 		}
 	}
-	//TODO stop queue and message handler before exiting
-	//TODO maybe put a timeout here
 	a.Queue.StopConsuming()
 	l.Info("pusher is waiting for all inflight messages to receive feedback before exiting...")
 	if a.Queue.PendingMessagesWaitGroup() != nil {
-		a.Queue.PendingMessagesWaitGroup().Wait()
+		WaitTimeout(a.Queue.PendingMessagesWaitGroup(), time.Duration(a.GracefulShutdownTimeout)*time.Second)
 	}
 }
 

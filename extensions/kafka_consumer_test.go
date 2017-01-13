@@ -127,7 +127,7 @@ var _ = Describe("Kafka Extension", func() {
 				Eventually(kafkaConsumerClientMock.AssignedPartitions, 5).Should(ContainElement(part))
 			})
 
-			It("should stop loop if fails to assign partition", func() {
+			It("should log error if fails to assign partition", func() {
 				topic := consumer.Config.GetStringSlice("queue.topics")[0]
 				startConsuming()
 				defer consumer.StopConsuming()
@@ -145,7 +145,7 @@ var _ = Describe("Kafka Extension", func() {
 
 				kafkaConsumerClientMock.Error = fmt.Errorf("Failed to assign partition")
 				publishEvent(event)
-				Eventually(consumer.run, 5).Should(BeFalse())
+				Expect(hook.Entries).To(ContainLogMessage("error assigning partitions"))
 			})
 
 			It("should revoke partitions", func() {
@@ -178,7 +178,7 @@ var _ = Describe("Kafka Extension", func() {
 				kafkaConsumerClientMock.Error = fmt.Errorf("Failed to unassign partition")
 				event := kafka.RevokedPartitions{}
 				publishEvent(event)
-				Eventually(consumer.run, 5).Should(BeFalse())
+				Expect(hook.Entries).To(ContainLogMessage("error revoking partitions"))
 			})
 
 			It("should receive message", func() {

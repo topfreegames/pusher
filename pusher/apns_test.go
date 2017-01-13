@@ -91,11 +91,6 @@ var _ = Describe("APNS Pusher", func() {
 				defer func() { pusher.run = false }()
 				go pusher.Start()
 				time.Sleep(50 * time.Millisecond)
-				Expect(pusher.run).To(BeTrue())
-				// TODO test signals
-				// Sending SIGTERM makes the test abort
-				// syscall.Kill(os.Getpid(), syscall.SIGTERM)
-				// Expect(pusher.run).To(BeFalse())
 			})
 		})
 	})

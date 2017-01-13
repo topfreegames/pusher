@@ -280,8 +280,6 @@ func (g *GCMMessageHandler) handleTokenError(token string) error {
 		"method": "handleTokenError",
 		"token":  token,
 	})
-	// TODO: before deleting send deleted token info to another queue/db
-	// TODO: if the above is not that specific move this to an util so it can be reused in apns
 	l.Debug("Deleting token...")
 	query := fmt.Sprintf("DELETE FROM %s_gcm WHERE token = ?0;", g.appName)
 	_, err := g.PushDB.DB.Exec(query, token)

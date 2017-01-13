@@ -1,4 +1,5 @@
 ---
+gracefullShutdownTimeout: 10
 apns:
   concurrentWorkers: 100
 gcm:

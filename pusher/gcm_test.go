@@ -29,10 +29,20 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/topfreegames/pusher/extensions"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 )
 
 var _ = Describe("GCM Pusher", func() {
+	var mockClient *mocks.GCMClientMock
+	var mockDb *mocks.PGMock
+	var db interfaces.DB
+	var mockStatsDClient *mocks.StatsDClientMock
+	var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
+	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
+	var statsClients []interfaces.StatsReporter
+	var feedbackClients []interfaces.FeedbackReporter
+
 	configFile := "../config/test.yaml"
 	senderID := "sender-id"
 	apiKey := "api-key"
@@ -41,43 +51,91 @@ var _ = Describe("GCM Pusher", func() {
 	logger, hook := test.NewNullLogger()
 
 	BeforeEach(func() {
+		mockStatsDClient = mocks.NewStatsDClientMock()
+		mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
+		mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
+		mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
+		c, err := extensions.NewStatsD(configFile, logger, appName, mockStatsDClient)
+		Expect(err).NotTo(HaveOccurred())
+
+		kc, err := extensions.NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+		Expect(err).NotTo(HaveOccurred())
+
+		statsClients = []interfaces.StatsReporter{c}
+		feedbackClients = []interfaces.FeedbackReporter{kc}
+
+		db = mocks.NewPGMock(0, 1)
+
+		db.(*mocks.PGMock).RowsReturned = 0
+
 		hook.Reset()
+
 	})
 
-	Describe("Creating new gcm pusher", func() {
-		It("should return configured pusher", func() {
-			client := mocks.NewGCMClientMock()
-			pusher, err := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger, nil, client)
+	Describe("[Unit]", func() {
+
+		BeforeEach(func() {
+			var err error
+
+			mockStatsDClient = mocks.NewStatsDClientMock()
+			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
+			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
+			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
+			c, err := extensions.NewStatsD(configFile, logger, appName, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(pusher).NotTo(BeNil())
-			Expect(pusher.apiKey).To(Equal(apiKey))
-			Expect(pusher.AppName).To(Equal(appName))
-			Expect(pusher.Config).NotTo(BeNil())
-			Expect(pusher.ConfigFile).To(Equal(configFile))
-			Expect(pusher.IsProduction).To(Equal(isProduction))
-			Expect(pusher.MessageHandler).NotTo(BeNil())
-			Expect(pusher.Queue).NotTo(BeNil())
-			Expect(pusher.run).To(BeFalse())
-			Expect(pusher.senderID).To(Equal(senderID))
-			Expect(pusher.StatsReporters).To(HaveLen(1))
-			Expect(pusher.MessageHandler.(*extensions.GCMMessageHandler).StatsReporters).To(HaveLen(1))
+
+			kc, err := extensions.NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+			Expect(err).NotTo(HaveOccurred())
+			statsClients = []interfaces.StatsReporter{c}
+			feedbackClients = []interfaces.FeedbackReporter{kc}
+
+			mockDb = mocks.NewPGMock(0, 1)
+
+			mockClient = mocks.NewGCMClientMock()
+			Expect(err).NotTo(HaveOccurred())
+
+			hook.Reset()
 		})
-	})
 
-	Describe("Start gcm pusher", func() {
-		It("should launch go routines and run forever", func() {
-			client := mocks.NewGCMClientMock()
-			pusher, err := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger, nil, client)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(pusher).NotTo(BeNil())
-			defer func() { pusher.run = false }()
-			go pusher.Start()
-			time.Sleep(50 * time.Millisecond)
-			Expect(pusher.run).To(BeTrue())
-			// TODO test signals
-			// Sending SIGTERM makes the test abort
-			// syscall.Kill(os.Getpid(), syscall.SIGTERM)
-			// Expect(pusher.run).To(BeFalse())
+		Describe("Creating new gcm pusher", func() {
+			It("should return configured pusher", func() {
+				client := mocks.NewGCMClientMock()
+				pusher, err := NewGCMPusher(configFile, senderID, apiKey, appName, isProduction, logger, mockDb, client)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pusher).NotTo(BeNil())
+				Expect(pusher.apiKey).To(Equal(apiKey))
+				Expect(pusher.AppName).To(Equal(appName))
+				Expect(pusher.Config).NotTo(BeNil())
+				Expect(pusher.ConfigFile).To(Equal(configFile))
+				Expect(pusher.IsProduction).To(Equal(isProduction))
+				Expect(pusher.MessageHandler).NotTo(BeNil())
+				Expect(pusher.Queue).NotTo(BeNil())
+				Expect(pusher.run).To(BeFalse())
+				Expect(pusher.senderID).To(Equal(senderID))
+				Expect(pusher.StatsReporters).To(HaveLen(1))
+				Expect(pusher.MessageHandler.(*extensions.GCMMessageHandler).StatsReporters).To(HaveLen(1))
+			})
+		})
+
+		Describe("Start gcm pusher", func() {
+			It("should launch go routines and run forever", func() {
+				client := mocks.NewGCMClientMock()
+				pusher, err := NewGCMPusher(
+					configFile,
+					senderID,
+					apiKey,
+					appName,
+					isProduction,
+					logger,
+					mockDb,
+					client,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pusher).NotTo(BeNil())
+				defer func() { pusher.run = false }()
+				go pusher.Start()
+				time.Sleep(50 * time.Millisecond)
+			})
 		})
 	})
 })

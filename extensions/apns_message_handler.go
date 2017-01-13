@@ -217,8 +217,6 @@ func (a *APNSMessageHandler) handleTokenError(token string) {
 		"method": "handleTokenError",
 		"token":  token,
 	})
-	// TODO: should we really delete the token? or move them to another table?
-	// TODO: before deleting send deleted token info to another queue/db
 	l.Debug("deleting token")
 	query := fmt.Sprintf("DELETE FROM %s_apns WHERE token = '%s';", a.appName, token)
 	_, err := a.PushDB.DB.Exec(query)

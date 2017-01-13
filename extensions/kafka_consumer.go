@@ -34,20 +34,18 @@ import (
 
 // KafkaConsumer for getting push requests
 type KafkaConsumer struct {
-	Brokers             string
-	Config              *viper.Viper
-	Consumer            interfaces.KafkaConsumerClient
-	ConsumerGroup       string
-	Logger              *logrus.Logger
-	messagesReceived    int64
-	msgChan             chan []byte
-	OffsetResetStrategy string
-	run                 bool
-	SessionTimeout      int
-	Topics              []string
-	pendingMessagesWG   *sync.WaitGroup
-	//TODO document that if this bool is set to true, one should call Done() in
-	// q.PendingMessagesWG for each message that was consumed from the queue
+	Brokers                        string
+	Config                         *viper.Viper
+	Consumer                       interfaces.KafkaConsumerClient
+	ConsumerGroup                  string
+	Logger                         *logrus.Logger
+	messagesReceived               int64
+	msgChan                        chan []byte
+	OffsetResetStrategy            string
+	run                            bool
+	SessionTimeout                 int
+	Topics                         []string
+	pendingMessagesWG              *sync.WaitGroup
 	HandleAllMessagesBeforeExiting bool
 }
 
@@ -105,7 +103,6 @@ func (q *KafkaConsumer) configure(client interfaces.KafkaConsumerClient) error {
 }
 
 func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient) error {
-	//TODO auto commit needs to be false
 	l := q.Logger.WithFields(logrus.Fields{
 		"method":                          "configureConsumer",
 		"bootstrap.servers":               q.Brokers,
@@ -184,17 +181,13 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 			switch e := ev.(type) {
 			case kafka.AssignedPartitions:
 				err = q.assignPartitions(e.Partitions)
-				//TODO: Should we exit the loop if this fails?
 				if err != nil {
-					q.StopConsuming()
-					return err
+					l.WithError(err).Error("error assigning partitions")
 				}
 			case kafka.RevokedPartitions:
 				err = q.unassignPartitions()
-				//TODO: Should we exit the loop if this fails?
 				if err != nil {
-					q.StopConsuming()
-					return err
+					l.WithError(err).Error("error revoking partitions")
 				}
 			case *kafka.Message:
 				q.receiveMessage(e.TopicPartition, e.Value)

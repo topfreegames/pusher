@@ -38,24 +38,29 @@ import (
 
 // GCMPusher struct for GCM pusher
 type GCMPusher struct {
-	apiKey            string
-	AppName           string
-	Config            *viper.Viper
-	ConfigFile        string
-	IsProduction      bool
-	Logger            *logrus.Logger
-	MessageHandler    interfaces.MessageHandler
-	Queue             interfaces.Queue
-	run               bool
-	senderID          string
-	StatsReporters    []interfaces.StatsReporter
-	feedbackReporters []interfaces.FeedbackReporter
+	apiKey                  string
+	AppName                 string
+	Config                  *viper.Viper
+	ConfigFile              string
+	GracefulShutdownTimeout int
+	IsProduction            bool
+	Logger                  *logrus.Logger
+	MessageHandler          interfaces.MessageHandler
+	Queue                   interfaces.Queue
+	run                     bool
+	senderID                string
+	StatsReporters          []interfaces.StatsReporter
+	feedbackReporters       []interfaces.FeedbackReporter
 }
 
 // NewGCMPusher for getting a new GCMPusher instance
 func NewGCMPusher(
-	configFile, senderID, apiKey, appName string,
-	isProduction bool, logger *logrus.Logger,
+	configFile,
+	senderID,
+	apiKey,
+	appName string,
+	isProduction bool,
+	logger *logrus.Logger,
 	db interfaces.DB,
 	clientOrNil ...interfaces.GCMClient,
 ) (*GCMPusher, error) {
@@ -79,11 +84,13 @@ func NewGCMPusher(
 }
 
 func (g *GCMPusher) loadConfigurationDefaults() {
+	g.Config.SetDefault("gracefullShutdownTimeout", 10)
 }
 
 func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB) error {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
+	g.GracefulShutdownTimeout = g.Config.GetInt("gracefullShutdownTimeout")
 	if err := g.configureStatsReporters(); err != nil {
 		return err
 	}
@@ -157,12 +164,10 @@ func (g *GCMPusher) Start() {
 			g.run = false
 		}
 	}
-	// TODO: should we gracefuly close gcm client as well? func (c *gcmXMPP) Close(graceful bool)
-	// TODO stop queue and message handler before exiting
 	g.Queue.StopConsuming()
 	l.Info("pusher is waiting for all inflight messages to receive feedback before exiting...")
 	if g.Queue.PendingMessagesWaitGroup() != nil {
-		g.Queue.PendingMessagesWaitGroup().Wait()
+		WaitTimeout(g.Queue.PendingMessagesWaitGroup(), time.Duration(g.GracefulShutdownTimeout)*time.Second)
 	}
 }
 

@@ -358,7 +358,6 @@ var _ = Describe("APNS Message Handler", func() {
 		})
 
 		Describe("Send message", func() {
-			//TODO: Why is this so slow?
 			It("should add message to push queue and increment sentMessages", func() {
 				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
 				Eventually(handler.PushQueue.Responses, 5*time.Second).Should(Receive())
@@ -430,7 +429,7 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 		})
 
-		FDescribe("Feedback Reporter sent message", func() {
+		Describe("Feedback Reporter sent message", func() {
 			BeforeEach(func() {
 				mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 
