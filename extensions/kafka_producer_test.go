@@ -38,6 +38,7 @@ var _ = Describe("KafkaProducer Extension", func() {
 
 	BeforeEach(func() {
 		mockProducer = mocks.NewKafkaProducerClientMock()
+		mockProducer.StartConsumingMessagesInProduceChannel()
 		hook.Reset()
 	})
 

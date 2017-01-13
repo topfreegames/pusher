@@ -64,6 +64,7 @@ var _ = Describe("GCM Message Handler", func() {
 
 			mockStatsDClient = mocks.NewStatsDClientMock()
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
+			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
 			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
 			c, err := NewStatsD(configFile, logger, appName, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
@@ -314,6 +315,122 @@ var _ = Describe("GCM Message Handler", func() {
 
 				Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
 				Expect(mockStatsDClient.Count["device_unregistered"]).To(Equal(2))
+			})
+		})
+
+		Describe("Feedback Reporter sent message", func() {
+			BeforeEach(func() {
+				var err error
+
+				mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
+				kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+				Expect(err).NotTo(HaveOccurred())
+				feedbackClients = []interfaces.FeedbackReporter{kc}
+
+				mockClient = mocks.NewGCMClientMock()
+				handler, err = NewGCMMessageHandler(
+					configFile,
+					senderID,
+					apiKey,
+					appName,
+					isProduction,
+					logger,
+					nil,
+					statsClients,
+					feedbackClients,
+					mockClient,
+					mockDb,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+			})
+
+			It("should send feedback if success and metadata is present", func() {
+				metadata := map[string]interface{}{
+					"some": "metadata",
+				}
+				handler.InflightMessagesMetadata["idTest1"] = metadata
+				res := gcm.CCSMessage{
+					From:        "testToken1",
+					MessageID:   "idTest1",
+					MessageType: "ack",
+					Category:    "testCategory",
+				}
+				go handler.handleGCMResponse(res)
+
+				fromKafka := &CCSMessageWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.From).To(Equal(res.From))
+				Expect(fromKafka.MessageID).To(Equal(res.MessageID))
+				Expect(fromKafka.MessageType).To(Equal(res.MessageType))
+				Expect(fromKafka.Category).To(Equal(res.Category))
+				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
+			})
+
+			It("should send feedback if success and metadata is not present", func() {
+				res := gcm.CCSMessage{
+					From:        "testToken1",
+					MessageID:   "idTest1",
+					MessageType: "ack",
+					Category:    "testCategory",
+				}
+				go handler.handleGCMResponse(res)
+
+				fromKafka := &CCSMessageWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.From).To(Equal(res.From))
+				Expect(fromKafka.MessageID).To(Equal(res.MessageID))
+				Expect(fromKafka.MessageType).To(Equal(res.MessageType))
+				Expect(fromKafka.Category).To(Equal(res.Category))
+				Expect(fromKafka.Metadata).To(BeNil())
+			})
+
+			It("should send feedback if error and metadata is present", func() {
+				metadata := map[string]interface{}{
+					"some": "metadata",
+				}
+				handler.InflightMessagesMetadata["idTest1"] = metadata
+				res := gcm.CCSMessage{
+					From:        "testToken1",
+					MessageID:   "idTest1",
+					MessageType: "nack",
+					Category:    "testCategory",
+					Error:       "BAD_REGISTRATION",
+				}
+				go handler.handleGCMResponse(res)
+
+				fromKafka := &CCSMessageWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.From).To(Equal(res.From))
+				Expect(fromKafka.MessageID).To(Equal(res.MessageID))
+				Expect(fromKafka.MessageType).To(Equal(res.MessageType))
+				Expect(fromKafka.Category).To(Equal(res.Category))
+				Expect(fromKafka.Error).To(Equal(res.Error))
+				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
+			})
+
+			It("should send feedback if error and metadata is not present", func() {
+				res := gcm.CCSMessage{
+					From:        "testToken1",
+					MessageID:   "idTest1",
+					MessageType: "nack",
+					Category:    "testCategory",
+					Error:       "BAD_REGISTRATION",
+				}
+				go handler.handleGCMResponse(res)
+
+				fromKafka := &CCSMessageWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.From).To(Equal(res.From))
+				Expect(fromKafka.MessageID).To(Equal(res.MessageID))
+				Expect(fromKafka.MessageType).To(Equal(res.MessageType))
+				Expect(fromKafka.Category).To(Equal(res.Category))
+				Expect(fromKafka.Error).To(Equal(res.Error))
+				Expect(fromKafka.Metadata).To(BeNil())
 			})
 		})
 	})

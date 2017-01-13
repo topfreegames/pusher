@@ -48,11 +48,11 @@ func NewKafkaProducerClientMock() *KafkaProducerClientMock {
 		ProduceChan:  make(chan *kafka.Message),
 		SentMessages: 0,
 	}
-	k.startMocking()
 	return k
 }
 
-func (k *KafkaProducerClientMock) startMocking() {
+// StartConsumingMessagesInProduceChannel starts to consume messages in produce channel and incrementing sentMessages
+func (k *KafkaProducerClientMock) StartConsumingMessagesInProduceChannel() {
 	go func() {
 		for msg := range k.ProduceChan {
 			k.SentMessages++

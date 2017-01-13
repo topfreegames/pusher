@@ -23,6 +23,7 @@
 package extensions
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -58,6 +59,7 @@ var _ = Describe("APNS Message Handler", func() {
 			mockStatsDClient = mocks.NewStatsDClientMock()
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
+			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
 			c, err := NewStatsD(configFile, logger, appName, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -426,6 +428,106 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
 				Expect(mockStatsDClient.Count["missing-device-token"]).To(Equal(2))
 			})
+		})
+
+		FDescribe("Feedback Reporter sent message", func() {
+			BeforeEach(func() {
+				mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
+
+				kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				feedbackClients = []interfaces.FeedbackReporter{kc}
+
+				db = mocks.NewPGMock(0, 1)
+				handler, err = NewAPNSMessageHandler(
+					configFile, certificatePath, appName,
+					isProduction,
+					logger,
+					nil,
+					statsClients,
+					feedbackClients,
+					db,
+				)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should send feedback if success and metadata is present", func() {
+				metadata := map[string]interface{}{
+					"some": "metadata",
+				}
+				handler.InflightMessagesMetadata["testToken1"] = metadata
+				res := push.Response{
+					DeviceToken: "testToken1",
+					ID:          "idTest1",
+				}
+				go handler.handleAPNSResponse(res)
+
+				fromKafka := &ResponseWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.DeviceToken).To(Equal(res.DeviceToken))
+				Expect(fromKafka.ID).To(Equal(res.ID))
+				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
+			})
+
+			It("should send feedback if success and metadata is not present", func() {
+				res := push.Response{
+					DeviceToken: "testToken1",
+					ID:          "idTest1",
+				}
+				go handler.handleAPNSResponse(res)
+
+				fromKafka := &ResponseWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.DeviceToken).To(Equal(res.DeviceToken))
+				Expect(fromKafka.ID).To(Equal(res.ID))
+				Expect(fromKafka.Metadata["some"]).To(BeNil())
+			})
+
+			It("should send feedback if error and metadata is present", func() {
+				metadata := map[string]interface{}{
+					"some": "metadata",
+				}
+				handler.InflightMessagesMetadata["testToken1"] = metadata
+				res := push.Response{
+					DeviceToken: "testToken1",
+					ID:          "idTest1",
+					Err: &push.Error{
+						Reason: push.ErrBadDeviceToken,
+					},
+				}
+				go handler.handleAPNSResponse(res)
+
+				fromKafka := &ResponseWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.DeviceToken).To(Equal(res.DeviceToken))
+				Expect(fromKafka.ID).To(Equal(res.ID))
+				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
+				Expect(string(msg.Value)).To(ContainSubstring("bad device token"))
+			})
+
+			It("should send feedback if error and metadata is not present", func() {
+				res := push.Response{
+					DeviceToken: "testToken1",
+					ID:          "idTest1",
+					Err: &push.Error{
+						Reason: push.ErrBadDeviceToken,
+					},
+				}
+				go handler.handleAPNSResponse(res)
+
+				fromKafka := &ResponseWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.DeviceToken).To(Equal(res.DeviceToken))
+				Expect(fromKafka.ID).To(Equal(res.ID))
+				Expect(fromKafka.Metadata).To(BeNil())
+				Expect(string(msg.Value)).To(ContainSubstring("bad device token"))
+			})
+
 		})
 	})
 })
