@@ -42,28 +42,37 @@ var apnsResMutex sync.Mutex
 
 // APNSMessageHandler implements the messagehandler interface
 type APNSMessageHandler struct {
-	appName           string
-	certificate       tls.Certificate
-	CertificatePath   string
-	Config            *viper.Viper
-	ConfigFile        string
-	IsProduction      bool
-	Logger            *log.Logger
-	PushDB            *PGClient
-	PushQueue         *push.Queue
-	responsesReceived int64
-	run               bool
-	sentMessages      int64
-	Topic             string
-	pendingMessagesWG *sync.WaitGroup
-	StatsReporters    []interfaces.StatsReporter
-	feedbackReporters []interfaces.FeedbackReporter
+	appName                  string
+	certificate              tls.Certificate
+	CertificatePath          string
+	Config                   *viper.Viper
+	ConfigFile               string
+	feedbackReporters        []interfaces.FeedbackReporter
+	InflightMessagesMetadata map[string]interface{}
+	IsProduction             bool
+	Logger                   *log.Logger
+	pendingMessagesWG        *sync.WaitGroup
+	PushDB                   *PGClient
+	PushQueue                *push.Queue
+	responsesReceived        int64
+	run                      bool
+	sentMessages             int64
+	StatsReporters           []interfaces.StatsReporter
+	Topic                    string
 }
 
 // Notification is the notification base struct
 type Notification struct {
 	DeviceToken string
 	Payload     interface{}
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	PushExpiry  int                    `json:"push_expiry,omitempty"`
+}
+
+// ResponseWithMetadata is a enriched Response with a Metadata field
+type ResponseWithMetadata struct {
+	push.Response
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
@@ -77,16 +86,17 @@ func NewAPNSMessageHandler(
 	db interfaces.DB,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
-		appName:           appName,
-		CertificatePath:   certificatePath,
-		ConfigFile:        configFile,
-		IsProduction:      isProduction,
-		Logger:            logger,
-		responsesReceived: 0,
-		sentMessages:      0,
-		pendingMessagesWG: pendingMessagesWG,
-		StatsReporters:    statsReporters,
-		feedbackReporters: feedbackReporters,
+		appName:                  appName,
+		CertificatePath:          certificatePath,
+		ConfigFile:               configFile,
+		InflightMessagesMetadata: map[string]interface{}{},
+		IsProduction:             isProduction,
+		Logger:                   logger,
+		responsesReceived:        0,
+		sentMessages:             0,
+		pendingMessagesWG:        pendingMessagesWG,
+		StatsReporters:           statsReporters,
+		feedbackReporters:        feedbackReporters,
 	}
 	if err := a.configure(db); err != nil {
 		return nil, err
@@ -176,6 +186,7 @@ func (a *APNSMessageHandler) sendMessage(message []byte) {
 	}
 	a.statsReporterHandleNotificationSent()
 	a.PushQueue.Push(n.DeviceToken, h, payload)
+	a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
 	a.sentMessages++
 	if a.sentMessages%1000 == 0 {
 		l.Infof("sent messages: %d", a.sentMessages)
@@ -186,9 +197,6 @@ func (a *APNSMessageHandler) sendMessage(message []byte) {
 func (a *APNSMessageHandler) HandleResponses() {
 	for resp := range a.PushQueue.Responses {
 		a.handleAPNSResponse(resp)
-		if a.pendingMessagesWG != nil {
-			a.pendingMessagesWG.Done()
-		}
 	}
 }
 
@@ -219,7 +227,7 @@ func (a *APNSMessageHandler) handleTokenError(token string) {
 	}
 }
 
-func (a *APNSMessageHandler) sendToFeedbackReporters(res *push.Response) error {
+func (a *APNSMessageHandler) sendToFeedbackReporters(res *ResponseWithMetadata) error {
 	jres, err := json.Marshal(res)
 	if err != nil {
 		return err
@@ -251,7 +259,12 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	}
 	apnsResMutex.Unlock()
 	var err error
-	err = a.sendToFeedbackReporters(&res)
+	responseWithMetadata := &ResponseWithMetadata{
+		Response: res,
+	}
+	if val, ok := a.InflightMessagesMetadata[res.DeviceToken]; ok {
+		responseWithMetadata.Metadata = val.(map[string]interface{})
+	}
 
 	if err != nil {
 		l.Errorf("error sending feedback to reporter: %v", err)
@@ -298,9 +311,18 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 				log.ErrorKey: res.Err,
 			}).Debug("received an error")
 		}
+		responseWithMetadata.Err = pErr
+		sendFeedbackErr := a.sendToFeedbackReporters(responseWithMetadata)
+		if sendFeedbackErr != nil {
+			l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
+		}
 		return err
 	}
+	sendFeedbackErr := a.sendToFeedbackReporters(responseWithMetadata)
 
+	if sendFeedbackErr != nil {
+		l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
+	}
 	a.statsReporterHandleNotificationSuccess()
 	return nil
 }
