@@ -89,7 +89,9 @@ cat test.txt | kafka-console-producer --topic com.games.test --broker-list local
 - [ ] Fix TODOs
 - [ ] Improve code coverage and make sure unit tests don't have external dependencies
 - [ ] Verify string concats specially when building queries (SQL injection susceptible)
+- [ ] Avoid replication of common gcm and apns code
 - [ ] README with dev and deployment instructions
+- [ ] Documentation
 - [ ] Apple JWT tokens instead of certificates https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html#//apple_ref/doc/uid/TP40008194-CH8-SW1
 - [ ] Retry pushes depending on the failure?
 - [ ] Threads for gcm sender? (For each sender ID, GCM allows 1000 connections in parallel.: https://developers.google.com/cloud-messaging/ccs)
