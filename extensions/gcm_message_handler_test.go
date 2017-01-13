@@ -143,7 +143,6 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(hook.Entries).To(ContainLogMessage("Deleting token..."))
-				Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 
 			It("if response has error BAD_REGISTRATION", func() {
@@ -153,7 +152,6 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(hook.Entries).To(ContainLogMessage("Deleting token..."))
-				Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 
 			It("if response has error INVALID_JSON", func() {
@@ -162,7 +160,6 @@ var _ = Describe("GCM Message Handler", func() {
 				}
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Data["category"]).To(Equal("JsonError"))
 			})
 
 			It("if response has error SERVICE_UNAVAILABLE", func() {
@@ -171,7 +168,6 @@ var _ = Describe("GCM Message Handler", func() {
 				}
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Data["category"]).To(Equal("GoogleError"))
 			})
 
 			It("if response has error INTERNAL_SERVER_ERROR", func() {
@@ -180,7 +176,6 @@ var _ = Describe("GCM Message Handler", func() {
 				}
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Data["category"]).To(Equal("GoogleError"))
 			})
 
 			It("if response has error DEVICE_MESSAGE_RATE_EXCEEDED", func() {
@@ -189,7 +184,6 @@ var _ = Describe("GCM Message Handler", func() {
 				}
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Data["category"]).To(Equal("RateExceededError"))
 			})
 
 			It("if response has error TOPICS_MESSAGE_RATE_EXCEEDED", func() {
@@ -198,7 +192,6 @@ var _ = Describe("GCM Message Handler", func() {
 				}
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Data["category"]).To(Equal("RateExceededError"))
 			})
 
 			It("if response has untracked error", func() {
@@ -207,7 +200,6 @@ var _ = Describe("GCM Message Handler", func() {
 				}
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Data["category"]).To(Equal("DefaultError"))
 			})
 		})
 
