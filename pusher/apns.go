@@ -25,8 +25,10 @@ package pusher
 import (
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -132,6 +134,7 @@ func (a *APNSPusher) Start() {
 	go a.MessageHandler.HandleMessages(a.Queue.MessagesChannel())
 	go a.MessageHandler.HandleResponses()
 	go a.Queue.ConsumeLoop()
+	go a.reportGoStats()
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -148,5 +151,23 @@ func (a *APNSPusher) Start() {
 	l.Info("pusher is waiting for all inflight messages to receive feedback before exiting...")
 	if a.Queue.PendingMessagesWaitGroup() != nil {
 		a.Queue.PendingMessagesWaitGroup().Wait()
+	}
+}
+
+func (a *APNSPusher) reportGoStats() {
+	for {
+		a.Logger.Info("Logging go stats...")
+		num := runtime.NumGoroutine()
+		m := &runtime.MemStats{}
+		runtime.ReadMemStats(m)
+		gcTime := m.PauseNs[(m.NumGC+255)%256]
+		for _, statsReporter := range a.StatsReporters {
+			statsReporter.ReportGoStats(
+				num,
+				m.Alloc, m.HeapObjects, m.NextGC,
+				gcTime,
+			)
+		}
+		time.Sleep(30 * time.Second)
 	}
 }

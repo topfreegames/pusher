@@ -29,4 +29,5 @@ type StatsReporter interface {
 	HandleNotificationSent()
 	HandleNotificationSuccess()
 	HandleNotificationFailure(*errors.PushError)
+	ReportGoStats(numGoRoutines int, allocatedAndNotFreed, heapObjects, nextGCBytes, pauseGCNano uint64)
 }

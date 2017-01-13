@@ -24,21 +24,35 @@ package mocks
 
 //StatsDClientMock should be used for tests that need to send xmpp messages to StatsD
 type StatsDClientMock struct {
-	Count  map[string]int
-	Closed bool
+	Count   map[string]int
+	Gauges  map[string]interface{}
+	Timings map[string]interface{}
+	Closed  bool
 }
 
 //NewStatsDClientMock creates a new instance
 func NewStatsDClientMock() *StatsDClientMock {
 	return &StatsDClientMock{
-		Closed: false,
-		Count:  map[string]int{},
+		Closed:  false,
+		Count:   map[string]int{},
+		Gauges:  map[string]interface{}{},
+		Timings: map[string]interface{}{},
 	}
 }
 
 //Increment stores the new count in a map
 func (m *StatsDClientMock) Increment(bucket string) {
 	m.Count[bucket]++
+}
+
+//Gauge stores the count in a map
+func (m *StatsDClientMock) Gauge(bucket string, value interface{}) {
+	m.Gauges[bucket] = value
+}
+
+//Timing stores the count in a map
+func (m *StatsDClientMock) Timing(bucket string, value interface{}) {
+	m.Timings[bucket] = value
 }
 
 //Close records that it is closed

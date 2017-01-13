@@ -25,7 +25,9 @@ package pusher
 import (
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -143,6 +145,7 @@ func (g *GCMPusher) Start() {
 	go g.MessageHandler.HandleMessages(g.Queue.MessagesChannel())
 	go g.MessageHandler.HandleResponses()
 	go g.Queue.ConsumeLoop()
+	go g.reportGoStats()
 
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
@@ -160,5 +163,23 @@ func (g *GCMPusher) Start() {
 	l.Info("pusher is waiting for all inflight messages to receive feedback before exiting...")
 	if g.Queue.PendingMessagesWaitGroup() != nil {
 		g.Queue.PendingMessagesWaitGroup().Wait()
+	}
+}
+
+func (g *GCMPusher) reportGoStats() {
+	for {
+		num := runtime.NumGoroutine()
+		m := &runtime.MemStats{}
+		runtime.ReadMemStats(m)
+		gcTime := m.PauseNs[(m.NumGC+255)%256]
+		for _, statsReporter := range g.StatsReporters {
+			statsReporter.ReportGoStats(
+				num,
+				m.Alloc, m.HeapObjects, m.NextGC,
+				gcTime,
+			)
+		}
+
+		time.Sleep(30 * time.Second)
 	}
 }

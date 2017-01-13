@@ -66,6 +66,23 @@ var _ = Describe("StatsD Extension", func() {
 			})
 		})
 
+		Describe("Reporting Go Stats", func() {
+			It("should report go stats in statsd", func() {
+				statsd, err := NewStatsD("../config/test.yaml", logger, appName, mockClient)
+				Expect(err).NotTo(HaveOccurred())
+				defer statsd.Cleanup()
+
+				statsd.ReportGoStats(1, 2, 3, 4, 5000000)
+				statsd.ReportGoStats(2, 3, 4, 5, 6000000)
+
+				Expect(mockClient.Gauges["num_goroutine"]).To(BeEquivalentTo(2))
+				Expect(mockClient.Gauges["allocated_not_freed"]).To(BeEquivalentTo(3))
+				Expect(mockClient.Gauges["heap_objects"]).To(BeEquivalentTo(4))
+				Expect(mockClient.Gauges["next_gc_bytes"]).To(BeEquivalentTo(5))
+				Expect(mockClient.Timings["gc_pause_duration_ms"]).To(BeEquivalentTo(6))
+			})
+		})
+
 		Describe("Handling Message Failure", func() {
 			It("should increment counter in statsd", func() {
 				statsd, err := NewStatsD("../config/test.yaml", logger, appName, mockClient)

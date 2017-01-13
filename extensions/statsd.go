@@ -110,6 +110,18 @@ func (s *StatsD) HandleNotificationFailure(err *errors.PushError) {
 	s.Client.Increment(err.Key)
 }
 
+//ReportGoStats reports go stats in statsd
+func (s *StatsD) ReportGoStats(
+	numGoRoutines int,
+	allocatedAndNotFreed, heapObjects, nextGCBytes, pauseGCNano uint64,
+) {
+	s.Client.Gauge("num_goroutine", numGoRoutines)
+	s.Client.Gauge("allocated_not_freed", allocatedAndNotFreed)
+	s.Client.Gauge("heap_objects", heapObjects)
+	s.Client.Gauge("next_gc_bytes", nextGCBytes)
+	s.Client.Timing("gc_pause_duration_ms", pauseGCNano/1000000)
+}
+
 //Cleanup closes statsd connection
 func (s *StatsD) Cleanup() error {
 	s.Client.Close()

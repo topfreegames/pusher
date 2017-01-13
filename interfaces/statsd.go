@@ -25,5 +25,7 @@ package interfaces
 // StatsDClient interface
 type StatsDClient interface {
 	Increment(string)
+	Gauge(string, interface{})
+	Timing(string, interface{})
 	Close()
 }
