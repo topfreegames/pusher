@@ -20,7 +20,7 @@ stats:
   reporters:
     - statsd
   statsd:
-    host: "localhost:8125"
+    host: "localhost:40001"
     prefix: "push"
     flushIntervalMs: 5000
 feedbackQueue:

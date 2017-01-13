@@ -74,7 +74,7 @@ test-integration integration func: deps test-db-drop test-db-create
 	@echo "=               Running integration tests...             ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
-	@env MY_IP=${MY_IP} ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --skip="\[Integration\].*" .
+	@env MY_IP=${MY_IP} ginkgo -r --randomizeAllSpecs --randomizeSuites --skip="\[Integration\].*" .
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo "=               Integration tests finished.              ="

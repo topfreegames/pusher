@@ -22,5 +22,5 @@ services:
   statsd:
     image: hopsoft/graphite-statsd
     ports:
-      - "8125:8125"
-      - "8126:8126"
+      - "40001:8125"
+      - "40002:8126"

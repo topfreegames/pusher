@@ -27,7 +27,7 @@ deps: start-deps wait-for-pg
 start-deps:
 	@echo "Starting dependencies using HOST IP of ${MY_IP}..."
 	@env MY_IP=${MY_IP} docker-compose --project-name pusher up -d
-	@while [ "`echo "health" | nc 127.0.0.1 8126`" != "health: up" ]; do echo "Waiting for StatsD to come up..." && sleep 1; done
+	@while [ "`echo "health" | nc 127.0.0.1 40002`" != "health: up" ]; do echo "Waiting for StatsD to come up..." && sleep 1; done
 	@echo "Dependencies started successfully."
 
 stop-deps:
