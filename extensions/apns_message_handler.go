@@ -39,6 +39,7 @@ import (
 )
 
 var apnsResMutex sync.Mutex
+var inflightMessagesMetadataLock sync.Mutex
 
 // APNSMessageHandler implements the messagehandler interface
 type APNSMessageHandler struct {
@@ -186,7 +187,9 @@ func (a *APNSMessageHandler) sendMessage(message []byte) {
 	}
 	a.statsReporterHandleNotificationSent()
 	a.PushQueue.Push(n.DeviceToken, h, payload)
+	inflightMessagesMetadataLock.Lock()
 	a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
+	inflightMessagesMetadataLock.Unlock()
 	a.sentMessages++
 	if a.sentMessages%1000 == 0 {
 		l.Infof("sent messages: %d", a.sentMessages)
@@ -260,9 +263,12 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	responseWithMetadata := &ResponseWithMetadata{
 		Response: res,
 	}
+	inflightMessagesMetadataLock.Lock()
 	if val, ok := a.InflightMessagesMetadata[res.DeviceToken]; ok {
 		responseWithMetadata.Metadata = val.(map[string]interface{})
+		delete(a.InflightMessagesMetadata, res.DeviceToken)
 	}
+	inflightMessagesMetadataLock.Unlock()
 
 	if err != nil {
 		l.Errorf("error sending feedback to reporter: %v", err)

@@ -23,6 +23,7 @@
 package pusher
 
 import (
+	log "github.com/Sirupsen/logrus"
 	"sync"
 	"time"
 )
@@ -41,5 +42,18 @@ func WaitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 		return false // completed normally
 	case <-time.After(timeout):
 		return true // timed out
+	}
+}
+
+// GracefulShutdown waits for wg do complete then exits
+func GracefulShutdown(wg *sync.WaitGroup, timeout time.Duration) {
+	if wg != nil {
+		log.Info("pusher is waiting for all inflight messages to receive feedback before exiting...")
+		e := WaitTimeout(wg, timeout)
+		if e {
+			log.Warn("exited pusher because of graceful shutdown timeout")
+		} else {
+			log.Info("exited pusher gracefully")
+		}
 	}
 }

@@ -221,11 +221,14 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	ccsMessageWithMetadata := &CCSMessageWithMetadata{
 		CCSMessage: cm,
 	}
+	inflightMessagesMetadataLock.Lock()
 	if val, ok := g.InflightMessagesMetadata[cm.MessageID]; ok {
 		ccsMessageWithMetadata.Metadata = val.(map[string]interface{})
+		delete(g.InflightMessagesMetadata, cm.MessageID)
 	}
+	inflightMessagesMetadataLock.Unlock()
+
 	err = g.sendToFeedbackReporters(ccsMessageWithMetadata)
-	delete(g.InflightMessagesMetadata, cm.MessageID)
 	if err != nil {
 		l.Errorf("error sending feedback to reporter: %v", err)
 	}
@@ -315,7 +318,9 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 
 	if messageID != "" {
 		if km.Metadata != nil && len(km.Metadata) > 0 {
+			inflightMessagesMetadataLock.Lock()
 			g.InflightMessagesMetadata[messageID] = km.Metadata
+			inflightMessagesMetadataLock.Unlock()
 		}
 	}
 

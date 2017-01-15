@@ -149,10 +149,7 @@ func (a *APNSPusher) Start() {
 		}
 	}
 	a.Queue.StopConsuming()
-	l.Info("pusher is waiting for all inflight messages to receive feedback before exiting...")
-	if a.Queue.PendingMessagesWaitGroup() != nil {
-		WaitTimeout(a.Queue.PendingMessagesWaitGroup(), time.Duration(a.GracefulShutdownTimeout)*time.Second)
-	}
+	GracefulShutdown(a.Queue.PendingMessagesWaitGroup(), time.Duration(a.GracefulShutdownTimeout)*time.Second)
 }
 
 func (a *APNSPusher) reportGoStats() {

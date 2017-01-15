@@ -165,10 +165,7 @@ func (g *GCMPusher) Start() {
 		}
 	}
 	g.Queue.StopConsuming()
-	l.Info("pusher is waiting for all inflight messages to receive feedback before exiting...")
-	if g.Queue.PendingMessagesWaitGroup() != nil {
-		WaitTimeout(g.Queue.PendingMessagesWaitGroup(), time.Duration(g.GracefulShutdownTimeout)*time.Second)
-	}
+	GracefulShutdown(g.Queue.PendingMessagesWaitGroup(), time.Duration(g.GracefulShutdownTimeout)*time.Second)
 }
 
 func (g *GCMPusher) reportGoStats() {

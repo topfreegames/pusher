@@ -1,5 +1,5 @@
 ---
-gracefullShutdownTimeout: 10
+gracefullShutdownTimeout: 30
 apns:
   concurrentWorkers: 100
 gcm:
@@ -34,7 +34,7 @@ push:
     poolSize: 20
     maxRetries: 3
     database: push
-    connectionTimeout: 500
+    connectionTimeout: 100
 statsreporter:
   host: "localhost:8125"
   prefix: "push"
