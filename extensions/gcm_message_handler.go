@@ -177,6 +177,7 @@ func (g *GCMMessageHandler) configureGCMClient() error {
 	return nil
 }
 
+// WARNING: Be careful, code here needs to be thread safe!
 func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	defer func() {
 		if g.pendingMessagesWG != nil {
