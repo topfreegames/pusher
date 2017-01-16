@@ -205,8 +205,11 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 
 // HandleResponses from apns
 func (a *APNSMessageHandler) HandleResponses() {
-	for resp := range a.PushQueue.(*push.Queue).Responses {
-		a.handleAPNSResponse(resp)
+	q, ok := a.PushQueue.(*push.Queue)
+	if ok {
+		for resp := range q.Responses {
+			a.handleAPNSResponse(resp)
+		}
 	}
 }
 

@@ -91,13 +91,10 @@ var _ = Describe("APNS Pusher", func() {
 				Expect(pusher.MessageHandler.(*extensions.APNSMessageHandler).StatsReporters).To(HaveLen(1))
 			})
 		})
-	})
 
-	Describe("[Integration]", func() {
-		// TODO: this could be an unit test is buford used a func Responses() instead of a Response field
 		Describe("Start apns pusher", func() {
 			It("should launch go routines and run forever", func() {
-				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger, nil, nil, nil)
+				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger, statsClients, mockDb, mockPushQueue)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
 				defer func() { pusher.run = false }()

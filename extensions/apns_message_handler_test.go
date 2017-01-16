@@ -334,23 +334,9 @@ var _ = Describe("APNS Message Handler", func() {
 		})
 
 		Describe("Send message", func() {
-			XIt("should add message to push queue and increment sentMessages", func() {
+			It("should add message to push queue and increment sentMessages", func() {
 				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
-				// TODO: if we use Responses this will not be an unit test
-				// Break this into two tests, an integration one that checks responses chan
-				// And an unit one that check some other param the mock has
-				Eventually(handler.PushQueue.(*push.Queue).Responses, 5*time.Second).Should(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
-			})
-		})
-
-		Describe("Handle Responses", func() {
-			// TODO: if we use Responses this will not be an unit test (see TODO line 339)
-			XIt("should be called without panicking", func() {
-				Expect(func() { go handler.HandleResponses() }).ShouldNot(Panic())
-				handler.PushQueue.(*push.Queue).Responses <- push.Response{}
-				time.Sleep(50 * time.Millisecond)
-				Expect(handler.responsesReceived).To(Equal(int64(1)))
 			})
 		})
 
@@ -517,5 +503,40 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(handler.PushDB.DB.(*mocks.PGMock).Closed).To(BeTrue())
 			})
 		})
+	})
+	Describe("[Integration]", func() {
+		BeforeEach(func() {
+			var err error
+			handler, err = NewAPNSMessageHandler(
+				configFile, certificatePath, appName,
+				isProduction,
+				logger,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			hook.Reset()
+		})
+
+		Describe("Send message", func() {
+			It("should add message to push queue and increment sentMessages", func() {
+				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				Eventually(handler.PushQueue.(*push.Queue).Responses, 5*time.Second).Should(Receive())
+				Expect(handler.sentMessages).To(Equal(int64(1)))
+			})
+		})
+
+		Describe("Handle Responses", func() {
+			It("should be called without panicking", func() {
+				Expect(func() { go handler.HandleResponses() }).ShouldNot(Panic())
+				handler.PushQueue.(*push.Queue).Responses <- push.Response{}
+				time.Sleep(50 * time.Millisecond)
+				Expect(handler.responsesReceived).To(Equal(int64(1)))
+			})
+		})
+
 	})
 })
