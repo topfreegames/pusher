@@ -49,7 +49,6 @@ func NewPGClient(prefix string, config *viper.Viper, pgOrNil ...interfaces.DB) (
 	if len(pgOrNil) == 1 {
 		db = pgOrNil[0]
 	}
-
 	err := client.Connect(prefix, db)
 	if err != nil {
 		return nil, err

@@ -85,6 +85,7 @@ func NewGCMPusher(
 
 func (g *GCMPusher) loadConfigurationDefaults() {
 	g.Config.SetDefault("gracefullShutdownTimeout", 10)
+	g.Config.SetDefault("stats.reporters", []string{})
 }
 
 func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB) error {

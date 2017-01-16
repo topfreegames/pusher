@@ -34,15 +34,6 @@ import (
 )
 
 var _ = Describe("GCM Pusher", func() {
-	var mockClient *mocks.GCMClientMock
-	var mockDb *mocks.PGMock
-	var db interfaces.DB
-	var mockStatsDClient *mocks.StatsDClientMock
-	var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
-	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
-	var statsClients []interfaces.StatsReporter
-	var feedbackClients []interfaces.FeedbackReporter
-
 	configFile := "../config/test.yaml"
 	senderID := "sender-id"
 	apiKey := "api-key"
@@ -51,28 +42,17 @@ var _ = Describe("GCM Pusher", func() {
 	logger, hook := test.NewNullLogger()
 
 	BeforeEach(func() {
-		mockStatsDClient = mocks.NewStatsDClientMock()
-		mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
-		mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
-		mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
-		c, err := extensions.NewStatsD(configFile, logger, appName, mockStatsDClient)
-		Expect(err).NotTo(HaveOccurred())
-
-		kc, err := extensions.NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
-		Expect(err).NotTo(HaveOccurred())
-
-		statsClients = []interfaces.StatsReporter{c}
-		feedbackClients = []interfaces.FeedbackReporter{kc}
-
-		db = mocks.NewPGMock(0, 1)
-
-		db.(*mocks.PGMock).RowsReturned = 0
-
 		hook.Reset()
-
 	})
 
 	Describe("[Unit]", func() {
+		var mockClient *mocks.GCMClientMock
+		var mockDb *mocks.PGMock
+		var mockStatsDClient *mocks.StatsDClientMock
+		var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
+		var mockKafkaProducerClient *mocks.KafkaProducerClientMock
+		var statsClients []interfaces.StatsReporter
+		var feedbackClients []interfaces.FeedbackReporter
 
 		BeforeEach(func() {
 			var err error

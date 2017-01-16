@@ -20,23 +20,63 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package util
+package pusher
 
 import (
+	"sync"
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Config", func() {
+var _ = Describe("Common Pusher", func() {
 	Describe("[Unit]", func() {
-		Describe("New viper with config file", func() {
-			It("should return config if path is valid", func() {
-				config := NewViperWithConfigFile("../config/test.yaml")
-				Expect(config).NotTo(BeNil())
+
+		Describe("Wait Timeout", func() {
+			It("Should wait for the waitgroup and return true if completed normally", func() {
+				wg := &sync.WaitGroup{}
+				wg.Add(1)
+
+				go func() {
+					time.Sleep(100 * time.Millisecond)
+					wg.Done()
+				}()
+
+				res := WaitTimeout(wg, 1*time.Second)
+				Expect(res).To(BeFalse())
 			})
 
-			It("should panic if path is invalid", func() {
-				Expect(func() { NewViperWithConfigFile("") }).Should(Panic())
+			It("Should wait for the waitgroup and return false if timed out", func() {
+				wg := &sync.WaitGroup{}
+				wg.Add(1)
+				res := WaitTimeout(wg, 100*time.Millisecond)
+				Expect(res).To(BeTrue())
+			})
+		})
+
+		Describe("Graceful Shutdown", func() {
+			It("Should do nothing if nil waitgroup", func() {
+				wg := &sync.WaitGroup{}
+				GracefulShutdown(wg, 1*time.Second)
+			})
+
+			It("Should wait for the waitgroup and return if completed normally", func() {
+				wg := &sync.WaitGroup{}
+				wg.Add(1)
+
+				go func() {
+					time.Sleep(100 * time.Millisecond)
+					wg.Done()
+				}()
+
+				GracefulShutdown(wg, 1*time.Second)
+			})
+
+			It("Should wait for the waitgroup and return if timed out", func() {
+				wg := &sync.WaitGroup{}
+				wg.Add(1)
+				GracefulShutdown(wg, 100*time.Millisecond)
 			})
 		})
 	})
