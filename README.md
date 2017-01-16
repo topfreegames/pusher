@@ -88,8 +88,8 @@ cat test.txt | kafka-console-producer --topic com.games.test --broker-list local
 - [x] Auto recovery when connection to kafka is lost (I think it already does, we only need to check for how much time it will try to recover)
 - [x] Fix TODOs
 - [ ] Improve code coverage and make sure unit tests don't have external dependencies
-- [ ] Verify string concats specially when building queries (SQL injection susceptible)
-- [ ] Avoid replication of common gcm and apns code
+- [x] Verify string concats specially when building queries (SQL injection susceptible)
+- [x] Avoid replication of common gcm and apns code
 - [ ] README with dev and deployment instructions
 - [ ] Documentation
 - [ ] Apple JWT tokens instead of certificates https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html#//apple_ref/doc/uid/TP40008194-CH8-SW1

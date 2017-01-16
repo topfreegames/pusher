@@ -25,7 +25,6 @@ package extensions
 import (
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"sync"
 
 	cert "github.com/RobotsAndPencils/buford/certificate"
@@ -40,6 +39,20 @@ import (
 
 var apnsResMutex sync.Mutex
 var inflightMessagesMetadataLock sync.Mutex
+
+// Notification is the notification base struct
+type Notification struct {
+	DeviceToken string
+	Payload     interface{}
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	PushExpiry  int                    `json:"push_expiry,omitempty"`
+}
+
+// ResponseWithMetadata is a enriched Response with a Metadata field
+type ResponseWithMetadata struct {
+	push.Response
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
 
 // APNSMessageHandler implements the messagehandler interface
 type APNSMessageHandler struct {
@@ -60,20 +73,6 @@ type APNSMessageHandler struct {
 	sentMessages             int64
 	StatsReporters           []interfaces.StatsReporter
 	Topic                    string
-}
-
-// Notification is the notification base struct
-type Notification struct {
-	DeviceToken string
-	Payload     interface{}
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	PushExpiry  int                    `json:"push_expiry,omitempty"`
-}
-
-// ResponseWithMetadata is a enriched Response with a Metadata field
-type ResponseWithMetadata struct {
-	push.Response
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
@@ -105,10 +104,6 @@ func NewAPNSMessageHandler(
 	return a, nil
 }
 
-func (a *APNSMessageHandler) loadConfigurationDefaults() {
-	a.Config.SetDefault("apns.concurrentWorkers", 10)
-}
-
 func (a *APNSMessageHandler) configure(db interfaces.DB) error {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
@@ -125,6 +120,10 @@ func (a *APNSMessageHandler) configure(db interfaces.DB) error {
 		return err
 	}
 	return nil
+}
+
+func (a *APNSMessageHandler) loadConfigurationDefaults() {
+	a.Config.SetDefault("apns.concurrentWorkers", 10)
 }
 
 func (a *APNSMessageHandler) configureCertificate() error {
@@ -173,7 +172,7 @@ func (a *APNSMessageHandler) configurePushDatabase(db interfaces.DB) error {
 	return nil
 }
 
-func (a *APNSMessageHandler) sendMessage(message []byte) {
+func (a *APNSMessageHandler) sendMessage(message []byte) error {
 	l := a.Logger.WithField("method", "sendMessage")
 	l.WithField("message", message).Debug("sending message to apns")
 	h := &push.Headers{
@@ -184,8 +183,9 @@ func (a *APNSMessageHandler) sendMessage(message []byte) {
 	payload, err := json.Marshal(n.Payload)
 	if err != nil {
 		l.WithError(err).Error("error marshaling message payload")
+		return err
 	}
-	a.statsReporterHandleNotificationSent()
+	statsReporterHandleNotificationSent(a.StatsReporters)
 	a.PushQueue.Push(n.DeviceToken, h, payload)
 	inflightMessagesMetadataLock.Lock()
 	a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
@@ -194,6 +194,7 @@ func (a *APNSMessageHandler) sendMessage(message []byte) {
 	if a.sentMessages%1000 == 0 {
 		l.Infof("sent messages: %d", a.sentMessages)
 	}
+	return nil
 }
 
 // HandleResponses from apns
@@ -213,32 +214,6 @@ func (a *APNSMessageHandler) HandleMessages(msgChan *chan []byte) {
 			a.sendMessage(message)
 		}
 	}
-}
-
-func (a *APNSMessageHandler) handleTokenError(token string) {
-	l := a.Logger.WithFields(log.Fields{
-		"method": "handleTokenError",
-		"token":  token,
-	})
-	l.Debug("deleting token")
-	query := fmt.Sprintf("DELETE FROM %s_apns WHERE token = '%s';", a.appName, token)
-	_, err := a.PushDB.DB.Exec(query)
-	if err != nil && err.Error() != "pg: no rows in result set" {
-		l.WithError(err).Error("error deleting token")
-	}
-}
-
-func (a *APNSMessageHandler) sendToFeedbackReporters(res *ResponseWithMetadata) error {
-	jres, err := json.Marshal(res)
-	if err != nil {
-		return err
-	}
-	if a.feedbackReporters != nil {
-		for _, feedbackReporter := range a.feedbackReporters {
-			feedbackReporter.SendFeedback(jres)
-		}
-	}
-	return nil
 }
 
 func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
@@ -284,7 +259,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 		}
 		reason := pushError.Reason
 		pErr := errors.NewPushError(a.mapErrorReason(reason), pushError.Error())
-		a.statsReporterHandleNotificationFailure(pErr)
+		statsReporterHandleNotificationFailure(a.StatsReporters, pErr)
 
 		err = pErr
 		switch reason {
@@ -293,7 +268,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 				"category":   "TokenError",
 				log.ErrorKey: res.Err,
 			}).Debug("received an error")
-			a.handleTokenError(res.DeviceToken)
+			handleTokenError(res.DeviceToken, "apns", a.appName, a.Logger, a.PushDB.DB)
 		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
 			l.WithFields(log.Fields{
 				"category":   "CertificateError",
@@ -316,18 +291,18 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 			}).Debug("received an error")
 		}
 		responseWithMetadata.Err = pErr
-		sendFeedbackErr := a.sendToFeedbackReporters(responseWithMetadata)
+		sendFeedbackErr := sendToFeedbackReporters(a.feedbackReporters, responseWithMetadata)
 		if sendFeedbackErr != nil {
 			l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
 		}
 		return err
 	}
-	sendFeedbackErr := a.sendToFeedbackReporters(responseWithMetadata)
+	sendFeedbackErr := sendToFeedbackReporters(a.feedbackReporters, responseWithMetadata)
 
 	if sendFeedbackErr != nil {
 		l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
 	}
-	a.statsReporterHandleNotificationSuccess()
+	statsReporterHandleNotificationSuccess(a.StatsReporters)
 	return nil
 }
 
@@ -394,22 +369,4 @@ func (a *APNSMessageHandler) Cleanup() error {
 	a.PushQueue.Close()
 
 	return nil
-}
-
-func (a *APNSMessageHandler) statsReporterHandleNotificationSent() {
-	for _, statsReporter := range a.StatsReporters {
-		statsReporter.HandleNotificationSent()
-	}
-}
-
-func (a *APNSMessageHandler) statsReporterHandleNotificationSuccess() {
-	for _, statsReporter := range a.StatsReporters {
-		statsReporter.HandleNotificationSuccess()
-	}
-}
-
-func (a *APNSMessageHandler) statsReporterHandleNotificationFailure(err *errors.PushError) {
-	for _, statsReporter := range a.StatsReporters {
-		statsReporter.HandleNotificationFailure(err)
-	}
 }

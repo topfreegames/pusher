@@ -177,19 +177,6 @@ func (g *GCMMessageHandler) configureGCMClient() error {
 	return nil
 }
 
-func (g *GCMMessageHandler) sendToFeedbackReporters(res *CCSMessageWithMetadata) error {
-	jres, err := json.Marshal(res)
-	if err != nil {
-		return err
-	}
-	if g.feedbackReporters != nil {
-		for _, feedbackReporter := range g.feedbackReporters {
-			feedbackReporter.SendFeedback(jres)
-		}
-	}
-	return nil
-}
-
 func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	defer func() {
 		if g.pendingMessagesWG != nil {
@@ -228,13 +215,13 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	}
 	inflightMessagesMetadataLock.Unlock()
 
-	err = g.sendToFeedbackReporters(ccsMessageWithMetadata)
+	err = sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata)
 	if err != nil {
 		l.Errorf("error sending feedback to reporter: %v", err)
 	}
 	if cm.Error != "" {
 		pErr := errors.NewPushError(strings.ToLower(cm.Error), cm.ErrorDescription)
-		g.statsReporterHandleNotificationFailure(pErr)
+		statsReporterHandleNotificationFailure(g.StatsReporters, pErr)
 
 		err = pErr
 		switch cm.Error {
@@ -244,10 +231,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 				"category":   "TokenError",
 				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
 			}).Debug("received an error")
-			tErr := g.handleTokenError(cm.From)
-			if tErr != nil {
-				return tErr
-			}
+			handleTokenError(cm.From, "gcm", g.appName, g.Logger, g.PushDB.DB)
 		case "INVALID_JSON":
 			l.WithFields(log.Fields{
 				"category":   "JsonError",
@@ -273,23 +257,8 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 		return err
 	}
 
-	g.statsReporterHandleNotificationSuccess()
+	statsReporterHandleNotificationSuccess(g.StatsReporters)
 
-	return nil
-}
-
-func (g *GCMMessageHandler) handleTokenError(token string) error {
-	l := g.Logger.WithFields(log.Fields{
-		"method": "handleTokenError",
-		"token":  token,
-	})
-	l.Debug("Deleting token...")
-	query := fmt.Sprintf("DELETE FROM %s_gcm WHERE token = ?0;", g.appName)
-	_, err := g.PushDB.DB.Exec(query, token)
-	if err != nil && err.Error() != "pg: no rows in result set" {
-		l.WithError(err).Error("error deleting token")
-		return err
-	}
 	return nil
 }
 
@@ -324,7 +293,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		}
 	}
 
-	g.statsReporterHandleNotificationSent()
+	statsReporterHandleNotificationSent(g.StatsReporters)
 	g.sentMessages++
 	l.WithFields(log.Fields{
 		"messageID": messageID,
@@ -359,22 +328,4 @@ func (g *GCMMessageHandler) Cleanup() error {
 		return err
 	}
 	return nil
-}
-
-func (g *GCMMessageHandler) statsReporterHandleNotificationSent() {
-	for _, statsReporter := range g.StatsReporters {
-		statsReporter.HandleNotificationSent()
-	}
-}
-
-func (g *GCMMessageHandler) statsReporterHandleNotificationSuccess() {
-	for _, statsReporter := range g.StatsReporters {
-		statsReporter.HandleNotificationSuccess()
-	}
-}
-
-func (g *GCMMessageHandler) statsReporterHandleNotificationFailure(err *errors.PushError) {
-	for _, statsReporter := range g.StatsReporters {
-		statsReporter.HandleNotificationFailure(err)
-	}
 }

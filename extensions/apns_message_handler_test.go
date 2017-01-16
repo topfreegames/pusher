@@ -24,7 +24,6 @@ package extensions
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/RobotsAndPencils/buford/push"
@@ -133,32 +132,6 @@ var _ = Describe("APNS Message Handler", func() {
 				err := handler.configureAPNSPushQueue()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("qwe"))
-			})
-		})
-
-		Describe("Handle token error", func() {
-			It("should delete token", func() {
-				token := uuid.NewV4().String()
-				insertQuery := fmt.Sprintf(
-					"INSERT INTO %s_apns (user_id, token, region, locale, tz) VALUES ('%s', '%s', 'BR', 'pt', '-0300');",
-					appName, token, token,
-				)
-				_, err := handler.PushDB.DB.ExecOne(insertQuery)
-				Expect(err).NotTo(HaveOccurred())
-
-				handler.handleTokenError(token)
-
-				handler.PushDB.DB.(*mocks.PGMock).Error = fmt.Errorf("pg: no rows in result set")
-
-				query := fmt.Sprintf("SELECT * FROM %s_apns WHERE token = '%s' LIMIT 1;", appName, token)
-				_, err = handler.PushDB.DB.ExecOne(query)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("pg: no rows in result set"))
-			})
-
-			It("should not break if token does not exist in db", func() {
-				token := uuid.NewV4().String()
-				Expect(func() { handler.handleTokenError(token) }).ShouldNot(Panic())
 			})
 		})
 

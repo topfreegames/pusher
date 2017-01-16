@@ -24,10 +24,7 @@ package extensions
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
-
-	pg "gopkg.in/pg.v5"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/Sirupsen/logrus/hooks/test"
@@ -110,26 +107,6 @@ var _ = Describe("GCM Message Handler", func() {
 			})
 		})
 
-		Describe("Handle token error", func() {
-			It("should delete token", func() {
-				token := uuid.NewV4().String()
-
-				err := handler.handleTokenError(token)
-				Expect(err).NotTo(HaveOccurred())
-
-				query := fmt.Sprintf("DELETE FROM %s_gcm WHERE token = ?0;", appName)
-				Expect(mockDb.Execs).To(HaveLen(2))
-				Expect(mockDb.Execs[1][0]).To(BeEquivalentTo(query))
-				Expect(mockDb.Execs[1][1]).To(BeEquivalentTo([]interface{}{token}))
-			})
-
-			It("should not break if token does not exist in db", func() {
-				token := uuid.NewV4().String()
-				err := handler.handleTokenError(token)
-				Expect(err).NotTo(HaveOccurred())
-			})
-		})
-
 		Describe("Handle GCM response", func() {
 			It("if response has nil error", func() {
 				res := gcm.CCSMessage{}
@@ -143,7 +120,7 @@ var _ = Describe("GCM Message Handler", func() {
 				}
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(hook.Entries).To(ContainLogMessage("Deleting token..."))
+				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
 			})
 
 			It("if response has error BAD_REGISTRATION", func() {
@@ -152,7 +129,7 @@ var _ = Describe("GCM Message Handler", func() {
 				}
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(hook.Entries).To(ContainLogMessage("Deleting token..."))
+				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
 			})
 
 			It("if response has error INVALID_JSON", func() {
@@ -484,27 +461,6 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(handler).To(BeNil())
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("error connecting gcm xmpp client: auth failure: not-authorized"))
-			})
-		})
-
-		Describe("Handle token error", func() {
-			It("should delete token", func() {
-				token := uuid.NewV4().String()
-				insertQuery := fmt.Sprintf(
-					"INSERT INTO %s_gcm (user_id, token, region, locale, tz) VALUES (?0, ?0, 'BR', 'pt', '-0300');",
-					appName,
-				)
-				_, err := handler.PushDB.DB.ExecOne(insertQuery, token)
-				Expect(err).NotTo(HaveOccurred())
-
-				err = handler.handleTokenError(token)
-				Expect(err).NotTo(HaveOccurred())
-
-				count := 100
-				query := fmt.Sprintf("SELECT count(*) FROM %s_gcm WHERE token = ?0 LIMIT 1;", appName)
-				_, err = handler.PushDB.DB.Query(pg.Scan(&count), query, token)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(count).To(Equal(0))
 			})
 		})
 	})
