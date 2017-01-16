@@ -29,9 +29,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/topfreegames/pusher/extensions"
+	"github.com/topfreegames/pusher/mocks"
 )
 
 var _ = Describe("APNS Pusher", func() {
+	var mockPushQueue *mocks.APNSPushQueueMock
 	configFile := "../config/test.yaml"
 	certificatePath := "../tls/self_signed_cert.pem"
 	isProduction := false
@@ -39,6 +41,7 @@ var _ = Describe("APNS Pusher", func() {
 	logger, hook := test.NewNullLogger()
 
 	BeforeEach(func() {
+		mockPushQueue = mocks.NewAPNSPushQueueMock()
 		hook.Reset()
 	})
 
@@ -66,7 +69,7 @@ var _ = Describe("APNS Pusher", func() {
 	Describe("[Integration]", func() {
 		Describe("Creating new apns pusher", func() {
 			It("should return configured pusher", func() {
-				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
+				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
 				Expect(pusher.AppName).To(Equal(appName))
@@ -85,7 +88,7 @@ var _ = Describe("APNS Pusher", func() {
 
 		Describe("Start apns pusher", func() {
 			It("should launch go routines and run forever", func() {
-				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger)
+				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
 				defer func() { pusher.run = false }()

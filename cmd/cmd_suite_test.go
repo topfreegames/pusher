@@ -23,26 +23,13 @@
 package cmd
 
 import (
-	"fmt"
+	"testing"
 
-	"github.com/spf13/cobra"
-	"github.com/topfreegames/pusher/pusher"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-func getVersion() {
-	fmt.Println(pusher.Version)
-}
-
-// versionCmd represents the version command
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "displays pusher version",
-	Long:  "displays pusher version",
-	Run: func(cmd *cobra.Command, args []string) {
-		getVersion()
-	},
-}
-
-func init() {
-	RootCmd.AddCommand(versionCmd)
+func TestExtensions(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "CMD Suite")
 }

@@ -23,13 +23,48 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/pusher"
 )
 
 var senderID string
 var apiKey string
+
+func startGcm(debug, json, production bool, cfgFile, senderID, apiKey, app string, dbOrNil interfaces.DB, clientOrNil interfaces.GCMClient) (*pusher.GCMPusher, error) {
+	var log = logrus.New()
+	if json {
+		log.Formatter = new(logrus.JSONFormatter)
+	}
+	if debug {
+		log.Level = logrus.DebugLevel
+	} else {
+		log.Level = logrus.InfoLevel
+	}
+	l := log.WithFields(logrus.Fields{
+		"method": "gcmCmd",
+		"debug":  debug,
+	})
+	if len(senderID) == 0 {
+		err := fmt.Errorf("senderId must be set")
+		l.Error(err)
+		return nil, err
+	}
+	if len(apiKey) == 0 {
+		err := fmt.Errorf("apiKey must be set")
+		l.Error(err)
+		return nil, err
+	}
+	if len(app) == 0 {
+		err := fmt.Errorf("app must be set")
+		l.Error(err)
+		return nil, err
+	}
+	return pusher.NewGCMPusher(cfgFile, senderID, apiKey, app, production, log, dbOrNil, clientOrNil)
+}
 
 // gcmCmd represents the gcm command
 var gcmCmd = &cobra.Command{
@@ -37,31 +72,9 @@ var gcmCmd = &cobra.Command{
 	Short: "starts pusher in gcm mode",
 	Long:  `starts pusher in gcm mode`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var log = logrus.New()
-		if json {
-			log.Formatter = new(logrus.JSONFormatter)
-		}
-		if debug {
-			log.Level = logrus.DebugLevel
-		} else {
-			log.Level = logrus.InfoLevel
-		}
-		l := log.WithFields(logrus.Fields{
-			"method": "gcmCmd",
-			"debug":  debug,
-		})
-		if len(senderID) == 0 {
-			l.Fatal("senderId must be set")
-		}
-		if len(apiKey) == 0 {
-			l.Fatal("apiKey must be set")
-		}
-		if len(app) == 0 {
-			l.Fatal("app must be set")
-		}
-		gcmPusher, err := pusher.NewGCMPusher(cfgFile, senderID, apiKey, app, production, log, nil)
+		gcmPusher, err := startGcm(debug, json, production, cfgFile, senderID, apiKey, app, nil, nil)
 		if err != nil {
-			l.WithError(err).Fatal("Failed to start GCM Pusher.")
+			panic(err)
 		}
 		gcmPusher.Start()
 	},
@@ -70,6 +83,5 @@ var gcmCmd = &cobra.Command{
 func init() {
 	gcmCmd.Flags().StringVar(&senderID, "senderId", "", "gcm senderID")
 	gcmCmd.Flags().StringVar(&apiKey, "apiKey", "", "gcm apiKey")
-	gcmCmd.Flags().StringVar(&app, "app", "", "the app name for the table in pushdb")
 	RootCmd.AddCommand(gcmCmd)
 }

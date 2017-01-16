@@ -55,7 +55,14 @@ type APNSPusher struct {
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
-func NewAPNSPusher(configFile, certificatePath, appName string, isProduction bool, logger *logrus.Logger) (*APNSPusher, error) {
+func NewAPNSPusher(configFile,
+	certificatePath,
+	appName string,
+	isProduction bool,
+	logger *logrus.Logger,
+	db interfaces.DB,
+	queueOrNil ...interfaces.APNSPushQueue,
+) (*APNSPusher, error) {
 	var wg sync.WaitGroup
 	a := &APNSPusher{
 		AppName:           appName,
@@ -65,7 +72,11 @@ func NewAPNSPusher(configFile, certificatePath, appName string, isProduction boo
 		Logger:            logger,
 		PendingMessagesWG: &wg,
 	}
-	err := a.configure()
+	var queue interfaces.APNSPushQueue
+	if len(queueOrNil) > 0 {
+		queue = queueOrNil[0]
+	}
+	err := a.configure(queue, db)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +87,7 @@ func (a *APNSPusher) loadConfigurationDefaults() {
 	a.Config.SetDefault("gracefullShutdownTimeout", 10)
 }
 
-func (a *APNSPusher) configure() error {
+func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB) error {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
 	a.GracefulShutdownTimeout = a.Config.GetInt("gracefullShutdownTimeout")
@@ -98,7 +109,8 @@ func (a *APNSPusher) configure() error {
 		a.Queue.PendingMessagesWaitGroup(),
 		a.StatsReporters,
 		a.feedbackReporters,
-		nil,
+		queue,
+		db,
 	)
 	if err != nil {
 		return err

@@ -67,7 +67,7 @@ type APNSMessageHandler struct {
 	Logger                   *log.Logger
 	pendingMessagesWG        *sync.WaitGroup
 	PushDB                   *PGClient
-	PushQueue                *push.Queue
+	PushQueue                interfaces.APNSPushQueue
 	responsesReceived        int64
 	run                      bool
 	sentMessages             int64
@@ -83,6 +83,7 @@ func NewAPNSMessageHandler(
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
 	feedbackReporters []interfaces.FeedbackReporter,
+	queue interfaces.APNSPushQueue,
 	db interfaces.DB,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
@@ -98,20 +99,25 @@ func NewAPNSMessageHandler(
 		StatsReporters:           statsReporters,
 		feedbackReporters:        feedbackReporters,
 	}
-	if err := a.configure(db); err != nil {
+	if err := a.configure(queue, db); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
-func (a *APNSMessageHandler) configure(db interfaces.DB) error {
+func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue, db interfaces.DB) error {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
 	err := a.configureCertificate()
 	if err != nil {
 		return err
 	}
-	err = a.configureAPNSPushQueue()
+	if queue != nil {
+		err = nil
+		a.PushQueue = queue
+	} else {
+		err = a.configureAPNSPushQueue()
+	}
 	if err != nil {
 		return err
 	}
@@ -199,7 +205,7 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 
 // HandleResponses from apns
 func (a *APNSMessageHandler) HandleResponses() {
-	for resp := range a.PushQueue.Responses {
+	for resp := range a.PushQueue.(*push.Queue).Responses {
 		a.handleAPNSResponse(resp)
 	}
 }

@@ -20,29 +20,13 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package cmd
+package interfaces
 
-import (
-	"fmt"
+import "github.com/RobotsAndPencils/buford/push"
 
-	"github.com/spf13/cobra"
-	"github.com/topfreegames/pusher/pusher"
-)
-
-func getVersion() {
-	fmt.Println(pusher.Version)
-}
-
-// versionCmd represents the version command
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "displays pusher version",
-	Long:  "displays pusher version",
-	Run: func(cmd *cobra.Command, args []string) {
-		getVersion()
-	},
-}
-
-func init() {
-	RootCmd.AddCommand(versionCmd)
+//APNSPushQueue represents the contract for a APNS Push Queue
+type APNSPushQueue interface {
+	// Responses chan *push.Response
+	Push(string, *push.Headers, []byte)
+	Close()
 }

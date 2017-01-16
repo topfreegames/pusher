@@ -20,29 +20,36 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package cmd
+package testing
 
 import (
-	"fmt"
-
-	"github.com/spf13/cobra"
-	"github.com/topfreegames/pusher/pusher"
+	"bytes"
+	"io"
+	"os"
+	"strings"
 )
 
-func getVersion() {
-	fmt.Println(pusher.Version)
-}
+func CaptureStdout(f func()) string {
+	old := os.Stdout
+	defer func() {
+		os.Stdout = old
+	}()
 
-// versionCmd represents the version command
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "displays pusher version",
-	Long:  "displays pusher version",
-	Run: func(cmd *cobra.Command, args []string) {
-		getVersion()
-	},
-}
+	r, w, _ := os.Pipe()
+	os.Stdout = w
 
-func init() {
-	RootCmd.AddCommand(versionCmd)
+	outC := make(chan string)
+
+	go func() {
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		outC <- strings.Replace(strings.Trim(buf.String(), " "), "\n", "", -1)
+	}()
+
+	f()
+
+	w.Close()
+	out := <-outC
+
+	return out
 }

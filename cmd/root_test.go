@@ -23,26 +23,29 @@
 package cmd
 
 import (
-	"fmt"
+	"bytes"
+	"io"
+	"os"
+	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/topfreegames/pusher/pusher"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-func getVersion() {
-	fmt.Println(pusher.Version)
-}
+var _ = Describe("Root", func() {
+	Describe("[Unit]", func() {
+		It("Should return help", func() {
+			err := RootCmd.Execute()
+			Expect(err.Error()).To(ContainSubstring("unknown flag: --test.timeout"))
 
-// versionCmd represents the version command
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "displays pusher version",
-	Long:  "displays pusher version",
-	Run: func(cmd *cobra.Command, args []string) {
-		getVersion()
-	},
-}
-
-func init() {
-	RootCmd.AddCommand(versionCmd)
-}
+			r, w, _ := os.Pipe()
+			RootCmd.SetOutput(w)
+			RootCmd.Execute()
+			w.Close()
+			var buf bytes.Buffer
+			io.Copy(&buf, r)
+			out := strings.Replace(strings.Trim(buf.String(), " "), "\n", "", -1)
+			Expect(out).To(ContainSubstring("Available Commands"))
+		})
+	})
+})

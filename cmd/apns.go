@@ -23,13 +23,43 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/pusher"
 )
 
 var app string
 var certificate string
+
+func startApns(debug, json, production bool, cfgFile, certificate, app string, dbOrNil interfaces.DB, queueOrNil interfaces.APNSPushQueue) (*pusher.APNSPusher, error) {
+	var log = logrus.New()
+	if json {
+		log.Formatter = new(logrus.JSONFormatter)
+	}
+	if debug {
+		log.Level = logrus.DebugLevel
+	} else {
+		log.Level = logrus.InfoLevel
+	}
+	l := log.WithFields(logrus.Fields{
+		"method": "apnsCmd",
+		"debug":  debug,
+	})
+	if len(certificate) == 0 {
+		err := fmt.Errorf("pem certificate must be set")
+		l.Error(err)
+		return nil, err
+	}
+	if len(app) == 0 {
+		err := fmt.Errorf("app must be set")
+		l.Error(err)
+		return nil, err
+	}
+	return pusher.NewAPNSPusher(cfgFile, certificate, app, production, log, dbOrNil, queueOrNil)
+}
 
 // apnsCmd represents the apns command
 var apnsCmd = &cobra.Command{
@@ -37,28 +67,9 @@ var apnsCmd = &cobra.Command{
 	Short: "starts pusher in apns mode",
 	Long:  `starts pusher in apns mode`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var log = logrus.New()
-		if json {
-			log.Formatter = new(logrus.JSONFormatter)
-		}
-		if debug {
-			log.Level = logrus.DebugLevel
-		} else {
-			log.Level = logrus.InfoLevel
-		}
-		l := log.WithFields(logrus.Fields{
-			"method": "apnsCmd",
-			"debug":  debug,
-		})
-		if len(certificate) == 0 {
-			l.Panic("pem certificate must be set")
-		}
-		if len(app) == 0 {
-			l.Panic("app must be set")
-		}
-		apnsPusher, err := pusher.NewAPNSPusher(cfgFile, certificate, app, production, log)
+		apnsPusher, err := startApns(debug, json, production, cfgFile, certificate, app, nil, nil)
 		if err != nil {
-			l.WithError(err).Panic("app could not start")
+			panic(err)
 		}
 		apnsPusher.Start()
 	},
@@ -66,6 +77,5 @@ var apnsCmd = &cobra.Command{
 
 func init() {
 	apnsCmd.Flags().StringVar(&certificate, "certificate", "", "pem certificate path")
-	apnsCmd.Flags().StringVar(&app, "app", "", "the app name for the table in pushdb")
 	RootCmd.AddCommand(apnsCmd)
 }
