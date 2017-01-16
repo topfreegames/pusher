@@ -75,7 +75,7 @@ var _ = Describe("APNS Pusher", func() {
 
 		Describe("Creating new apns pusher", func() {
 			It("should return configured pusher", func() {
-				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger, mockDb, mockPushQueue)
+				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger, statsClients, mockDb, mockPushQueue)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
 				Expect(pusher.AppName).To(Equal(appName))
@@ -97,7 +97,7 @@ var _ = Describe("APNS Pusher", func() {
 		// TODO: this could be an unit test is buford used a func Responses() instead of a Response field
 		Describe("Start apns pusher", func() {
 			It("should launch go routines and run forever", func() {
-				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger, nil, nil)
+				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger, nil, nil, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
 				defer func() { pusher.run = false }()

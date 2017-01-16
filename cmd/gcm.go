@@ -34,7 +34,13 @@ import (
 var senderID string
 var apiKey string
 
-func startGcm(debug, json, production bool, cfgFile, senderID, apiKey, app string, dbOrNil interfaces.DB, clientOrNil interfaces.GCMClient) (*pusher.GCMPusher, error) {
+func startGcm(
+	debug, json, production bool,
+	cfgFile, senderID, apiKey, app string,
+	statsReporters []interfaces.StatsReporter,
+	dbOrNil interfaces.DB,
+	clientOrNil interfaces.GCMClient,
+) (*pusher.GCMPusher, error) {
 	var log = logrus.New()
 	if json {
 		log.Formatter = new(logrus.JSONFormatter)
@@ -63,7 +69,7 @@ func startGcm(debug, json, production bool, cfgFile, senderID, apiKey, app strin
 		l.Error(err)
 		return nil, err
 	}
-	return pusher.NewGCMPusher(cfgFile, senderID, apiKey, app, production, log, dbOrNil, clientOrNil)
+	return pusher.NewGCMPusher(cfgFile, senderID, apiKey, app, production, log, statsReporters, dbOrNil, clientOrNil)
 }
 
 // gcmCmd represents the gcm command
@@ -72,7 +78,7 @@ var gcmCmd = &cobra.Command{
 	Short: "starts pusher in gcm mode",
 	Long:  `starts pusher in gcm mode`,
 	Run: func(cmd *cobra.Command, args []string) {
-		gcmPusher, err := startGcm(debug, json, production, cfgFile, senderID, apiKey, app, nil, nil)
+		gcmPusher, err := startGcm(debug, json, production, cfgFile, senderID, apiKey, app, nil, nil, nil)
 		if err != nil {
 			panic(err)
 		}
