@@ -107,6 +107,23 @@ var _ = Describe("GCM Message Handler", func() {
 			})
 		})
 
+		Describe("Configuring Handler", func() {
+			It("should fail if invalid credentials", func() {
+				handler.apiKey = "badkey"
+				handler.senderID = "badsender"
+				err := handler.configure(nil, handler.PushDB.DB)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("error connecting gcm xmpp client: auth failure: not-authorized"))
+			})
+
+			It("should fail if cannot configure push DB", func() {
+				mockDb.RowsReturned = 0
+				err := handler.configure(mockClient, mockDb)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("Timed out waiting for PostgreSQL to connect."))
+			})
+		})
+
 		Describe("Handle GCM response", func() {
 			It("if response has nil error", func() {
 				res := gcm.CCSMessage{}

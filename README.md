@@ -87,7 +87,7 @@ cat test.txt | kafka-console-producer --topic com.games.test --broker-list local
 - [x] Do we need concurrency control e.g. max buffer for inflight messages, I think so, https://github.com/google/go-gcm/blob/master/gcm.go#L373 ?
 - [x] Auto recovery when connection to kafka is lost (I think it already does, we only need to check for how much time it will try to recover)
 - [x] Fix TODOs
-- [ ] Improve code coverage and make sure unit tests don't have external dependencies
+- [x] Improve code coverage and make sure unit tests don't have external dependencies
 - [x] Verify string concats specially when building queries (SQL injection susceptible)
 - [x] Avoid replication of common gcm and apns code
 - [ ] README with dev and deployment instructions

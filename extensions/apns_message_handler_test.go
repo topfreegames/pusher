@@ -105,6 +105,13 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("open ./invalid-certficate.pem: no such file or directory"))
 			})
+
+			It("should fail if cannot configure push DB", func() {
+				db.(*mocks.PGMock).RowsReturned = 0
+				err := handler.configure(mockPushQueue, db)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("Timed out waiting for PostgreSQL to connect."))
+			})
 		})
 
 		Describe("Configuring Certificate", func() {
