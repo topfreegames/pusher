@@ -507,7 +507,15 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(fromKafka.Metadata).To(BeNil())
 				Expect(string(msg.Value)).To(ContainSubstring("bad device token"))
 			})
+		})
 
+		Describe("Cleanup", func() {
+			It("should close PG connection and PushQueue without error", func() {
+				err := handler.Cleanup()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(handler.PushQueue.(*mocks.APNSPushQueueMock).Closed).To(BeTrue())
+				Expect(handler.PushDB.DB.(*mocks.PGMock).Closed).To(BeTrue())
+			})
 		})
 	})
 })

@@ -22,7 +22,10 @@
 
 package mocks
 
-import gcm "github.com/rounds/go-gcm"
+import (
+	gcm "github.com/rounds/go-gcm"
+	uuid "github.com/satori/go.uuid"
+)
 
 //GCMClientMock should be used for tests that need to send xmpp messages to GCM
 type GCMClientMock struct {
@@ -41,7 +44,7 @@ func NewGCMClientMock() *GCMClientMock {
 //SendXMPP records the sent message in the MessagesSent collection
 func (m *GCMClientMock) SendXMPP(msg gcm.XMPPMessage) (string, int, error) {
 	m.MessagesSent = append(m.MessagesSent, msg)
-	return "", 0, nil
+	return uuid.NewV4().String(), 0, nil
 }
 
 //Close records that it is closed

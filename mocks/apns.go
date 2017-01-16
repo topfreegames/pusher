@@ -27,6 +27,7 @@ import "github.com/RobotsAndPencils/buford/push"
 //APNSPushQueueMock should be used for tests that need to send pushs to APNS
 type APNSPushQueueMock struct {
 	Responses chan push.Response
+	Closed    bool
 }
 
 //NewAPNSPushQueueMock creates a new instance
@@ -43,4 +44,5 @@ func (m *APNSPushQueueMock) Push(deviceToken string, headers *push.Headers, payl
 //Close records that it is closed
 func (m *APNSPushQueueMock) Close() {
 	close(m.Responses)
+	m.Closed = true
 }

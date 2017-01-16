@@ -39,8 +39,9 @@ var _ = Describe("Root", func() {
 			Expect(err.Error()).To(ContainSubstring("unknown flag: --test.timeout"))
 
 			r, w, _ := os.Pipe()
+			RootCmd.SetArgs([]string{})
 			RootCmd.SetOutput(w)
-			RootCmd.Execute()
+			Execute()
 			w.Close()
 			var buf bytes.Buffer
 			io.Copy(&buf, r)

@@ -212,6 +212,33 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(len(handler.pendingMessages)).To(Equal(1))
 			})
 
+			It("should send xmpp message with metadata", func() {
+				ttl := uint(0)
+				metadata := map[string]interface{}{
+					"some": "metadata",
+				}
+				msg := &KafkaGCMMessage{
+					gcm.XMPPMessage{
+						TimeToLive:               &ttl,
+						DelayWhileIdle:           false,
+						DeliveryReceiptRequested: false,
+						DryRun: true,
+						To:     uuid.NewV4().String(),
+						Data:   map[string]interface{}{},
+					},
+					metadata,
+				}
+				msgBytes, err := json.Marshal(msg)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = handler.sendMessage(msgBytes)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(handler.sentMessages).To(Equal(int64(1)))
+				Expect(hook.LastEntry().Message).To(Equal("sent message"))
+				Expect(mockClient.MessagesSent).To(HaveLen(1))
+				Expect(len(handler.pendingMessages)).To(Equal(1))
+			})
+
 			It("should wait to send message if maxPendingMessages limit is reached", func() {
 				ttl := uint(0)
 				msg := &gcm.XMPPMessage{
@@ -408,6 +435,15 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(fromKafka.Category).To(Equal(res.Category))
 				Expect(fromKafka.Error).To(Equal(res.Error))
 				Expect(fromKafka.Metadata).To(BeNil())
+			})
+		})
+
+		Describe("Cleanup", func() {
+			It("should close GCMClient without error", func() {
+				err := handler.Cleanup()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(handler.GCMClient.(*mocks.GCMClientMock).Closed).To(BeTrue())
+				Expect(handler.PushDB.DB.(*mocks.PGMock).Closed).To(BeTrue())
 			})
 		})
 	})

@@ -324,7 +324,12 @@ func (g *GCMMessageHandler) HandleMessages(msgChan *chan []byte) {
 
 //Cleanup closes connections to GCM
 func (g *GCMMessageHandler) Cleanup() error {
-	err := g.GCMClient.Close()
+	err := g.PushDB.Close()
+	if err != nil {
+		return err
+	}
+
+	err = g.GCMClient.Close()
 	if err != nil {
 		return err
 	}
