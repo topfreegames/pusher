@@ -19,6 +19,7 @@ feedback:
   kafka:
     topics: "com.games.test.feedbacks"
     brokers: "localhost:9941"
+    - kafka
 stats:
   reporters:
     - statsd
@@ -36,4 +37,3 @@ push:
     maxRetries: 3
     database: push
     connectionTimeout: 100
-    

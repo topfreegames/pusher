@@ -171,7 +171,6 @@ func (a *APNSPusher) Start() {
 
 func (a *APNSPusher) reportGoStats() {
 	for {
-		a.Logger.Info("Logging go stats...")
 		num := runtime.NumGoroutine()
 		m := &runtime.MemStats{}
 		runtime.ReadMemStats(m)
