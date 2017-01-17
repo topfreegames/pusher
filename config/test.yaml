@@ -17,6 +17,9 @@ queue:
 feedback:
   reporters:
     - kafka
+  kafka:
+    topics: "com.games.test.feedbacks"
+    brokers: "localhost:9941"
 stats:
   reporters:
     - statsd
@@ -24,9 +27,6 @@ stats:
     host: "localhost:40001"
     prefix: "push"
     flushIntervalMs: 5000
-feedbackQueue:
-  topics: "com.games.test.feedbacks"
-  brokers: "localhost:9941"
 push:
   db:
     host: localhost

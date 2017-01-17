@@ -55,15 +55,15 @@ func NewKafkaProducer(configFile string, logger *log.Logger, clientOrNil ...inte
 }
 
 func (q *KafkaProducer) loadConfigurationDefaults() {
-	q.Config.SetDefault("feedbackQueue.topic", "com.games.test.feedbacks")
-	q.Config.SetDefault("feedbackQueue.brokers", "localhost:9941")
+	q.Config.SetDefault("feedback.kafka.topic", "com.games.test.feedbacks")
+	q.Config.SetDefault("feedback.kafka.brokers", "localhost:9941")
 }
 
 func (q *KafkaProducer) configure(producer interfaces.KafkaProducerClient) error {
 	q.Config = util.NewViperWithConfigFile(q.ConfigFile)
 	q.loadConfigurationDefaults()
-	q.Brokers = q.Config.GetString("feedbackQueue.brokers")
-	q.Topic = q.Config.GetString("feedbackQueue.topics")
+	q.Brokers = q.Config.GetString("feedback.kafka.brokers")
+	q.Topic = q.Config.GetString("feedback.kafka.topics")
 	c := &kafka.ConfigMap{
 		"bootstrap.servers": q.Brokers,
 	}
