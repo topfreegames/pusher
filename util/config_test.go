@@ -31,12 +31,16 @@ var _ = Describe("Config", func() {
 	Describe("[Unit]", func() {
 		Describe("New viper with config file", func() {
 			It("should return config if path is valid", func() {
-				config := NewViperWithConfigFile("../config/test.yaml")
+				config, err := NewViperWithConfigFile("../config/test.yaml")
+				Expect(err).NotTo(HaveOccurred())
 				Expect(config).NotTo(BeNil())
 			})
 
 			It("should panic if path is invalid", func() {
-				Expect(func() { NewViperWithConfigFile("") }).Should(Panic())
+				config, err := NewViperWithConfigFile("")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("Config File \"config\" Not Found in \"[]\""))
+				Expect(config).To(BeNil())
 			})
 		})
 	})

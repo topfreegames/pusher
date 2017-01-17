@@ -37,7 +37,9 @@ var _ = Describe("Handlers", func() {
 	logger, hook := test.NewNullLogger()
 
 	BeforeEach(func() {
-		config = util.NewViperWithConfigFile("../config/test.yaml")
+		var err error
+		config, err = util.NewViperWithConfigFile("../config/test.yaml")
+		Expect(err).NotTo(HaveOccurred())
 		mockClient = mocks.NewPGMock(0, 1)
 		hook.Reset()
 	})

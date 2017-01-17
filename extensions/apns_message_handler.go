@@ -34,7 +34,6 @@ import (
 	"github.com/topfreegames/pusher/certificate"
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
-	"github.com/topfreegames/pusher/util"
 )
 
 var apnsResMutex sync.Mutex
@@ -59,7 +58,6 @@ type APNSMessageHandler struct {
 	certificate              tls.Certificate
 	CertificatePath          string
 	Config                   *viper.Viper
-	ConfigFile               string
 	feedbackReporters        []interfaces.FeedbackReporter
 	InflightMessagesMetadata map[string]interface{}
 	InvalidTokenHandlers     []interfaces.InvalidTokenHandler
@@ -76,8 +74,9 @@ type APNSMessageHandler struct {
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
 func NewAPNSMessageHandler(
-	configFile, certificatePath string,
+	certificatePath string,
 	isProduction bool,
+	config *viper.Viper,
 	logger *log.Logger,
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
@@ -86,8 +85,8 @@ func NewAPNSMessageHandler(
 	queue interfaces.APNSPushQueue,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
-		CertificatePath:          certificatePath,
-		ConfigFile:               configFile,
+		CertificatePath: certificatePath,
+		Config:          config,
 		InflightMessagesMetadata: map[string]interface{}{},
 		InvalidTokenHandlers:     invalidTokenHandlers,
 		IsProduction:             isProduction,
@@ -105,7 +104,6 @@ func NewAPNSMessageHandler(
 }
 
 func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue) error {
-	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
 	err := a.configureCertificate()
 	if err != nil {

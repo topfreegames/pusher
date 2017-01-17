@@ -28,12 +28,15 @@ import (
 	"github.com/Sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
+	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("GCM Pusher", func() {
+	var config *viper.Viper
 	configFile := "../config/test.yaml"
 	senderID := "sender-id"
 	apiKey := "api-key"
@@ -41,6 +44,9 @@ var _ = Describe("GCM Pusher", func() {
 	logger, hook := test.NewNullLogger()
 
 	BeforeEach(func() {
+		var err error
+		config, err = util.NewViperWithConfigFile(configFile)
+		Expect(err).NotTo(HaveOccurred())
 		hook.Reset()
 	})
 
@@ -60,10 +66,10 @@ var _ = Describe("GCM Pusher", func() {
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
 			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
-			c, err := extensions.NewStatsD(configFile, logger, mockStatsDClient)
+			c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			kc, err := extensions.NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+			kc, err := extensions.NewKafkaProducer(config, logger, mockKafkaProducerClient)
 			Expect(err).NotTo(HaveOccurred())
 			statsClients = []interfaces.StatsReporter{c}
 			feedbackClients = []interfaces.FeedbackReporter{kc}
@@ -79,7 +85,8 @@ var _ = Describe("GCM Pusher", func() {
 		Describe("Creating new gcm pusher", func() {
 			It("should return configured pusher", func() {
 				client := mocks.NewGCMClientMock()
-				pusher, err := NewGCMPusher(configFile,
+				pusher, err := NewGCMPusher(
+					configFile,
 					senderID,
 					apiKey,
 					isProduction,

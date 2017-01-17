@@ -31,24 +31,24 @@ import (
 	"github.com/topfreegames/pusher/interfaces"
 )
 
-type statsReporterInitializer func(string, *logrus.Logger) (interfaces.StatsReporter, error)
-type feedbackReporterInitializer func(string, *logrus.Logger) (interfaces.FeedbackReporter, error)
+type statsReporterInitializer func(*viper.Viper, *logrus.Logger) (interfaces.StatsReporter, error)
+type feedbackReporterInitializer func(*viper.Viper, *logrus.Logger) (interfaces.FeedbackReporter, error)
 
 //AvailableStatsReporters contains functions to initialize all stats reporters
 var AvailableStatsReporters = map[string]statsReporterInitializer{
-	"statsd": func(configFile string, logger *logrus.Logger) (interfaces.StatsReporter, error) {
-		return extensions.NewStatsD(configFile, logger)
+	"statsd": func(config *viper.Viper, logger *logrus.Logger) (interfaces.StatsReporter, error) {
+		return extensions.NewStatsD(config, logger)
 	},
 }
 
 //AvailableFeedbackReporters contains functions to initialize all feedback reporters
 var AvailableFeedbackReporters = map[string]feedbackReporterInitializer{
-	"kafka": func(configFile string, logger *logrus.Logger) (interfaces.FeedbackReporter, error) {
-		return extensions.NewKafkaProducer(configFile, logger)
+	"kafka": func(config *viper.Viper, logger *logrus.Logger) (interfaces.FeedbackReporter, error) {
+		return extensions.NewKafkaProducer(config, logger)
 	},
 }
 
-func configureStatsReporters(configFile string, logger *logrus.Logger, config *viper.Viper) ([]interfaces.StatsReporter, error) {
+func configureStatsReporters(config *viper.Viper, logger *logrus.Logger) ([]interfaces.StatsReporter, error) {
 	reporters := []interfaces.StatsReporter{}
 	reporterNames := config.GetStringSlice("stats.reporters")
 	for _, reporterName := range reporterNames {
@@ -57,7 +57,7 @@ func configureStatsReporters(configFile string, logger *logrus.Logger, config *v
 			return nil, fmt.Errorf("Failed to initialize %s. Stats Reporter not available.", reporterName)
 		}
 
-		r, err := reporterFunc(configFile, logger)
+		r, err := reporterFunc(config, logger)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to initialize %s. %s", reporterName, err.Error())
 		}
@@ -67,7 +67,7 @@ func configureStatsReporters(configFile string, logger *logrus.Logger, config *v
 	return reporters, nil
 }
 
-func configureFeedbackReporters(configFile string, logger *logrus.Logger, config *viper.Viper) ([]interfaces.FeedbackReporter, error) {
+func configureFeedbackReporters(config *viper.Viper, logger *logrus.Logger) ([]interfaces.FeedbackReporter, error) {
 	reporters := []interfaces.FeedbackReporter{}
 	reporterNames := config.GetStringSlice("feedback.reporters")
 	for _, reporterName := range reporterNames {
@@ -76,7 +76,7 @@ func configureFeedbackReporters(configFile string, logger *logrus.Logger, config
 			return nil, fmt.Errorf("Failed to initialize %s. Feedback Reporter not available.", reporterName)
 		}
 
-		r, err := reporterFunc(configFile, logger)
+		r, err := reporterFunc(config, logger)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to initialize %s. %s", reporterName, err.Error())
 		}

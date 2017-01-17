@@ -23,6 +23,7 @@
 package pusher
 
 import (
+	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -87,16 +88,20 @@ func (a *APNSPusher) loadConfigurationDefaults() {
 }
 
 func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB, statsReporters []interfaces.StatsReporter) error {
-	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
+	var err error
+	a.Config, err = util.NewViperWithConfigFile(a.ConfigFile)
+	if err != nil {
+		log.Panicf("fatal error loading config file: %s\n", err)
+	}
 	a.loadConfigurationDefaults()
 	a.GracefulShutdownTimeout = a.Config.GetInt("gracefulShutdownTimeout")
-	if err := a.configureStatsReporters(statsReporters); err != nil {
+	if err = a.configureStatsReporters(statsReporters); err != nil {
 		return err
 	}
-	if err := a.configureFeedbackReporters(); err != nil {
+	if err = a.configureFeedbackReporters(); err != nil {
 		return err
 	}
-	if err := a.configureInvalidTokenHandlers(db); err != nil {
+	if err = a.configureInvalidTokenHandlers(db); err != nil {
 		return err
 	}
 	q, err := extensions.NewKafkaConsumer(a.Config, a.Logger)
@@ -105,8 +110,9 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	}
 	a.Queue = q
 	handler, err := extensions.NewAPNSMessageHandler(
-		a.ConfigFile, a.CertificatePath,
+		a.CertificatePath,
 		a.IsProduction,
+		a.Config,
 		a.Logger,
 		a.Queue.PendingMessagesWaitGroup(),
 		a.StatsReporters,
@@ -122,7 +128,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 }
 
 func (a *APNSPusher) configureFeedbackReporters() error {
-	reporters, err := configureFeedbackReporters(a.ConfigFile, a.Logger, a.Config)
+	reporters, err := configureFeedbackReporters(a.Config, a.Logger)
 	if err != nil {
 		return err
 	}
@@ -135,7 +141,7 @@ func (a *APNSPusher) configureStatsReporters(statsReporters []interfaces.StatsRe
 		a.StatsReporters = statsReporters
 		return nil
 	}
-	reporters, err := configureStatsReporters(a.ConfigFile, a.Logger, a.Config)
+	reporters, err := configureStatsReporters(a.Config, a.Logger)
 	if err != nil {
 		return err
 	}

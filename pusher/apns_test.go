@@ -28,18 +28,24 @@ import (
 	"github.com/Sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
+	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("APNS Pusher", func() {
+	var config *viper.Viper
 	certificatePath := "../tls/self_signed_cert.pem"
 	configFile := "../config/test.yaml"
 	isProduction := false
 	logger, hook := test.NewNullLogger()
 
 	BeforeEach(func() {
+		var err error
+		config, err = util.NewViperWithConfigFile(configFile)
+		Expect(err).NotTo(HaveOccurred())
 		hook.Reset()
 	})
 
@@ -57,10 +63,10 @@ var _ = Describe("APNS Pusher", func() {
 			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
-			kc, err := extensions.NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+			kc, err := extensions.NewKafkaProducer(config, logger, mockKafkaProducerClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			c, err := extensions.NewStatsD(configFile, logger, mockStatsDClient)
+			c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			statsClients = []interfaces.StatsReporter{c}

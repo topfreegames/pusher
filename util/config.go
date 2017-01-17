@@ -25,12 +25,11 @@ package util
 import (
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
 // NewViperWithConfigFile for getting a viper with default configs for the project
-func NewViperWithConfigFile(configFile string) *viper.Viper {
+func NewViperWithConfigFile(configFile string) (*viper.Viper, error) {
 	v := viper.New()
 	v.SetConfigFile(configFile)
 	v.SetEnvPrefix("pusher")
@@ -38,7 +37,7 @@ func NewViperWithConfigFile(configFile string) *viper.Viper {
 	v.AutomaticEnv()
 	err := v.ReadInConfig()
 	if err != nil {
-		log.Panicf("fatal error loading config file: %s\n", err)
+		return nil, err
 	}
-	return v
+	return v, nil
 }

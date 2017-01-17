@@ -27,24 +27,22 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
-	"github.com/topfreegames/pusher/util"
 )
 
 // KafkaProducer for producing push feedbacks to a kafka queue
 type KafkaProducer struct {
-	Brokers    string
-	ConfigFile string
-	Config     *viper.Viper
-	Producer   interfaces.KafkaProducerClient
-	Logger     *log.Logger
-	Topic      string
+	Brokers  string
+	Config   *viper.Viper
+	Producer interfaces.KafkaProducerClient
+	Logger   *log.Logger
+	Topic    string
 }
 
 // NewKafkaProducer for creating a new KafkaProducer instance
-func NewKafkaProducer(configFile string, logger *log.Logger, clientOrNil ...interfaces.KafkaProducerClient) (*KafkaProducer, error) {
+func NewKafkaProducer(config *viper.Viper, logger *log.Logger, clientOrNil ...interfaces.KafkaProducerClient) (*KafkaProducer, error) {
 	q := &KafkaProducer{
-		ConfigFile: configFile,
-		Logger:     logger,
+		Config: config,
+		Logger: logger,
 	}
 	var producer interfaces.KafkaProducerClient
 	if len(clientOrNil) == 1 {
@@ -60,7 +58,6 @@ func (q *KafkaProducer) loadConfigurationDefaults() {
 }
 
 func (q *KafkaProducer) configure(producer interfaces.KafkaProducerClient) error {
-	q.Config = util.NewViperWithConfigFile(q.ConfigFile)
 	q.loadConfigurationDefaults()
 	q.Brokers = q.Config.GetString("feedback.kafka.brokers")
 	q.Topic = q.Config.GetString("feedback.kafka.topics")
@@ -68,9 +65,8 @@ func (q *KafkaProducer) configure(producer interfaces.KafkaProducerClient) error
 		"bootstrap.servers": q.Brokers,
 	}
 	l := q.Logger.WithFields(log.Fields{
-		"brokers":    q.Brokers,
-		"configFile": q.ConfigFile,
-		"topic":      q.Topic,
+		"brokers": q.Brokers,
+		"topic":   q.Topic,
 	})
 	l.Debug("configuring kafka producer")
 

@@ -33,7 +33,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
-	"github.com/topfreegames/pusher/util"
 )
 
 var gcmResMutex sync.Mutex
@@ -54,7 +53,6 @@ type CCSMessageWithMetadata struct {
 type GCMMessageHandler struct {
 	apiKey                   string
 	Config                   *viper.Viper
-	ConfigFile               string
 	feedbackReporters        []interfaces.FeedbackReporter
 	GCMClient                interfaces.GCMClient
 	InflightMessagesMetadata map[string]interface{}
@@ -74,8 +72,9 @@ type GCMMessageHandler struct {
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
 func NewGCMMessageHandler(
-	configFile, senderID, apiKey string,
+	senderID, apiKey string,
 	isProduction bool,
+	config *viper.Viper,
 	logger *log.Logger,
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
@@ -85,15 +84,14 @@ func NewGCMMessageHandler(
 ) (*GCMMessageHandler, error) {
 	l := logger.WithFields(log.Fields{
 		"method":       "NewGCMMessageHandler",
-		"configFile":   configFile,
 		"senderID":     senderID,
 		"apiKey":       apiKey,
 		"isProduction": isProduction,
 	})
 
 	g := &GCMMessageHandler{
-		apiKey:                   apiKey,
-		ConfigFile:               configFile,
+		apiKey: apiKey,
+		Config: config,
 		InflightMessagesMetadata: map[string]interface{}{},
 		InvalidTokenHandlers:     invalidTokenHandlers,
 		IsProduction:             isProduction,
@@ -114,7 +112,6 @@ func NewGCMMessageHandler(
 }
 
 func (g *GCMMessageHandler) configure(client interfaces.GCMClient) error {
-	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
 	g.pendingMessages = make(chan bool, g.Config.GetInt("gcm.maxPendingMessages"))
 	var err error

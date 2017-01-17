@@ -26,14 +26,20 @@ import (
 	"github.com/Sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/mocks"
+	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("StatsD Extension", func() {
+	var config *viper.Viper
 	var mockClient *mocks.StatsDClientMock
 	logger, hook := test.NewNullLogger()
 	BeforeEach(func() {
+		var err error
+		config, err = util.NewViperWithConfigFile("../config/test.yaml")
+		Expect(err).NotTo(HaveOccurred())
 		mockClient = mocks.NewStatsDClientMock()
 		hook.Reset()
 	})
@@ -41,7 +47,7 @@ var _ = Describe("StatsD Extension", func() {
 	Describe("[Unit]", func() {
 		Describe("Handling Message Sent", func() {
 			It("should increment counter in statsd", func() {
-				statsd, err := NewStatsD("../config/test.yaml", logger, mockClient)
+				statsd, err := NewStatsD(config, logger, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				defer statsd.Cleanup()
 
@@ -54,7 +60,7 @@ var _ = Describe("StatsD Extension", func() {
 
 		Describe("Handling Message Successful", func() {
 			It("should increment counter in statsd", func() {
-				statsd, err := NewStatsD("../config/test.yaml", logger, mockClient)
+				statsd, err := NewStatsD(config, logger, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				defer statsd.Cleanup()
 
@@ -67,7 +73,7 @@ var _ = Describe("StatsD Extension", func() {
 
 		Describe("Reporting Go Stats", func() {
 			It("should report go stats in statsd", func() {
-				statsd, err := NewStatsD("../config/test.yaml", logger, mockClient)
+				statsd, err := NewStatsD(config, logger, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				defer statsd.Cleanup()
 
@@ -84,7 +90,7 @@ var _ = Describe("StatsD Extension", func() {
 
 		Describe("Handling Message Failure", func() {
 			It("should increment counter in statsd", func() {
-				statsd, err := NewStatsD("../config/test.yaml", logger, mockClient)
+				statsd, err := NewStatsD(config, logger, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				defer statsd.Cleanup()
 
@@ -102,14 +108,13 @@ var _ = Describe("StatsD Extension", func() {
 	Describe("[Integration]", func() {
 		Describe("Creating new client", func() {
 			It("should return connected client", func() {
-				statsd, err := NewStatsD("../config/test.yaml", logger)
+				statsd, err := NewStatsD(config, logger)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(statsd).NotTo(BeNil())
 				Expect(statsd.Client).NotTo(BeNil())
 				defer statsd.Cleanup()
 
 				Expect(statsd.Config).NotTo(BeNil())
-				Expect(statsd.ConfigFile).To(Equal("../config/test.yaml"))
 				Expect(statsd.Logger).NotTo(BeNil())
 			})
 		})

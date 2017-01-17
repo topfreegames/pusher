@@ -42,9 +42,10 @@ var _ = Describe("TokenPG Extension", func() {
 	token := uuid.NewV4().String()
 
 	BeforeEach(func() {
-		config = util.NewViperWithConfigFile("../config/test.yaml")
-		mockClient = mocks.NewPGMock(0, 1)
 		var err error
+		config, err = util.NewViperWithConfigFile("../config/test.yaml")
+		Expect(err).NotTo(HaveOccurred())
+		mockClient = mocks.NewPGMock(0, 1)
 		tokenPG, err = NewTokenPG(config, logger, mockClient)
 		Expect(err).NotTo(HaveOccurred())
 		hook.Reset()

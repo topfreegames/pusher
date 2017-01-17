@@ -50,7 +50,8 @@ var _ = Describe("APNS Message Handler", func() {
 	var statsClients []interfaces.StatsReporter
 
 	configFile := "../config/test.yaml"
-	config := util.NewViperWithConfigFile(configFile)
+	config, err := util.NewViperWithConfigFile(configFile)
+	Expect(err).NotTo(HaveOccurred())
 	certificatePath := "../tls/self_signed_cert.pem"
 	isProduction := false
 	logger, hook := test.NewNullLogger()
@@ -62,10 +63,10 @@ var _ = Describe("APNS Message Handler", func() {
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
 			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
-			c, err := NewStatsD(configFile, logger, mockStatsDClient)
+			c, err := NewStatsD(config, logger, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+			kc, err := NewKafkaProducer(config, logger, mockKafkaProducerClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			statsClients = []interfaces.StatsReporter{c}
@@ -78,8 +79,9 @@ var _ = Describe("APNS Message Handler", func() {
 
 			mockPushQueue = mocks.NewAPNSPushQueueMock()
 			handler, err = NewAPNSMessageHandler(
-				configFile, certificatePath,
+				certificatePath,
 				isProduction,
+				config,
 				logger,
 				nil,
 				statsClients,
@@ -96,7 +98,7 @@ var _ = Describe("APNS Message Handler", func() {
 		Describe("Creating new handler", func() {
 			It("should return configured handler", func() {
 				Expect(handler).NotTo(BeNil())
-				Expect(handler.ConfigFile).To(Equal(configFile))
+				Expect(handler.Config).NotTo(BeNil())
 				Expect(handler.IsProduction).To(Equal(isProduction))
 				Expect(handler.responsesReceived).To(Equal(int64(0)))
 				Expect(handler.sentMessages).To(Equal(int64(0)))
@@ -404,7 +406,7 @@ var _ = Describe("APNS Message Handler", func() {
 			BeforeEach(func() {
 				mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 
-				kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+				kc, err := NewKafkaProducer(config, logger, mockKafkaProducerClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				feedbackClients = []interfaces.FeedbackReporter{kc}
@@ -414,8 +416,9 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(err).NotTo(HaveOccurred())
 				invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 				handler, err = NewAPNSMessageHandler(
-					configFile, certificatePath,
+					certificatePath,
 					isProduction,
+					config,
 					logger,
 					nil,
 					statsClients,
@@ -515,8 +518,9 @@ var _ = Describe("APNS Message Handler", func() {
 		BeforeEach(func() {
 			var err error
 			handler, err = NewAPNSMessageHandler(
-				configFile, certificatePath,
+				certificatePath,
 				isProduction,
+				config,
 				logger,
 				nil,
 				nil,

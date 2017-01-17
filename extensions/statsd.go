@@ -30,22 +30,20 @@ import (
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
-	"github.com/topfreegames/pusher/util"
 )
 
 // StatsD for sending metrics
 type StatsD struct {
-	Client     interfaces.StatsDClient
-	Config     *viper.Viper
-	ConfigFile string
-	Logger     *logrus.Logger
+	Client interfaces.StatsDClient
+	Config *viper.Viper
+	Logger *logrus.Logger
 }
 
 // NewStatsD for creating a new StatsD instance
-func NewStatsD(configFile string, logger *logrus.Logger, clientOrNil ...interfaces.StatsDClient) (*StatsD, error) {
+func NewStatsD(config *viper.Viper, logger *logrus.Logger, clientOrNil ...interfaces.StatsDClient) (*StatsD, error) {
 	q := &StatsD{
-		ConfigFile: configFile,
-		Logger:     logger,
+		Config: config,
+		Logger: logger,
 	}
 	var client interfaces.StatsDClient
 	if len(clientOrNil) == 1 {
@@ -62,7 +60,6 @@ func (s *StatsD) loadConfigurationDefaults() {
 }
 
 func (s *StatsD) configure(client interfaces.StatsDClient) error {
-	s.Config = util.NewViperWithConfigFile(s.ConfigFile)
 	s.loadConfigurationDefaults()
 
 	host := s.Config.GetString("stats.statsd.host")

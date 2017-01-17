@@ -50,7 +50,8 @@ var _ = Describe("GCM Message Handler", func() {
 	var statsClients []interfaces.StatsReporter
 
 	configFile := "../config/test.yaml"
-	config := util.NewViperWithConfigFile(configFile)
+	config, err := util.NewViperWithConfigFile(configFile)
+	Expect(err).NotTo(HaveOccurred())
 	senderID := "sender-id"
 	apiKey := "api-key"
 	isProduction := false
@@ -65,10 +66,10 @@ var _ = Describe("GCM Message Handler", func() {
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
 			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
-			c, err := NewStatsD(configFile, logger, mockStatsDClient)
+			c, err := NewStatsD(config, logger, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+			kc, err := NewKafkaProducer(config, logger, mockKafkaProducerClient)
 			Expect(err).NotTo(HaveOccurred())
 			statsClients = []interfaces.StatsReporter{c}
 			feedbackClients = []interfaces.FeedbackReporter{kc}
@@ -80,10 +81,10 @@ var _ = Describe("GCM Message Handler", func() {
 
 			mockClient = mocks.NewGCMClientMock()
 			handler, err = NewGCMMessageHandler(
-				configFile,
 				senderID,
 				apiKey,
 				isProduction,
+				config,
 				logger,
 				nil,
 				statsClients,
@@ -101,7 +102,6 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(handler).NotTo(BeNil())
 				Expect(handler.apiKey).To(Equal(apiKey))
 				Expect(handler.Config).NotTo(BeNil())
-				Expect(handler.ConfigFile).To(Equal(configFile))
 				Expect(handler.IsProduction).To(Equal(isProduction))
 				Expect(handler.senderID).To(Equal(senderID))
 				Expect(handler.responsesReceived).To(Equal(int64(0)))
@@ -340,7 +340,7 @@ var _ = Describe("GCM Message Handler", func() {
 				var err error
 
 				mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
-				kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+				kc, err := NewKafkaProducer(config, logger, mockKafkaProducerClient)
 				Expect(err).NotTo(HaveOccurred())
 				feedbackClients = []interfaces.FeedbackReporter{kc}
 
@@ -350,10 +350,10 @@ var _ = Describe("GCM Message Handler", func() {
 				invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 
 				handler, err = NewGCMMessageHandler(
-					configFile,
 					senderID,
 					apiKey,
 					isProduction,
+					config,
 					logger,
 					nil,
 					statsClients,
@@ -467,19 +467,19 @@ var _ = Describe("GCM Message Handler", func() {
 		BeforeEach(func() {
 			var err error
 
-			c, err := NewStatsD(configFile, logger)
+			c, err := NewStatsD(config, logger)
 			Expect(err).NotTo(HaveOccurred())
 
-			kc, err := NewKafkaProducer(configFile, logger)
+			kc, err := NewKafkaProducer(config, logger)
 			Expect(err).NotTo(HaveOccurred())
 			statsClients = []interfaces.StatsReporter{c}
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
 			handler, err = NewGCMMessageHandler(
-				configFile,
 				senderID,
 				apiKey,
 				isProduction,
+				config,
 				logger,
 				nil,
 				statsClients,
@@ -496,10 +496,10 @@ var _ = Describe("GCM Message Handler", func() {
 			It("should fail when real client", func() {
 				var err error
 				handler, err = NewGCMMessageHandler(
-					configFile,
 					senderID,
 					apiKey,
 					isProduction,
+					config,
 					logger,
 					nil,
 					statsClients,

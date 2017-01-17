@@ -28,15 +28,21 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/mocks"
+	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("KafkaProducer Extension", func() {
+	var config *viper.Viper
 	var mockProducer *mocks.KafkaProducerClientMock
 	logger, hook := test.NewNullLogger()
 	logger.Level = logrus.DebugLevel
 
 	BeforeEach(func() {
+		var err error
+		config, err = util.NewViperWithConfigFile("../config/test.yaml")
+		Expect(err).NotTo(HaveOccurred())
 		mockProducer = mocks.NewKafkaProducerClientMock()
 		mockProducer.StartConsumingMessagesInProduceChannel()
 		hook.Reset()
@@ -45,7 +51,7 @@ var _ = Describe("KafkaProducer Extension", func() {
 	Describe("[Unit]", func() {
 		Describe("Handling Message Sent", func() {
 			It("should send message", func() {
-				KafkaProducer, err := NewKafkaProducer("../config/test.yaml", logger, mockProducer)
+				KafkaProducer, err := NewKafkaProducer(config, logger, mockProducer)
 				Expect(err).NotTo(HaveOccurred())
 				KafkaProducer.SendFeedback([]byte("test message"))
 				Eventually(func() int {
@@ -54,7 +60,7 @@ var _ = Describe("KafkaProducer Extension", func() {
 			})
 
 			It("should log kafka responses", func() {
-				KafkaProducer, err := NewKafkaProducer("../config/test.yaml", logger, mockProducer)
+				KafkaProducer, err := NewKafkaProducer(config, logger, mockProducer)
 				Expect(err).NotTo(HaveOccurred())
 				testTopic := "ttopic"
 				KafkaProducer.Producer.Events() <- &kafka.Message{
@@ -75,12 +81,11 @@ var _ = Describe("KafkaProducer Extension", func() {
 	Describe("[Integration]", func() {
 		Describe("Creating new producer", func() {
 			It("should return connected client", func() {
-				kafkaProducer, err := NewKafkaProducer("../config/test.yaml", logger)
+				kafkaProducer, err := NewKafkaProducer(config, logger)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(kafkaProducer).NotTo(BeNil())
 				Expect(kafkaProducer.Producer).NotTo(BeNil())
 				Expect(kafkaProducer.Config).NotTo(BeNil())
-				Expect(kafkaProducer.ConfigFile).To(Equal("../config/test.yaml"))
 				Expect(kafkaProducer.Logger).NotTo(BeNil())
 			})
 		})

@@ -29,9 +29,11 @@ import (
 	"github.com/Sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
+	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("GCM", func() {
@@ -40,16 +42,20 @@ var _ = Describe("GCM", func() {
 	senderID := "sender-id"
 	logger, _ := test.NewNullLogger()
 
+	var config *viper.Viper
 	var mockClient *mocks.GCMClientMock
 	var mockDb *mocks.PGMock
 	var mockStatsDClient *mocks.StatsDClientMock
 	var statsClients []interfaces.StatsReporter
 
 	BeforeEach(func() {
+		var err error
+		config, err = util.NewViperWithConfigFile(cfg)
+		Expect(err).NotTo(HaveOccurred())
 		mockDb = mocks.NewPGMock(0, 1)
 		mockClient = mocks.NewGCMClientMock()
 		mockStatsDClient = mocks.NewStatsDClientMock()
-		c, err := extensions.NewStatsD(cfg, logger, mockStatsDClient)
+		c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
 		Expect(err).NotTo(HaveOccurred())
 		statsClients = []interfaces.StatsReporter{c}
 	})

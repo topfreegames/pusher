@@ -23,6 +23,7 @@
 package pusher
 
 import (
+	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -88,16 +89,20 @@ func (g *GCMPusher) loadConfigurationDefaults() {
 }
 
 func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, statsReporters []interfaces.StatsReporter) error {
-	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
+	var err error
+	g.Config, err = util.NewViperWithConfigFile(g.ConfigFile)
+	if err != nil {
+		log.Panicf("fatal error loading config file: %s\n", err)
+	}
 	g.loadConfigurationDefaults()
 	g.GracefulShutdownTimeout = g.Config.GetInt("gracefulShutdownTimeout")
-	if err := g.configureStatsReporters(statsReporters); err != nil {
+	if err = g.configureStatsReporters(statsReporters); err != nil {
 		return err
 	}
-	if err := g.configureFeedbackReporters(); err != nil {
+	if err = g.configureFeedbackReporters(); err != nil {
 		return err
 	}
-	if err := g.configureInvalidTokenHandlers(db); err != nil {
+	if err = g.configureInvalidTokenHandlers(db); err != nil {
 		return err
 	}
 	q, err := extensions.NewKafkaConsumer(g.Config, g.Logger)
@@ -106,10 +111,10 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 	}
 	g.Queue = q
 	handler, err := extensions.NewGCMMessageHandler(
-		g.ConfigFile,
 		g.senderID,
 		g.apiKey,
 		g.IsProduction,
+		g.Config,
 		g.Logger,
 		g.Queue.PendingMessagesWaitGroup(),
 		g.StatsReporters,
@@ -129,7 +134,7 @@ func (g *GCMPusher) configureStatsReporters(statsReporters []interfaces.StatsRep
 		g.StatsReporters = statsReporters
 		return nil
 	}
-	reporters, err := configureStatsReporters(g.ConfigFile, g.Logger, g.Config)
+	reporters, err := configureStatsReporters(g.Config, g.Logger)
 	if err != nil {
 		return err
 	}
@@ -138,7 +143,7 @@ func (g *GCMPusher) configureStatsReporters(statsReporters []interfaces.StatsRep
 }
 
 func (g *GCMPusher) configureFeedbackReporters() error {
-	reporters, err := configureFeedbackReporters(g.ConfigFile, g.Logger, g.Config)
+	reporters, err := configureFeedbackReporters(g.Config, g.Logger)
 	if err != nil {
 		return err
 	}

@@ -50,9 +50,11 @@ var _ = Describe("Common", func() {
 
 	Describe("[Unit]", func() {
 		BeforeEach(func() {
-			config = util.NewViperWithConfigFile(configFile)
+			var err error
+			config, err = util.NewViperWithConfigFile(configFile)
+			Expect(err).NotTo(HaveOccurred())
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
-			kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
+			kc, err := NewKafkaProducer(config, logger, mockKafkaProducerClient)
 			Expect(err).NotTo(HaveOccurred())
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 

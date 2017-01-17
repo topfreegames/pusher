@@ -288,8 +288,11 @@ var _ = Describe("Kafka Extension", func() {
 
 	Describe("[Integration]", func() {
 		var config *viper.Viper
+		var err error
+
 		BeforeEach(func() {
-			config = util.NewViperWithConfigFile("../config/test.yaml")
+			config, err = util.NewViperWithConfigFile("../config/test.yaml")
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		Describe("Creating new client", func() {
