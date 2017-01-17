@@ -16,10 +16,10 @@ queue:
   handleAllMessagesBeforeExiting: true
 feedback:
   reporters:
+    - kafka
   kafka:
     topics: "com.games.test.feedbacks"
     brokers: "localhost:9941"
-    - kafka
 stats:
   reporters:
     - statsd
