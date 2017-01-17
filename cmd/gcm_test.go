@@ -26,12 +26,9 @@ import (
 	"fmt"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/Sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
-	"github.com/topfreegames/pusher/extensions"
-	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/util"
 )
@@ -40,13 +37,11 @@ var _ = Describe("GCM", func() {
 	cfg := "../config/test.yaml"
 	apiKey := "api-key"
 	senderID := "sender-id"
-	logger, _ := test.NewNullLogger()
 
 	var config *viper.Viper
 	var mockClient *mocks.GCMClientMock
 	var mockDb *mocks.PGMock
 	var mockStatsDClient *mocks.StatsDClientMock
-	var statsClients []interfaces.StatsReporter
 
 	BeforeEach(func() {
 		var err error
@@ -55,14 +50,11 @@ var _ = Describe("GCM", func() {
 		mockDb = mocks.NewPGMock(0, 1)
 		mockClient = mocks.NewGCMClientMock()
 		mockStatsDClient = mocks.NewStatsDClientMock()
-		c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
-		Expect(err).NotTo(HaveOccurred())
-		statsClients = []interfaces.StatsReporter{c}
 	})
 
 	Describe("[Unit]", func() {
 		It("Should return gcmPusher without errors", func() {
-			gcmPusher, err := startGcm(false, false, false, cfg, senderID, apiKey, statsClients, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, false, false, cfg, senderID, apiKey, mockStatsDClient, mockDb, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(gcmPusher.ConfigFile).To(Equal(cfg))
@@ -72,35 +64,35 @@ var _ = Describe("GCM", func() {
 		})
 
 		It("Should set log to json format", func() {
-			gcmPusher, err := startGcm(false, true, false, cfg, senderID, apiKey, statsClients, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, true, false, cfg, senderID, apiKey, mockStatsDClient, mockDb, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(fmt.Sprintf("%T", gcmPusher.Logger.Formatter)).To(Equal(fmt.Sprintf("%T", &logrus.JSONFormatter{})))
 		})
 
 		It("Should set log to debug", func() {
-			gcmPusher, err := startGcm(true, false, false, cfg, senderID, apiKey, statsClients, mockDb, mockClient)
+			gcmPusher, err := startGcm(true, false, false, cfg, senderID, apiKey, mockStatsDClient, mockDb, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(gcmPusher.Logger.Level).To(Equal(logrus.DebugLevel))
 		})
 
 		It("Should set log to production", func() {
-			gcmPusher, err := startGcm(false, false, true, cfg, senderID, apiKey, statsClients, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, false, true, cfg, senderID, apiKey, mockStatsDClient, mockDb, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(gcmPusher.IsProduction).To(BeTrue())
 		})
 
 		It("Should return error if senderId is not provided", func() {
-			gcmPusher, err := startGcm(false, false, false, cfg, "", apiKey, statsClients, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, false, false, cfg, "", apiKey, mockStatsDClient, mockDb, mockClient)
 			Expect(gcmPusher).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("senderId must be set"))
 		})
 
 		It("Should return error if apiKey is not provided", func() {
-			gcmPusher, err := startGcm(false, false, false, cfg, senderID, "", statsClients, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, false, false, cfg, senderID, "", mockStatsDClient, mockDb, mockClient)
 			Expect(gcmPusher).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("apiKey must be set"))

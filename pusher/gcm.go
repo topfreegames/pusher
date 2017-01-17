@@ -61,7 +61,7 @@ func NewGCMPusher(
 	apiKey string,
 	isProduction bool,
 	logger *logrus.Logger,
-	statsReporters []interfaces.StatsReporter,
+	statsdClientOrNil interfaces.StatsDClient,
 	db interfaces.DB,
 	clientOrNil ...interfaces.GCMClient,
 ) (*GCMPusher, error) {
@@ -76,7 +76,7 @@ func NewGCMPusher(
 	if len(clientOrNil) > 0 {
 		client = clientOrNil[0]
 	}
-	err := g.configure(client, db, statsReporters)
+	err := g.configure(client, db, statsdClientOrNil)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (g *GCMPusher) loadConfigurationDefaults() {
 	g.Config.SetDefault("stats.reporters", []string{})
 }
 
-func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, statsReporters []interfaces.StatsReporter) error {
+func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, statsdClientOrNil interfaces.StatsDClient) error {
 	var err error
 	g.Config, err = util.NewViperWithConfigFile(g.ConfigFile)
 	if err != nil {
@@ -96,7 +96,7 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 	}
 	g.loadConfigurationDefaults()
 	g.GracefulShutdownTimeout = g.Config.GetInt("gracefulShutdownTimeout")
-	if err = g.configureStatsReporters(statsReporters); err != nil {
+	if err = g.configureStatsReporters(statsdClientOrNil); err != nil {
 		return err
 	}
 	if err = g.configureFeedbackReporters(); err != nil {
@@ -129,12 +129,8 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 	return nil
 }
 
-func (g *GCMPusher) configureStatsReporters(statsReporters []interfaces.StatsReporter) error {
-	if statsReporters != nil {
-		g.StatsReporters = statsReporters
-		return nil
-	}
-	reporters, err := configureStatsReporters(g.Config, g.Logger)
+func (g *GCMPusher) configureStatsReporters(clientOrNil interfaces.StatsDClient) error {
+	reporters, err := configureStatsReporters(g.Config, g.Logger, clientOrNil)
 	if err != nil {
 		return err
 	}

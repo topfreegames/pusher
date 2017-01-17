@@ -56,7 +56,6 @@ var _ = Describe("GCM Pusher", func() {
 		var mockStatsDClient *mocks.StatsDClientMock
 		var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
 		var mockKafkaProducerClient *mocks.KafkaProducerClientMock
-		var statsClients []interfaces.StatsReporter
 		var feedbackClients []interfaces.FeedbackReporter
 
 		BeforeEach(func() {
@@ -66,12 +65,9 @@ var _ = Describe("GCM Pusher", func() {
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
 			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
-			c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
-			Expect(err).NotTo(HaveOccurred())
 
 			kc, err := extensions.NewKafkaProducer(config, logger, mockKafkaProducerClient)
 			Expect(err).NotTo(HaveOccurred())
-			statsClients = []interfaces.StatsReporter{c}
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
 			mockDb = mocks.NewPGMock(0, 1)
@@ -91,7 +87,7 @@ var _ = Describe("GCM Pusher", func() {
 					apiKey,
 					isProduction,
 					logger,
-					statsClients,
+					mockStatsDClient,
 					mockDb,
 					client,
 				)
@@ -119,7 +115,7 @@ var _ = Describe("GCM Pusher", func() {
 					apiKey,
 					isProduction,
 					logger,
-					statsClients,
+					mockStatsDClient,
 					mockDb,
 					client,
 				)

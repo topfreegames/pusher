@@ -56,7 +56,6 @@ var _ = Describe("APNS Pusher", func() {
 		var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 		var mockPushQueue *mocks.APNSPushQueueMock
 		var mockStatsDClient *mocks.StatsDClientMock
-		var statsClients []interfaces.StatsReporter
 
 		BeforeEach(func() {
 			mockStatsDClient = mocks.NewStatsDClientMock()
@@ -66,10 +65,6 @@ var _ = Describe("APNS Pusher", func() {
 			kc, err := extensions.NewKafkaProducer(config, logger, mockKafkaProducerClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
-			Expect(err).NotTo(HaveOccurred())
-
-			statsClients = []interfaces.StatsReporter{c}
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
 			mockDb = mocks.NewPGMock(0, 1)
@@ -80,7 +75,15 @@ var _ = Describe("APNS Pusher", func() {
 
 		Describe("Creating new apns pusher", func() {
 			It("should return configured pusher", func() {
-				pusher, err := NewAPNSPusher(configFile, certificatePath, isProduction, logger, statsClients, mockDb, mockPushQueue)
+				pusher, err := NewAPNSPusher(
+					configFile,
+					certificatePath,
+					isProduction,
+					logger,
+					mockStatsDClient,
+					mockDb,
+					mockPushQueue,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
 				Expect(pusher.ConfigFile).To(Equal(configFile))
@@ -98,7 +101,15 @@ var _ = Describe("APNS Pusher", func() {
 
 		Describe("Start apns pusher", func() {
 			It("should launch go routines and run forever", func() {
-				pusher, err := NewAPNSPusher(configFile, certificatePath, isProduction, logger, statsClients, mockDb, mockPushQueue)
+				pusher, err := NewAPNSPusher(
+					configFile,
+					certificatePath,
+					isProduction,
+					logger,
+					mockStatsDClient,
+					mockDb,
+					mockPushQueue,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
 				defer func() { pusher.run = false }()

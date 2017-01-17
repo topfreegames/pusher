@@ -60,7 +60,7 @@ func NewAPNSPusher(configFile,
 	certificatePath string,
 	isProduction bool,
 	logger *logrus.Logger,
-	statsReporters []interfaces.StatsReporter,
+	statsdClientOrNil interfaces.StatsDClient,
 	db interfaces.DB,
 	queueOrNil ...interfaces.APNSPushQueue,
 ) (*APNSPusher, error) {
@@ -76,7 +76,7 @@ func NewAPNSPusher(configFile,
 	if len(queueOrNil) > 0 {
 		queue = queueOrNil[0]
 	}
-	err := a.configure(queue, db, statsReporters)
+	err := a.configure(queue, db, statsdClientOrNil)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (a *APNSPusher) loadConfigurationDefaults() {
 	a.Config.SetDefault("gracefulShutdownTimeout", 10)
 }
 
-func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB, statsReporters []interfaces.StatsReporter) error {
+func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB, statsdClientOrNil interfaces.StatsDClient) error {
 	var err error
 	a.Config, err = util.NewViperWithConfigFile(a.ConfigFile)
 	if err != nil {
@@ -95,7 +95,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	}
 	a.loadConfigurationDefaults()
 	a.GracefulShutdownTimeout = a.Config.GetInt("gracefulShutdownTimeout")
-	if err = a.configureStatsReporters(statsReporters); err != nil {
+	if err = a.configureStatsReporters(statsdClientOrNil); err != nil {
 		return err
 	}
 	if err = a.configureFeedbackReporters(); err != nil {
@@ -136,12 +136,8 @@ func (a *APNSPusher) configureFeedbackReporters() error {
 	return nil
 }
 
-func (a *APNSPusher) configureStatsReporters(statsReporters []interfaces.StatsReporter) error {
-	if statsReporters != nil {
-		a.StatsReporters = statsReporters
-		return nil
-	}
-	reporters, err := configureStatsReporters(a.Config, a.Logger)
+func (a *APNSPusher) configureStatsReporters(clientOrNil interfaces.StatsDClient) error {
+	reporters, err := configureStatsReporters(a.Config, a.Logger, clientOrNil)
 	if err != nil {
 		return err
 	}

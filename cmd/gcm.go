@@ -37,7 +37,7 @@ var apiKey string
 func startGcm(
 	debug, json, production bool,
 	cfgFile, senderID, apiKey string,
-	statsReporters []interfaces.StatsReporter,
+	statsdClientOrNil interfaces.StatsDClient,
 	dbOrNil interfaces.DB,
 	clientOrNil interfaces.GCMClient,
 ) (*pusher.GCMPusher, error) {
@@ -64,7 +64,7 @@ func startGcm(
 		l.Error(err)
 		return nil, err
 	}
-	return pusher.NewGCMPusher(cfgFile, senderID, apiKey, production, log, statsReporters, dbOrNil, clientOrNil)
+	return pusher.NewGCMPusher(cfgFile, senderID, apiKey, production, log, statsdClientOrNil, dbOrNil, clientOrNil)
 }
 
 // gcmCmd represents the gcm command

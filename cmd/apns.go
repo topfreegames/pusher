@@ -37,7 +37,7 @@ var certificate string
 func startApns(
 	debug, json, production bool,
 	cfgFile, certificate string,
-	statsReporters []interfaces.StatsReporter,
+	statsdClientOrNil interfaces.StatsDClient,
 	dbOrNil interfaces.DB,
 	queueOrNil interfaces.APNSPushQueue,
 ) (*pusher.APNSPusher, error) {
@@ -59,7 +59,7 @@ func startApns(
 		l.Error(err)
 		return nil, err
 	}
-	return pusher.NewAPNSPusher(cfgFile, certificate, production, log, statsReporters, dbOrNil, queueOrNil)
+	return pusher.NewAPNSPusher(cfgFile, certificate, production, log, statsdClientOrNil, dbOrNil, queueOrNil)
 }
 
 // apnsCmd represents the apns command
