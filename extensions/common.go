@@ -24,26 +24,15 @@ package extensions
 
 import (
 	"encoding/json"
-	"fmt"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
 )
 
-func handleTokenError(token, service, appName string, logger *logrus.Logger, db interfaces.DB) error {
-	l := logger.WithFields(logrus.Fields{
-		"method": "handleTokenError",
-		"token":  token,
-	})
-	l.Debug("deleting token")
-	query := fmt.Sprintf("DELETE FROM %s_%s WHERE token = ?0;", appName, service)
-	_, err := db.Exec(query, token)
-	if err != nil && err.Error() != "pg: no rows in result set" {
-		l.WithError(err).Error("error deleting token")
-		return err
+func handleInvalidToken(invalidTokenHandlers []interfaces.InvalidTokenHandler, token string) {
+	for _, invalidTokenHandler := range invalidTokenHandlers {
+		invalidTokenHandler.HandleToken(token)
 	}
-	return nil
 }
 
 func sendToFeedbackReporters(feedbackReporters []interfaces.FeedbackReporter, res interface{}) error {

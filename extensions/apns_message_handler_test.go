@@ -35,19 +35,22 @@ import (
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	. "github.com/topfreegames/pusher/testing"
+	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("APNS Message Handler", func() {
-	var mockStatsDClient *mocks.StatsDClientMock
+	var db interfaces.DB
+	var feedbackClients []interfaces.FeedbackReporter
+	var handler *APNSMessageHandler
+	var invalidTokenHandlers []interfaces.InvalidTokenHandler
 	var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
-	var statsClients []interfaces.StatsReporter
-	var feedbackClients []interfaces.FeedbackReporter
-	var db interfaces.DB
-	var handler *APNSMessageHandler
 	var mockPushQueue *mocks.APNSPushQueueMock
+	var mockStatsDClient *mocks.StatsDClientMock
+	var statsClients []interfaces.StatsReporter
 
 	configFile := "../config/test.yaml"
+	config := util.NewViperWithConfigFile(configFile)
 	certificatePath := "../tls/self_signed_cert.pem"
 	isProduction := false
 	appName := "testapp"
@@ -70,6 +73,10 @@ var _ = Describe("APNS Message Handler", func() {
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
 			db = mocks.NewPGMock(0, 1)
+			it, err := NewTokenPG(config, logger, db)
+			Expect(err).NotTo(HaveOccurred())
+			invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
+
 			mockPushQueue = mocks.NewAPNSPushQueueMock()
 			handler, err = NewAPNSMessageHandler(
 				configFile, certificatePath, appName,
@@ -78,8 +85,8 @@ var _ = Describe("APNS Message Handler", func() {
 				nil,
 				statsClients,
 				feedbackClients,
+				invalidTokenHandlers,
 				mockPushQueue,
-				db,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			db.(*mocks.PGMock).RowsReturned = 0
@@ -101,16 +108,9 @@ var _ = Describe("APNS Message Handler", func() {
 		Describe("Configuring Handler", func() {
 			It("should fail if invalid pem file", func() {
 				handler.CertificatePath = "./invalid-certficate.pem"
-				err := handler.configure(nil, handler.PushDB.DB)
+				err := handler.configure(nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("open ./invalid-certficate.pem: no such file or directory"))
-			})
-
-			It("should fail if cannot configure push DB", func() {
-				db.(*mocks.PGMock).RowsReturned = 0
-				err := handler.configure(mockPushQueue, db)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Timed out waiting for PostgreSQL to connect."))
 			})
 		})
 
@@ -412,6 +412,9 @@ var _ = Describe("APNS Message Handler", func() {
 				feedbackClients = []interfaces.FeedbackReporter{kc}
 
 				db = mocks.NewPGMock(0, 1)
+				it, err := NewTokenPG(config, logger, db)
+				Expect(err).NotTo(HaveOccurred())
+				invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 				handler, err = NewAPNSMessageHandler(
 					configFile, certificatePath, appName,
 					isProduction,
@@ -419,8 +422,8 @@ var _ = Describe("APNS Message Handler", func() {
 					nil,
 					statsClients,
 					feedbackClients,
+					invalidTokenHandlers,
 					mockPushQueue,
-					db,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -503,11 +506,10 @@ var _ = Describe("APNS Message Handler", func() {
 		})
 
 		Describe("Cleanup", func() {
-			It("should close PG connection and PushQueue without error", func() {
+			It("should close PushQueue without error", func() {
 				err := handler.Cleanup()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler.PushQueue.(*mocks.APNSPushQueueMock).Closed).To(BeTrue())
-				Expect(handler.PushDB.DB.(*mocks.PGMock).Closed).To(BeTrue())
 			})
 		})
 	})

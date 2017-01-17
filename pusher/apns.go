@@ -43,7 +43,9 @@ type APNSPusher struct {
 	CertificatePath         string
 	Config                  *viper.Viper
 	ConfigFile              string
+	feedbackReporters       []interfaces.FeedbackReporter
 	GracefulShutdownTimeout int
+	InvalidTokenHandlers    []interfaces.InvalidTokenHandler
 	IsProduction            bool
 	Logger                  *logrus.Logger
 	MessageHandler          interfaces.MessageHandler
@@ -51,7 +53,6 @@ type APNSPusher struct {
 	Queue                   interfaces.Queue
 	run                     bool
 	StatsReporters          []interfaces.StatsReporter
-	feedbackReporters       []interfaces.FeedbackReporter
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
@@ -98,6 +99,9 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	if err := a.configureFeedbackReporters(); err != nil {
 		return err
 	}
+	if err := a.configureInvalidTokenHandlers(db); err != nil {
+		return err
+	}
 	q, err := extensions.NewKafkaConsumer(a.Config, a.Logger)
 	if err != nil {
 		return err
@@ -110,8 +114,8 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 		a.Queue.PendingMessagesWaitGroup(),
 		a.StatsReporters,
 		a.feedbackReporters,
+		a.InvalidTokenHandlers,
 		queue,
-		db,
 	)
 	if err != nil {
 		return err
@@ -139,6 +143,15 @@ func (a *APNSPusher) configureStatsReporters(statsReporters []interfaces.StatsRe
 		return err
 	}
 	a.StatsReporters = reporters
+	return nil
+}
+
+func (a *APNSPusher) configureInvalidTokenHandlers(dbOrNil interfaces.DB) error {
+	invalidTokenHandlers, err := configureInvalidTokenHandlers(a.Config, a.Logger, dbOrNil)
+	if err != nil {
+		return err
+	}
+	a.InvalidTokenHandlers = invalidTokenHandlers
 	return nil
 }
 

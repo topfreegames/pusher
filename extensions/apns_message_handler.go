@@ -63,10 +63,10 @@ type APNSMessageHandler struct {
 	ConfigFile               string
 	feedbackReporters        []interfaces.FeedbackReporter
 	InflightMessagesMetadata map[string]interface{}
+	InvalidTokenHandlers     []interfaces.InvalidTokenHandler
 	IsProduction             bool
 	Logger                   *log.Logger
 	pendingMessagesWG        *sync.WaitGroup
-	PushDB                   *PGClient
 	PushQueue                interfaces.APNSPushQueue
 	responsesReceived        int64
 	run                      bool
@@ -83,14 +83,15 @@ func NewAPNSMessageHandler(
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
 	feedbackReporters []interfaces.FeedbackReporter,
+	invalidTokenHandlers []interfaces.InvalidTokenHandler,
 	queue interfaces.APNSPushQueue,
-	db interfaces.DB,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
 		appName:                  appName,
 		CertificatePath:          certificatePath,
 		ConfigFile:               configFile,
 		InflightMessagesMetadata: map[string]interface{}{},
+		InvalidTokenHandlers:     invalidTokenHandlers,
 		IsProduction:             isProduction,
 		Logger:                   logger,
 		responsesReceived:        0,
@@ -99,13 +100,13 @@ func NewAPNSMessageHandler(
 		StatsReporters:           statsReporters,
 		feedbackReporters:        feedbackReporters,
 	}
-	if err := a.configure(queue, db); err != nil {
+	if err := a.configure(queue); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
-func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue, db interfaces.DB) error {
+func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue) error {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
 	err := a.configureCertificate()
@@ -118,10 +119,6 @@ func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue, db interf
 	} else {
 		err = a.configureAPNSPushQueue()
 	}
-	if err != nil {
-		return err
-	}
-	err = a.configurePushDatabase(db)
 	if err != nil {
 		return err
 	}
@@ -164,17 +161,6 @@ func (a *APNSMessageHandler) configureAPNSPushQueue() error {
 	workers := uint(concurrentWorkers)
 	queue := push.NewQueue(svc, workers)
 	a.PushQueue = queue
-	return nil
-}
-
-func (a *APNSMessageHandler) configurePushDatabase(db interfaces.DB) error {
-	l := a.Logger.WithField("method", "configurePushDatabase")
-	var err error
-	a.PushDB, err = NewPGClient("push.db", a.Config, db)
-	if err != nil {
-		l.WithError(err).Error("could not connect to push database")
-		return err
-	}
 	return nil
 }
 
@@ -277,7 +263,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 				"category":   "TokenError",
 				log.ErrorKey: res.Err,
 			}).Debug("received an error")
-			handleTokenError(res.DeviceToken, "apns", a.appName, a.Logger, a.PushDB.DB)
+			handleInvalidToken(a.InvalidTokenHandlers, res.DeviceToken)
 		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
 			l.WithFields(log.Fields{
 				"category":   "CertificateError",
@@ -370,12 +356,6 @@ func (a *APNSMessageHandler) mapErrorReason(reason error) string {
 
 //Cleanup closes connections to APNS
 func (a *APNSMessageHandler) Cleanup() error {
-	err := a.PushDB.Close()
-	if err != nil {
-		return err
-	}
-
 	a.PushQueue.Close()
-
 	return nil
 }

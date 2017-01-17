@@ -35,19 +35,22 @@ import (
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	. "github.com/topfreegames/pusher/testing"
+	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("GCM Message Handler", func() {
+	var feedbackClients []interfaces.FeedbackReporter
+	var handler *GCMMessageHandler
+	var invalidTokenHandlers []interfaces.InvalidTokenHandler
 	var mockClient *mocks.GCMClientMock
 	var mockDb *mocks.PGMock
 	var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
-	var handler *GCMMessageHandler
 	var mockStatsDClient *mocks.StatsDClientMock
-	var feedbackClients []interfaces.FeedbackReporter
 	var statsClients []interfaces.StatsReporter
 
 	configFile := "../config/test.yaml"
+	config := util.NewViperWithConfigFile(configFile)
 	senderID := "sender-id"
 	apiKey := "api-key"
 	appName := "testapp"
@@ -72,6 +75,9 @@ var _ = Describe("GCM Message Handler", func() {
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
 			mockDb = mocks.NewPGMock(0, 1)
+			it, err := NewTokenPG(config, logger, mockDb)
+			Expect(err).NotTo(HaveOccurred())
+			invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 
 			mockClient = mocks.NewGCMClientMock()
 			handler, err = NewGCMMessageHandler(
@@ -84,8 +90,8 @@ var _ = Describe("GCM Message Handler", func() {
 				nil,
 				statsClients,
 				feedbackClients,
+				invalidTokenHandlers,
 				mockClient,
-				mockDb,
 			)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -111,16 +117,9 @@ var _ = Describe("GCM Message Handler", func() {
 			It("should fail if invalid credentials", func() {
 				handler.apiKey = "badkey"
 				handler.senderID = "badsender"
-				err := handler.configure(nil, handler.PushDB.DB)
+				err := handler.configure(nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("error connecting gcm xmpp client: auth failure: not-authorized"))
-			})
-
-			It("should fail if cannot configure push DB", func() {
-				mockDb.RowsReturned = 0
-				err := handler.configure(mockClient, mockDb)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Timed out waiting for PostgreSQL to connect."))
 			})
 		})
 
@@ -349,6 +348,10 @@ var _ = Describe("GCM Message Handler", func() {
 				feedbackClients = []interfaces.FeedbackReporter{kc}
 
 				mockClient = mocks.NewGCMClientMock()
+				it, err := NewTokenPG(config, logger, mockDb)
+				Expect(err).NotTo(HaveOccurred())
+				invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
+
 				handler, err = NewGCMMessageHandler(
 					configFile,
 					senderID,
@@ -359,8 +362,8 @@ var _ = Describe("GCM Message Handler", func() {
 					nil,
 					statsClients,
 					feedbackClients,
+					invalidTokenHandlers,
 					mockClient,
-					mockDb,
 				)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -460,7 +463,6 @@ var _ = Describe("GCM Message Handler", func() {
 				err := handler.Cleanup()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler.GCMClient.(*mocks.GCMClientMock).Closed).To(BeTrue())
-				Expect(handler.PushDB.DB.(*mocks.PGMock).Closed).To(BeTrue())
 			})
 		})
 	})

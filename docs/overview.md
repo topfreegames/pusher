@@ -8,13 +8,8 @@ What is Pusher? Pusher is a fast push notification platform for APNS and GCM.
 * **Multi-services** - Pusher supports both gcm and apns services, but plugging a new one shouldn't be difficult;
 * **Stats reporters** - Reporting of sent, successful and failed notifications can be done easily with pluggable stats reporters. For now only StatsD is supported;
 * **Feedbacks reporters** - Feedbacks from APNS and GCM can be easily sent to pluggable reporters. For now only Kafka producer is supported;
-* **Removal of invalid tokens** - Tokens which receive an invalid token feedback are automatically deleted from the database;
+* **Handling of invalid tokens** - Tokens which receive an invalid token feedback can be easily handled by pluggable handlers. For now they are deleted from a PostgreSQL database;
 * **Easy to deploy** - Pusher comes with containers already exported to docker hub for every single of our successful builds.
-
-## Architecture
-
-Pusher is based on some premises:
-- You have a PostgreSQL Database with tables containing the device token registered in apns or gcm service;
 
 ## The Stack
 

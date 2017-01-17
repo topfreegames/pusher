@@ -27,68 +27,61 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	uuid "github.com/satori/go.uuid"
+	"github.com/spf13/viper"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/Sirupsen/logrus/hooks/test"
-	uuid "github.com/satori/go.uuid"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
+	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("Common", func() {
+	var config *viper.Viper
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var feedbackClients []interfaces.FeedbackReporter
+	var invalidTokenHandlers []interfaces.InvalidTokenHandler
 	var db *mocks.PGMock
 
 	configFile := "../config/test.yaml"
-	appName := "testapp"
 	logger, hook := test.NewNullLogger()
 	logger.Level = logrus.DebugLevel
 
 	Describe("[Unit]", func() {
 		BeforeEach(func() {
+			config = util.NewViperWithConfigFile(configFile)
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
 			Expect(err).NotTo(HaveOccurred())
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
 			db = mocks.NewPGMock(0, 1)
-			db.RowsReturned = 0
+			it, err := NewTokenPG(config, logger, db)
+			Expect(err).NotTo(HaveOccurred())
+			invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 
 			hook.Reset()
 		})
 
 		Describe("Handle token error", func() {
-			It("should delete apns token", func() {
+			It("should be successful", func() {
 				token := uuid.NewV4().String()
-
-				err := handleTokenError(token, "apns", appName, logger, db)
-				Expect(err).NotTo(HaveOccurred())
-
-				query := fmt.Sprintf("DELETE FROM %s_apns WHERE token = ?0;", appName)
-				Expect(db.Execs).To(HaveLen(1))
-				Expect(db.Execs[0][0]).To(BeEquivalentTo(query))
-				Expect(db.Execs[0][1]).To(BeEquivalentTo([]interface{}{token}))
+				handleInvalidToken(invalidTokenHandlers, token)
+				query := "DELETE FROM test_apns WHERE token = ?0;"
+				Expect(db.Execs).To(HaveLen(2))
+				Expect(db.Execs[1][0]).To(BeEquivalentTo(query))
+				Expect(db.Execs[1][1]).To(BeEquivalentTo([]interface{}{token}))
 			})
 
-			It("should not break if apns token does not exist in db", func() {
-				token := uuid.NewV4().String()
-				db.Error = fmt.Errorf("pg: no rows in result set")
-				err := handleTokenError(token, "apns", appName, logger, db)
-				Expect(err).NotTo(HaveOccurred())
-
-				query := fmt.Sprintf("DELETE FROM %s_apns WHERE token = ?0;", appName)
-				Expect(db.Execs).To(HaveLen(1))
-				Expect(db.Execs[0][0]).To(BeEquivalentTo(query))
-				Expect(db.Execs[0][1]).To(BeEquivalentTo([]interface{}{token}))
-			})
-
-			It("should return an error if table does not exist", func() {
+			It("should fail silently", func() {
 				token := uuid.NewV4().String()
 				db.Error = fmt.Errorf("pg: error")
-				err := handleTokenError(token, "apns", appName, logger, db)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("pg: error"))
+				handleInvalidToken(invalidTokenHandlers, token)
+				Expect(db.Execs).To(HaveLen(2))
+				query := "DELETE FROM test_apns WHERE token = ?0;"
+				Expect(db.Execs[1][0]).To(BeEquivalentTo(query))
+				Expect(db.Execs[1][1]).To(BeEquivalentTo([]interface{}{token}))
 			})
 		})
 

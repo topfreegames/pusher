@@ -94,6 +94,6 @@ For now the only reporter that is supported is Statsd. We are reporting only cou
 
 A feedback reporter interface only implements a SendFeedback method that receives an feedback and sends it to the specified reporter. For now the only reporter that is supported is a Kafka producer.
 
-### Token Deletion
+### Invalid Token Handlers
 
-When a failure feedback is received and the error indicates that the provided token is invalid we are deleting this token from the database containing user tokens.
+An InvalidTokenHandler is an interface that implements a HandleToken method that is called when a failure feedback is received and the error indicates that the provided token is invalid. For now we have a handler implement that deletes this token from a PostgreSQL database containing user tokens.

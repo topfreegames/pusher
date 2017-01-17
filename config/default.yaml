@@ -27,8 +27,11 @@ stats:
     host: "localhost:8125"
     prefix: "push"
     flushIntervalMs: 5000
-push:
-  db:
+invalidToken:
+  handlers:
+    - pg
+  pg:
+    table: "test_apns"
     host: localhost
     port: 8585
     user: pusher_user

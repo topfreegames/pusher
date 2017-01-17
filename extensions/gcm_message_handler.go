@@ -59,13 +59,13 @@ type GCMMessageHandler struct {
 	feedbackReporters        []interfaces.FeedbackReporter
 	GCMClient                interfaces.GCMClient
 	InflightMessagesMetadata map[string]interface{}
+	InvalidTokenHandlers     []interfaces.InvalidTokenHandler
 	IsProduction             bool
 	Logger                   *log.Logger
 	pendingMessages          chan bool
 	pendingMessagesWG        *sync.WaitGroup
 	PingInterval             int
 	PingTimeout              int
-	PushDB                   *PGClient
 	responsesReceived        int64
 	run                      bool
 	senderID                 string
@@ -81,8 +81,8 @@ func NewGCMMessageHandler(
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
 	feedbackReporters []interfaces.FeedbackReporter,
+	invalidTokenHandlers []interfaces.InvalidTokenHandler,
 	client interfaces.GCMClient,
-	db interfaces.DB,
 ) (*GCMMessageHandler, error) {
 	l := logger.WithFields(log.Fields{
 		"method":       "NewGCMMessageHandler",
@@ -98,6 +98,7 @@ func NewGCMMessageHandler(
 		appName:                  appName,
 		ConfigFile:               configFile,
 		InflightMessagesMetadata: map[string]interface{}{},
+		InvalidTokenHandlers:     invalidTokenHandlers,
 		IsProduction:             isProduction,
 		Logger:                   logger,
 		responsesReceived:        0,
@@ -107,7 +108,7 @@ func NewGCMMessageHandler(
 		StatsReporters:           statsReporters,
 		feedbackReporters:        feedbackReporters,
 	}
-	err := g.configure(client, db)
+	err := g.configure(client)
 	if err != nil {
 		l.Error("Failed to create a new GCM Message handler.")
 		return nil, err
@@ -115,14 +116,11 @@ func NewGCMMessageHandler(
 	return g, nil
 }
 
-func (g *GCMMessageHandler) configure(client interfaces.GCMClient, db interfaces.DB) error {
+func (g *GCMMessageHandler) configure(client interfaces.GCMClient) error {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
 	g.pendingMessages = make(chan bool, g.Config.GetInt("gcm.maxPendingMessages"))
-	err := g.configurePushDatabase(db)
-	if err != nil {
-		return err
-	}
+	var err error
 	if client != nil {
 		err = nil
 		g.GCMClient = client
@@ -139,17 +137,6 @@ func (g *GCMMessageHandler) loadConfigurationDefaults() {
 	g.Config.SetDefault("gcm.pingInterval", 20)
 	g.Config.SetDefault("gcm.pingTimeout", 30)
 	g.Config.SetDefault("gcm.maxPendingMessages", 100)
-}
-
-func (g *GCMMessageHandler) configurePushDatabase(db interfaces.DB) error {
-	l := g.Logger.WithField("method", "configurePushDatabase")
-	var err error
-	g.PushDB, err = NewPGClient("push.db", g.Config, db)
-	if err != nil {
-		l.WithError(err).Error("Failed to configure push database.")
-		return err
-	}
-	return nil
 }
 
 func (g *GCMMessageHandler) configureGCMClient() error {
@@ -232,7 +219,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 				"category":   "TokenError",
 				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
 			}).Debug("received an error")
-			handleTokenError(cm.From, "gcm", g.appName, g.Logger, g.PushDB.DB)
+			handleInvalidToken(g.InvalidTokenHandlers, cm.From)
 		case "INVALID_JSON":
 			l.WithFields(log.Fields{
 				"category":   "JsonError",
@@ -324,12 +311,7 @@ func (g *GCMMessageHandler) HandleMessages(msgChan *chan []byte) {
 
 //Cleanup closes connections to GCM
 func (g *GCMMessageHandler) Cleanup() error {
-	err := g.PushDB.Close()
-	if err != nil {
-		return err
-	}
-
-	err = g.GCMClient.Close()
+	err := g.GCMClient.Close()
 	if err != nil {
 		return err
 	}
