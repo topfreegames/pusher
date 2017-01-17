@@ -31,13 +31,13 @@ brew install librdkafka
 #### APNS
 
 ```
-./bin/pusher apns --certificate <path-to-unified-certificate>/unified.pem --environment production --app <app-name> -d
+./bin/pusher apns --certificate <path-to-unified-certificate>/unified.pem --app <app-name> -d -p
 ```
 
 #### GCM
 
 ```
-./bin/pusher gcm --apiKey <api-key> --senderId <sender-id> --app <app-name> -d
+./bin/pusher gcm --apiKey <api-key> --senderId <sender-id> --app <app-name> -d -p
 ```
 
 ### Benchmark
