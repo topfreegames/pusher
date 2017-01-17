@@ -23,9 +23,10 @@
 package pusher
 
 import (
-	log "github.com/Sirupsen/logrus"
 	"sync"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // WaitTimeout waits for the waitgroup for the specified max timeout.

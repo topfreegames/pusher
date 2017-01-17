@@ -85,13 +85,13 @@ func NewAPNSPusher(configFile,
 }
 
 func (a *APNSPusher) loadConfigurationDefaults() {
-	a.Config.SetDefault("gracefullShutdownTimeout", 10)
+	a.Config.SetDefault("gracefulShutdownTimeout", 10)
 }
 
 func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB, statsReporters []interfaces.StatsReporter) error {
 	a.Config = util.NewViperWithConfigFile(a.ConfigFile)
 	a.loadConfigurationDefaults()
-	a.GracefulShutdownTimeout = a.Config.GetInt("gracefullShutdownTimeout")
+	a.GracefulShutdownTimeout = a.Config.GetInt("gracefulShutdownTimeout")
 	if err := a.configureStatsReporters(statsReporters); err != nil {
 		return err
 	}

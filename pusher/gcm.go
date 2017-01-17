@@ -85,14 +85,14 @@ func NewGCMPusher(
 }
 
 func (g *GCMPusher) loadConfigurationDefaults() {
-	g.Config.SetDefault("gracefullShutdownTimeout", 10)
+	g.Config.SetDefault("gracefulShutdownTimeout", 10)
 	g.Config.SetDefault("stats.reporters", []string{})
 }
 
 func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, statsReporters []interfaces.StatsReporter) error {
 	g.Config = util.NewViperWithConfigFile(g.ConfigFile)
 	g.loadConfigurationDefaults()
-	g.GracefulShutdownTimeout = g.Config.GetInt("gracefullShutdownTimeout")
+	g.GracefulShutdownTimeout = g.Config.GetInt("gracefulShutdownTimeout")
 	if err := g.configureStatsReporters(statsReporters); err != nil {
 		return err
 	}
