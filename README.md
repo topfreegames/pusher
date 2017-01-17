@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.org/topfreegames/pusher.svg?branch=master)](https://travis-ci.org/topfreegames/pusher)
 [![Coverage Status](https://coveralls.io/repos/github/topfreegames/pusher/badge.svg?branch=master)](https://coveralls.io/github/topfreegames/pusher?branch=master)
+[![Docs](https://readthedocs.org/projects/pusher/badge/?version=latest)](http://pusher.readthedocs.io/en/latest/)
 
 Pusher
 ======
