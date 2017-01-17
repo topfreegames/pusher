@@ -34,7 +34,7 @@ var _ = Describe("Version", func() {
 			out := CaptureStdout(func() {
 				getVersion()
 			})
-			Expect(out).To(Equal("0.1.0"))
+			Expect(out).To(Equal("0.2.0"))
 		})
 	})
 })
