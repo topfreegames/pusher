@@ -53,7 +53,6 @@ var _ = Describe("APNS Message Handler", func() {
 	config := util.NewViperWithConfigFile(configFile)
 	certificatePath := "../tls/self_signed_cert.pem"
 	isProduction := false
-	appName := "testapp"
 	logger, hook := test.NewNullLogger()
 	logger.Level = logrus.DebugLevel
 
@@ -63,7 +62,7 @@ var _ = Describe("APNS Message Handler", func() {
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
 			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
-			c, err := NewStatsD(configFile, logger, appName, mockStatsDClient)
+			c, err := NewStatsD(configFile, logger, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
@@ -79,7 +78,7 @@ var _ = Describe("APNS Message Handler", func() {
 
 			mockPushQueue = mocks.NewAPNSPushQueueMock()
 			handler, err = NewAPNSMessageHandler(
-				configFile, certificatePath, appName,
+				configFile, certificatePath,
 				isProduction,
 				logger,
 				nil,
@@ -97,7 +96,6 @@ var _ = Describe("APNS Message Handler", func() {
 		Describe("Creating new handler", func() {
 			It("should return configured handler", func() {
 				Expect(handler).NotTo(BeNil())
-				Expect(handler.appName).To(Equal(appName))
 				Expect(handler.ConfigFile).To(Equal(configFile))
 				Expect(handler.IsProduction).To(Equal(isProduction))
 				Expect(handler.responsesReceived).To(Equal(int64(0)))
@@ -416,7 +414,7 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(err).NotTo(HaveOccurred())
 				invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 				handler, err = NewAPNSMessageHandler(
-					configFile, certificatePath, appName,
+					configFile, certificatePath,
 					isProduction,
 					logger,
 					nil,
@@ -517,7 +515,7 @@ var _ = Describe("APNS Message Handler", func() {
 		BeforeEach(func() {
 			var err error
 			handler, err = NewAPNSMessageHandler(
-				configFile, certificatePath, appName,
+				configFile, certificatePath,
 				isProduction,
 				logger,
 				nil,

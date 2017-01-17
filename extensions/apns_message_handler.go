@@ -56,7 +56,6 @@ type ResponseWithMetadata struct {
 
 // APNSMessageHandler implements the messagehandler interface
 type APNSMessageHandler struct {
-	appName                  string
 	certificate              tls.Certificate
 	CertificatePath          string
 	Config                   *viper.Viper
@@ -77,7 +76,7 @@ type APNSMessageHandler struct {
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
 func NewAPNSMessageHandler(
-	configFile, certificatePath, appName string,
+	configFile, certificatePath string,
 	isProduction bool,
 	logger *log.Logger,
 	pendingMessagesWG *sync.WaitGroup,
@@ -87,7 +86,6 @@ func NewAPNSMessageHandler(
 	queue interfaces.APNSPushQueue,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
-		appName:                  appName,
 		CertificatePath:          certificatePath,
 		ConfigFile:               configFile,
 		InflightMessagesMetadata: map[string]interface{}{},

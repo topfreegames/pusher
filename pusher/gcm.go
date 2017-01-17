@@ -39,7 +39,6 @@ import (
 // GCMPusher struct for GCM pusher
 type GCMPusher struct {
 	apiKey                  string
-	AppName                 string
 	Config                  *viper.Viper
 	ConfigFile              string
 	feedbackReporters       []interfaces.FeedbackReporter
@@ -58,8 +57,7 @@ type GCMPusher struct {
 func NewGCMPusher(
 	configFile,
 	senderID,
-	apiKey,
-	appName string,
+	apiKey string,
 	isProduction bool,
 	logger *logrus.Logger,
 	statsReporters []interfaces.StatsReporter,
@@ -68,7 +66,6 @@ func NewGCMPusher(
 ) (*GCMPusher, error) {
 	g := &GCMPusher{
 		apiKey:       apiKey,
-		AppName:      appName,
 		ConfigFile:   configFile,
 		IsProduction: isProduction,
 		Logger:       logger,
@@ -112,7 +109,6 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 		g.ConfigFile,
 		g.senderID,
 		g.apiKey,
-		g.AppName,
 		g.IsProduction,
 		g.Logger,
 		g.Queue.PendingMessagesWaitGroup(),
@@ -133,7 +129,7 @@ func (g *GCMPusher) configureStatsReporters(statsReporters []interfaces.StatsRep
 		g.StatsReporters = statsReporters
 		return nil
 	}
-	reporters, err := configureStatsReporters(g.ConfigFile, g.Logger, g.AppName, g.Config)
+	reporters, err := configureStatsReporters(g.ConfigFile, g.Logger, g.Config)
 	if err != nil {
 		return err
 	}

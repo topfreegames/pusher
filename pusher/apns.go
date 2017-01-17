@@ -39,7 +39,6 @@ import (
 
 // APNSPusher struct for apns pusher
 type APNSPusher struct {
-	AppName                 string
 	CertificatePath         string
 	Config                  *viper.Viper
 	ConfigFile              string
@@ -57,8 +56,7 @@ type APNSPusher struct {
 
 // NewAPNSPusher for getting a new APNSPusher instance
 func NewAPNSPusher(configFile,
-	certificatePath,
-	appName string,
+	certificatePath string,
 	isProduction bool,
 	logger *logrus.Logger,
 	statsReporters []interfaces.StatsReporter,
@@ -67,7 +65,6 @@ func NewAPNSPusher(configFile,
 ) (*APNSPusher, error) {
 	var wg sync.WaitGroup
 	a := &APNSPusher{
-		AppName:           appName,
 		CertificatePath:   certificatePath,
 		ConfigFile:        configFile,
 		IsProduction:      isProduction,
@@ -108,7 +105,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	}
 	a.Queue = q
 	handler, err := extensions.NewAPNSMessageHandler(
-		a.ConfigFile, a.CertificatePath, a.AppName,
+		a.ConfigFile, a.CertificatePath,
 		a.IsProduction,
 		a.Logger,
 		a.Queue.PendingMessagesWaitGroup(),
@@ -138,7 +135,7 @@ func (a *APNSPusher) configureStatsReporters(statsReporters []interfaces.StatsRe
 		a.StatsReporters = statsReporters
 		return nil
 	}
-	reporters, err := configureStatsReporters(a.ConfigFile, a.Logger, a.AppName, a.Config)
+	reporters, err := configureStatsReporters(a.ConfigFile, a.Logger, a.Config)
 	if err != nil {
 		return err
 	}

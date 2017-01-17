@@ -53,7 +53,6 @@ var _ = Describe("GCM Message Handler", func() {
 	config := util.NewViperWithConfigFile(configFile)
 	senderID := "sender-id"
 	apiKey := "api-key"
-	appName := "testapp"
 	isProduction := false
 	logger, hook := test.NewNullLogger()
 	logger.Level = logrus.DebugLevel
@@ -66,7 +65,7 @@ var _ = Describe("GCM Message Handler", func() {
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
 			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
-			c, err := NewStatsD(configFile, logger, appName, mockStatsDClient)
+			c, err := NewStatsD(configFile, logger, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			kc, err := NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
@@ -84,7 +83,6 @@ var _ = Describe("GCM Message Handler", func() {
 				configFile,
 				senderID,
 				apiKey,
-				appName,
 				isProduction,
 				logger,
 				nil,
@@ -102,7 +100,6 @@ var _ = Describe("GCM Message Handler", func() {
 			It("should return configured handler", func() {
 				Expect(handler).NotTo(BeNil())
 				Expect(handler.apiKey).To(Equal(apiKey))
-				Expect(handler.appName).To(Equal(appName))
 				Expect(handler.Config).NotTo(BeNil())
 				Expect(handler.ConfigFile).To(Equal(configFile))
 				Expect(handler.IsProduction).To(Equal(isProduction))
@@ -356,7 +353,6 @@ var _ = Describe("GCM Message Handler", func() {
 					configFile,
 					senderID,
 					apiKey,
-					appName,
 					isProduction,
 					logger,
 					nil,
@@ -471,7 +467,7 @@ var _ = Describe("GCM Message Handler", func() {
 		BeforeEach(func() {
 			var err error
 
-			c, err := NewStatsD(configFile, logger, appName)
+			c, err := NewStatsD(configFile, logger)
 			Expect(err).NotTo(HaveOccurred())
 
 			kc, err := NewKafkaProducer(configFile, logger)
@@ -483,7 +479,6 @@ var _ = Describe("GCM Message Handler", func() {
 				configFile,
 				senderID,
 				apiKey,
-				appName,
 				isProduction,
 				logger,
 				nil,
@@ -504,7 +499,6 @@ var _ = Describe("GCM Message Handler", func() {
 					configFile,
 					senderID,
 					apiKey,
-					appName,
 					isProduction,
 					logger,
 					nil,

@@ -37,7 +37,6 @@ var _ = Describe("GCM Pusher", func() {
 	configFile := "../config/test.yaml"
 	senderID := "sender-id"
 	apiKey := "api-key"
-	appName := "testapp"
 	isProduction := false
 	logger, hook := test.NewNullLogger()
 
@@ -61,7 +60,7 @@ var _ = Describe("GCM Pusher", func() {
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
 			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
-			c, err := extensions.NewStatsD(configFile, logger, appName, mockStatsDClient)
+			c, err := extensions.NewStatsD(configFile, logger, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			kc, err := extensions.NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
@@ -83,7 +82,6 @@ var _ = Describe("GCM Pusher", func() {
 				pusher, err := NewGCMPusher(configFile,
 					senderID,
 					apiKey,
-					appName,
 					isProduction,
 					logger,
 					statsClients,
@@ -93,7 +91,6 @@ var _ = Describe("GCM Pusher", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
 				Expect(pusher.apiKey).To(Equal(apiKey))
-				Expect(pusher.AppName).To(Equal(appName))
 				Expect(pusher.Config).NotTo(BeNil())
 				Expect(pusher.ConfigFile).To(Equal(configFile))
 				Expect(pusher.IsProduction).To(Equal(isProduction))
@@ -113,7 +110,6 @@ var _ = Describe("GCM Pusher", func() {
 					configFile,
 					senderID,
 					apiKey,
-					appName,
 					isProduction,
 					logger,
 					statsClients,

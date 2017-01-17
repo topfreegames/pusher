@@ -57,5 +57,4 @@ func init() {
 	RootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug mode switch")
 	RootCmd.PersistentFlags().BoolVarP(&production, "production", "p", false, "production mode switch")
 	RootCmd.PersistentFlags().BoolVarP(&json, "json", "j", false, "json output mode")
-	RootCmd.PersistentFlags().StringVar(&app, "app", "", "the app name for the table in pushdb")
 }

@@ -33,7 +33,6 @@ import (
 var _ = Describe("StatsD Extension", func() {
 	var mockClient *mocks.StatsDClientMock
 	logger, hook := test.NewNullLogger()
-	appName := "testapp"
 	BeforeEach(func() {
 		mockClient = mocks.NewStatsDClientMock()
 		hook.Reset()
@@ -42,7 +41,7 @@ var _ = Describe("StatsD Extension", func() {
 	Describe("[Unit]", func() {
 		Describe("Handling Message Sent", func() {
 			It("should increment counter in statsd", func() {
-				statsd, err := NewStatsD("../config/test.yaml", logger, appName, mockClient)
+				statsd, err := NewStatsD("../config/test.yaml", logger, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				defer statsd.Cleanup()
 
@@ -55,7 +54,7 @@ var _ = Describe("StatsD Extension", func() {
 
 		Describe("Handling Message Successful", func() {
 			It("should increment counter in statsd", func() {
-				statsd, err := NewStatsD("../config/test.yaml", logger, appName, mockClient)
+				statsd, err := NewStatsD("../config/test.yaml", logger, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				defer statsd.Cleanup()
 
@@ -68,7 +67,7 @@ var _ = Describe("StatsD Extension", func() {
 
 		Describe("Reporting Go Stats", func() {
 			It("should report go stats in statsd", func() {
-				statsd, err := NewStatsD("../config/test.yaml", logger, appName, mockClient)
+				statsd, err := NewStatsD("../config/test.yaml", logger, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				defer statsd.Cleanup()
 
@@ -85,7 +84,7 @@ var _ = Describe("StatsD Extension", func() {
 
 		Describe("Handling Message Failure", func() {
 			It("should increment counter in statsd", func() {
-				statsd, err := NewStatsD("../config/test.yaml", logger, appName, mockClient)
+				statsd, err := NewStatsD("../config/test.yaml", logger, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				defer statsd.Cleanup()
 
@@ -103,13 +102,12 @@ var _ = Describe("StatsD Extension", func() {
 	Describe("[Integration]", func() {
 		Describe("Creating new client", func() {
 			It("should return connected client", func() {
-				statsd, err := NewStatsD("../config/test.yaml", logger, appName)
+				statsd, err := NewStatsD("../config/test.yaml", logger)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(statsd).NotTo(BeNil())
 				Expect(statsd.Client).NotTo(BeNil())
 				defer statsd.Cleanup()
 
-				Expect(statsd.appName).To(Equal(appName))
 				Expect(statsd.Config).NotTo(BeNil())
 				Expect(statsd.ConfigFile).To(Equal("../config/test.yaml"))
 				Expect(statsd.Logger).NotTo(BeNil())

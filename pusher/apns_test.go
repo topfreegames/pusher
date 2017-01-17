@@ -34,7 +34,6 @@ import (
 )
 
 var _ = Describe("APNS Pusher", func() {
-	appName := "testapp"
 	certificatePath := "../tls/self_signed_cert.pem"
 	configFile := "../config/test.yaml"
 	isProduction := false
@@ -61,7 +60,7 @@ var _ = Describe("APNS Pusher", func() {
 			kc, err := extensions.NewKafkaProducer(configFile, logger, mockKafkaProducerClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			c, err := extensions.NewStatsD(configFile, logger, appName, mockStatsDClient)
+			c, err := extensions.NewStatsD(configFile, logger, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			statsClients = []interfaces.StatsReporter{c}
@@ -75,10 +74,9 @@ var _ = Describe("APNS Pusher", func() {
 
 		Describe("Creating new apns pusher", func() {
 			It("should return configured pusher", func() {
-				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger, statsClients, mockDb, mockPushQueue)
+				pusher, err := NewAPNSPusher(configFile, certificatePath, isProduction, logger, statsClients, mockDb, mockPushQueue)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
-				Expect(pusher.AppName).To(Equal(appName))
 				Expect(pusher.ConfigFile).To(Equal(configFile))
 				Expect(pusher.CertificatePath).To(Equal(certificatePath))
 				Expect(pusher.IsProduction).To(Equal(isProduction))
@@ -94,7 +92,7 @@ var _ = Describe("APNS Pusher", func() {
 
 		Describe("Start apns pusher", func() {
 			It("should launch go routines and run forever", func() {
-				pusher, err := NewAPNSPusher(configFile, certificatePath, appName, isProduction, logger, statsClients, mockDb, mockPushQueue)
+				pusher, err := NewAPNSPusher(configFile, certificatePath, isProduction, logger, statsClients, mockDb, mockPushQueue)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
 				defer func() { pusher.run = false }()

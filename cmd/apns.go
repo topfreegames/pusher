@@ -36,7 +36,7 @@ var certificate string
 
 func startApns(
 	debug, json, production bool,
-	cfgFile, certificate, app string,
+	cfgFile, certificate string,
 	statsReporters []interfaces.StatsReporter,
 	dbOrNil interfaces.DB,
 	queueOrNil interfaces.APNSPushQueue,
@@ -59,12 +59,7 @@ func startApns(
 		l.Error(err)
 		return nil, err
 	}
-	if len(app) == 0 {
-		err := fmt.Errorf("app must be set")
-		l.Error(err)
-		return nil, err
-	}
-	return pusher.NewAPNSPusher(cfgFile, certificate, app, production, log, statsReporters, dbOrNil, queueOrNil)
+	return pusher.NewAPNSPusher(cfgFile, certificate, production, log, statsReporters, dbOrNil, queueOrNil)
 }
 
 // apnsCmd represents the apns command
@@ -73,7 +68,7 @@ var apnsCmd = &cobra.Command{
 	Short: "starts pusher in apns mode",
 	Long:  `starts pusher in apns mode`,
 	Run: func(cmd *cobra.Command, args []string) {
-		apnsPusher, err := startApns(debug, json, production, cfgFile, certificate, app, nil, nil, nil)
+		apnsPusher, err := startApns(debug, json, production, cfgFile, certificate, nil, nil, nil)
 		if err != nil {
 			panic(err)
 		}

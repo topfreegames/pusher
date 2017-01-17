@@ -23,7 +23,6 @@
 package extensions
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -36,7 +35,6 @@ import (
 
 // StatsD for sending metrics
 type StatsD struct {
-	appName    string
 	Client     interfaces.StatsDClient
 	Config     *viper.Viper
 	ConfigFile string
@@ -44,11 +42,10 @@ type StatsD struct {
 }
 
 // NewStatsD for creating a new StatsD instance
-func NewStatsD(configFile string, logger *logrus.Logger, appName string, clientOrNil ...interfaces.StatsDClient) (*StatsD, error) {
+func NewStatsD(configFile string, logger *logrus.Logger, clientOrNil ...interfaces.StatsDClient) (*StatsD, error) {
 	q := &StatsD{
 		ConfigFile: configFile,
 		Logger:     logger,
-		appName:    appName,
 	}
 	var client interfaces.StatsDClient
 	if len(clientOrNil) == 1 {
@@ -69,7 +66,7 @@ func (s *StatsD) configure(client interfaces.StatsDClient) error {
 	s.loadConfigurationDefaults()
 
 	host := s.Config.GetString("stats.statsd.host")
-	prefix := fmt.Sprintf("%s.%s", s.Config.GetString("stats.statsd.prefix"), s.appName)
+	prefix := s.Config.GetString("stats.statsd.prefix")
 	flushIntervalMs := s.Config.GetInt("stats.statsd.flushIntervalMs")
 	flushPeriod := time.Duration(flushIntervalMs) * time.Millisecond
 

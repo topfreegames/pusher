@@ -53,7 +53,6 @@ type CCSMessageWithMetadata struct {
 // GCMMessageHandler implements the messagehandler interface
 type GCMMessageHandler struct {
 	apiKey                   string
-	appName                  string
 	Config                   *viper.Viper
 	ConfigFile               string
 	feedbackReporters        []interfaces.FeedbackReporter
@@ -75,7 +74,7 @@ type GCMMessageHandler struct {
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
 func NewGCMMessageHandler(
-	configFile, senderID, apiKey, appName string,
+	configFile, senderID, apiKey string,
 	isProduction bool,
 	logger *log.Logger,
 	pendingMessagesWG *sync.WaitGroup,
@@ -89,13 +88,11 @@ func NewGCMMessageHandler(
 		"configFile":   configFile,
 		"senderID":     senderID,
 		"apiKey":       apiKey,
-		"appName":      appName,
 		"isProduction": isProduction,
 	})
 
 	g := &GCMMessageHandler{
 		apiKey:                   apiKey,
-		appName:                  appName,
 		ConfigFile:               configFile,
 		InflightMessagesMetadata: map[string]interface{}{},
 		InvalidTokenHandlers:     invalidTokenHandlers,
