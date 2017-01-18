@@ -27,7 +27,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"sync"
 	"syscall"
 	"time"
 
@@ -49,7 +48,6 @@ type APNSPusher struct {
 	IsProduction            bool
 	Logger                  *logrus.Logger
 	MessageHandler          interfaces.MessageHandler
-	PendingMessagesWG       *sync.WaitGroup
 	Queue                   interfaces.Queue
 	run                     bool
 	StatsReporters          []interfaces.StatsReporter
@@ -64,13 +62,11 @@ func NewAPNSPusher(configFile,
 	db interfaces.DB,
 	queueOrNil ...interfaces.APNSPushQueue,
 ) (*APNSPusher, error) {
-	var wg sync.WaitGroup
 	a := &APNSPusher{
-		CertificatePath:   certificatePath,
-		ConfigFile:        configFile,
-		IsProduction:      isProduction,
-		Logger:            logger,
-		PendingMessagesWG: &wg,
+		CertificatePath: certificatePath,
+		ConfigFile:      configFile,
+		IsProduction:    isProduction,
+		Logger:          logger,
 	}
 	var queue interfaces.APNSPushQueue
 	if len(queueOrNil) > 0 {
