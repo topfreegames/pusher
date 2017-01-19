@@ -23,7 +23,6 @@
 package pusher
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -34,14 +33,12 @@ import (
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/interfaces"
-	"github.com/topfreegames/pusher/util"
 )
 
 // GCMPusher struct for GCM pusher
 type GCMPusher struct {
 	apiKey                  string
 	Config                  *viper.Viper
-	ConfigFile              string
 	feedbackReporters       []interfaces.FeedbackReporter
 	GracefulShutdownTimeout int
 	InvalidTokenHandlers    []interfaces.InvalidTokenHandler
@@ -56,10 +53,10 @@ type GCMPusher struct {
 
 // NewGCMPusher for getting a new GCMPusher instance
 func NewGCMPusher(
-	configFile,
 	senderID,
 	apiKey string,
 	isProduction bool,
+	config *viper.Viper,
 	logger *logrus.Logger,
 	statsdClientOrNil interfaces.StatsDClient,
 	db interfaces.DB,
@@ -67,7 +64,7 @@ func NewGCMPusher(
 ) (*GCMPusher, error) {
 	g := &GCMPusher{
 		apiKey:       apiKey,
-		ConfigFile:   configFile,
+		Config:       config,
 		IsProduction: isProduction,
 		Logger:       logger,
 		senderID:     senderID,
@@ -90,10 +87,6 @@ func (g *GCMPusher) loadConfigurationDefaults() {
 
 func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, statsdClientOrNil interfaces.StatsDClient) error {
 	var err error
-	g.Config, err = util.NewViperWithConfigFile(g.ConfigFile)
-	if err != nil {
-		log.Panicf("fatal error loading config file: %s\n", err)
-	}
 	g.loadConfigurationDefaults()
 	g.GracefulShutdownTimeout = g.Config.GetInt("gracefulShutdownTimeout")
 	if err = g.configureStatsReporters(statsdClientOrNil); err != nil {
@@ -160,9 +153,8 @@ func (g *GCMPusher) configureInvalidTokenHandlers(dbOrNil interfaces.DB) error {
 func (g *GCMPusher) Start() {
 	g.run = true
 	l := g.Logger.WithFields(logrus.Fields{
-		"method":     "start",
-		"configFile": g.ConfigFile,
-		"senderID":   g.senderID,
+		"method":   "start",
+		"senderID": g.senderID,
 	})
 	l.Info("starting pusher in gcm mode...")
 	go g.MessageHandler.HandleMessages(g.Queue.MessagesChannel())

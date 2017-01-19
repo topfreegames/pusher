@@ -54,45 +54,45 @@ var _ = Describe("GCM", func() {
 
 	Describe("[Unit]", func() {
 		It("Should return gcmPusher without errors", func() {
-			gcmPusher, err := startGcm(false, false, false, cfg, senderID, apiKey, mockStatsDClient, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, false, false, senderID, apiKey, config, mockStatsDClient, mockDb, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
-			Expect(gcmPusher.ConfigFile).To(Equal(cfg))
+			Expect(gcmPusher.Config).NotTo(BeNil())
 			Expect(gcmPusher.IsProduction).To(BeFalse())
 			Expect(gcmPusher.Logger.Level).To(Equal(logrus.InfoLevel))
 			Expect(fmt.Sprintf("%T", gcmPusher.Logger.Formatter)).To(Equal(fmt.Sprintf("%T", &logrus.TextFormatter{})))
 		})
 
 		It("Should set log to json format", func() {
-			gcmPusher, err := startGcm(false, true, false, cfg, senderID, apiKey, mockStatsDClient, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, true, false, senderID, apiKey, config, mockStatsDClient, mockDb, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(fmt.Sprintf("%T", gcmPusher.Logger.Formatter)).To(Equal(fmt.Sprintf("%T", &logrus.JSONFormatter{})))
 		})
 
 		It("Should set log to debug", func() {
-			gcmPusher, err := startGcm(true, false, false, cfg, senderID, apiKey, mockStatsDClient, mockDb, mockClient)
+			gcmPusher, err := startGcm(true, false, false, senderID, apiKey, config, mockStatsDClient, mockDb, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(gcmPusher.Logger.Level).To(Equal(logrus.DebugLevel))
 		})
 
 		It("Should set log to production", func() {
-			gcmPusher, err := startGcm(false, false, true, cfg, senderID, apiKey, mockStatsDClient, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, false, true, senderID, apiKey, config, mockStatsDClient, mockDb, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(gcmPusher.IsProduction).To(BeTrue())
 		})
 
 		It("Should return error if senderId is not provided", func() {
-			gcmPusher, err := startGcm(false, false, false, cfg, "", apiKey, mockStatsDClient, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, false, false, "", apiKey, config, mockStatsDClient, mockDb, mockClient)
 			Expect(gcmPusher).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("senderId must be set"))
 		})
 
 		It("Should return error if apiKey is not provided", func() {
-			gcmPusher, err := startGcm(false, false, false, cfg, senderID, "", mockStatsDClient, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, false, false, senderID, "", config, mockStatsDClient, mockDb, mockClient)
 			Expect(gcmPusher).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("apiKey must be set"))

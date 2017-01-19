@@ -20,7 +20,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package pusher
+package util
 
 //Version is the current version of pusher
 var Version = "0.2.0"

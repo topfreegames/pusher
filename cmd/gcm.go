@@ -26,9 +26,12 @@ import (
 	"fmt"
 
 	"github.com/Sirupsen/logrus"
+	raven "github.com/getsentry/raven-go"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/pusher"
+	"github.com/topfreegames/pusher/util"
 )
 
 var senderID string
@@ -36,7 +39,8 @@ var apiKey string
 
 func startGcm(
 	debug, json, production bool,
-	cfgFile, senderID, apiKey string,
+	senderID, apiKey string,
+	config *viper.Viper,
 	statsdClientOrNil interfaces.StatsDClient,
 	dbOrNil interfaces.DB,
 	clientOrNil interfaces.GCMClient,
@@ -64,7 +68,7 @@ func startGcm(
 		l.Error(err)
 		return nil, err
 	}
-	return pusher.NewGCMPusher(cfgFile, senderID, apiKey, production, log, statsdClientOrNil, dbOrNil, clientOrNil)
+	return pusher.NewGCMPusher(senderID, apiKey, production, config, log, statsdClientOrNil, dbOrNil, clientOrNil)
 }
 
 // gcmCmd represents the gcm command
@@ -73,11 +77,28 @@ var gcmCmd = &cobra.Command{
 	Short: "starts pusher in gcm mode",
 	Long:  `starts pusher in gcm mode`,
 	Run: func(cmd *cobra.Command, args []string) {
-		gcmPusher, err := startGcm(debug, json, production, cfgFile, senderID, apiKey, nil, nil, nil)
+		config, err := util.NewViperWithConfigFile(cfgFile)
 		if err != nil {
 			panic(err)
 		}
-		gcmPusher.Start()
+
+		gcmPusher, err := startGcm(debug, json, production, senderID, apiKey, config, nil, nil, nil)
+		if err != nil {
+			panic(err)
+		}
+
+		sentryURL := config.GetString("sentry.url")
+		if sentryURL == "" {
+			gcmPusher.Start()
+		} else {
+			raven.SetDSN(sentryURL)
+			raven.CapturePanic(func() {
+				gcmPusher.Start()
+			}, map[string]string{
+				"version": util.Version,
+				"cmd":     "gcm",
+			})
+		}
 	},
 }
 

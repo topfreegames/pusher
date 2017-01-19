@@ -25,8 +25,10 @@ package extensions
 import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	raven "github.com/getsentry/raven-go"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
+	"github.com/topfreegames/pusher/util"
 )
 
 // KafkaProducer for producing push feedbacks to a kafka queue
@@ -94,13 +96,21 @@ func (q *KafkaProducer) listenForKafkaResponses() {
 		case *kafka.Message:
 			m := ev
 			if m.TopicPartition.Error != nil {
-				l.Errorf("error sending feedback to kafka: %v", m.TopicPartition.Error)
+				raven.CaptureError(m.TopicPartition.Error, map[string]string{
+					"version":   util.Version,
+					"extension": "kafka-producer",
+				})
+				l.WithError(m.TopicPartition.Error).Error("error sending feedback to kafka")
 			} else {
-				l.Debugf("delivered feedback to topic %s [%d] at offset %v", *m.TopicPartition.Topic, m.TopicPartition.Partition, m.TopicPartition.Offset)
+				l.WithFields(log.Fields{
+					"topic":     *m.TopicPartition.Topic,
+					"partition": m.TopicPartition.Partition,
+					"offset":    m.TopicPartition.Offset,
+				}).Debug("delivered feedback to topic")
 			}
 			break
 		default:
-			l.Warnf("ignored kafka response event: %s", ev)
+			l.WithField("event", ev).Warn("ignored kafka response event")
 		}
 	}
 }

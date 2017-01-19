@@ -28,8 +28,10 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	raven "github.com/getsentry/raven-go"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
+	"github.com/topfreegames/pusher/util"
 )
 
 // KafkaConsumer for getting push requests
@@ -282,6 +284,10 @@ func (q *KafkaConsumer) handleError(ev kafka.Event) {
 		"method": "handleError",
 	})
 	err := ev.(error)
+	raven.CaptureError(err, map[string]string{
+		"version":   util.Version,
+		"extension": "kafka-consumer",
+	})
 	l.WithError(err).Error("Error in Kafka connection.")
 }
 

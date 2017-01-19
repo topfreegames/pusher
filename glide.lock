@@ -1,12 +1,10 @@
-hash: c7aaa13b21e933cf683f0d6cce0d81e93e3108aec45ca0a8c957fbd44e6d8268
-updated: 2017-01-10T17:24:36.406581653-02:00
+hash: 06d34bafd82103b28b92e34790b48b1c62104d3542d9e01a7360ed1cd555971d
+updated: 2017-01-19T11:07:15.537131764-02:00
 imports:
 - name: github.com/alexcesaro/statsd
   version: 7fea3f0d2fab1ad973e641e51dba45443a311a90
-- name: github.com/cactus/go-statsd-client
-  version: 91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d
-  subpackages:
-  - statsd
+- name: github.com/certifi/gocertifi
+  version: a61bf5eafa3aee233ec8043e9da052447e5463dd
 - name: github.com/confluentinc/confluent-kafka-go
   version: 1a081c6faa129cee96a011a6f6aa289050044539
   subpackages:
@@ -17,6 +15,8 @@ imports:
   - spew
 - name: github.com/fsnotify/fsnotify
   version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
+- name: github.com/getsentry/raven-go
+  version: 3f7439d3e74d88e21d196ba20eb61a5a958bc118
 - name: github.com/hashicorp/hcl
   version: 37ab263305aaeb501a60eb16863e808d426e37f2
   subpackages:
@@ -136,7 +136,7 @@ imports:
   - transform
   - unicode/norm
 - name: gopkg.in/pg.v5
-  version: 8ffbc762a98b464fcfbd244ef3e7ed89ea43417a
+  version: 5fde4b65f7338b401e44e90495a9cba69478fa45
   subpackages:
   - internal
   - internal/parser

@@ -26,9 +26,12 @@ import (
 	"fmt"
 
 	"github.com/Sirupsen/logrus"
+	raven "github.com/getsentry/raven-go"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/pusher"
+	"github.com/topfreegames/pusher/util"
 )
 
 var app string
@@ -36,7 +39,8 @@ var certificate string
 
 func startApns(
 	debug, json, production bool,
-	cfgFile, certificate string,
+	certificate string,
+	config *viper.Viper,
 	statsdClientOrNil interfaces.StatsDClient,
 	dbOrNil interfaces.DB,
 	queueOrNil interfaces.APNSPushQueue,
@@ -59,7 +63,7 @@ func startApns(
 		l.Error(err)
 		return nil, err
 	}
-	return pusher.NewAPNSPusher(cfgFile, certificate, production, log, statsdClientOrNil, dbOrNil, queueOrNil)
+	return pusher.NewAPNSPusher(certificate, production, config, log, statsdClientOrNil, dbOrNil, queueOrNil)
 }
 
 // apnsCmd represents the apns command
@@ -68,11 +72,27 @@ var apnsCmd = &cobra.Command{
 	Short: "starts pusher in apns mode",
 	Long:  `starts pusher in apns mode`,
 	Run: func(cmd *cobra.Command, args []string) {
-		apnsPusher, err := startApns(debug, json, production, cfgFile, certificate, nil, nil, nil)
+		config, err := util.NewViperWithConfigFile(cfgFile)
 		if err != nil {
 			panic(err)
 		}
-		apnsPusher.Start()
+		apnsPusher, err := startApns(debug, json, production, certificate, config, nil, nil, nil)
+		if err != nil {
+			panic(err)
+		}
+
+		sentryURL := config.GetString("sentry.url")
+		if sentryURL == "" {
+			apnsPusher.Start()
+		} else {
+			raven.SetDSN(sentryURL)
+			raven.CapturePanic(func() {
+				apnsPusher.Start()
+			}, map[string]string{
+				"version": util.Version,
+				"cmd":     "apns",
+			})
+		}
 	},
 }
 

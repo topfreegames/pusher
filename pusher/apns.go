@@ -23,7 +23,6 @@
 package pusher
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -34,14 +33,12 @@ import (
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/interfaces"
-	"github.com/topfreegames/pusher/util"
 )
 
 // APNSPusher struct for apns pusher
 type APNSPusher struct {
 	CertificatePath         string
 	Config                  *viper.Viper
-	ConfigFile              string
 	feedbackReporters       []interfaces.FeedbackReporter
 	GracefulShutdownTimeout int
 	InvalidTokenHandlers    []interfaces.InvalidTokenHandler
@@ -54,9 +51,10 @@ type APNSPusher struct {
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
-func NewAPNSPusher(configFile,
+func NewAPNSPusher(
 	certificatePath string,
 	isProduction bool,
+	config *viper.Viper,
 	logger *logrus.Logger,
 	statsdClientOrNil interfaces.StatsDClient,
 	db interfaces.DB,
@@ -64,7 +62,7 @@ func NewAPNSPusher(configFile,
 ) (*APNSPusher, error) {
 	a := &APNSPusher{
 		CertificatePath: certificatePath,
-		ConfigFile:      configFile,
+		Config:          config,
 		IsProduction:    isProduction,
 		Logger:          logger,
 	}
@@ -85,10 +83,6 @@ func (a *APNSPusher) loadConfigurationDefaults() {
 
 func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB, statsdClientOrNil interfaces.StatsDClient) error {
 	var err error
-	a.Config, err = util.NewViperWithConfigFile(a.ConfigFile)
-	if err != nil {
-		log.Panicf("fatal error loading config file: %s\n", err)
-	}
 	a.loadConfigurationDefaults()
 	a.GracefulShutdownTimeout = a.Config.GetInt("gracefulShutdownTimeout")
 	if err = a.configureStatsReporters(statsdClientOrNil); err != nil {
@@ -155,7 +149,6 @@ func (a *APNSPusher) Start() {
 	a.run = true
 	l := a.Logger.WithFields(logrus.Fields{
 		"method":          "start",
-		"configFile":      a.ConfigFile,
 		"certificatePath": a.CertificatePath,
 	})
 	l.Info("starting pusher in apns mode...")

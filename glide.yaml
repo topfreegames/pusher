@@ -23,3 +23,6 @@ import:
   - mock
 - package: github.com/alexcesaro/statsd
   version: ^2.0.0
+- package: github.com/getsentry/raven-go
+- package: github.com/certifi/gocertifi
+  version: ^2016.9.26

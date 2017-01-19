@@ -30,7 +30,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
-	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/util"
 )
@@ -50,25 +49,13 @@ var _ = Describe("APNS Pusher", func() {
 	})
 
 	Describe("[Unit]", func() {
-		var feedbackClients []interfaces.FeedbackReporter
 		var mockDb *mocks.PGMock
-		var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
-		var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 		var mockPushQueue *mocks.APNSPushQueueMock
 		var mockStatsDClient *mocks.StatsDClientMock
 
 		BeforeEach(func() {
 			mockStatsDClient = mocks.NewStatsDClientMock()
-			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
-			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
-			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
-			kc, err := extensions.NewKafkaProducer(config, logger, mockKafkaProducerClient)
-			Expect(err).NotTo(HaveOccurred())
-
-			feedbackClients = []interfaces.FeedbackReporter{kc}
-
 			mockDb = mocks.NewPGMock(0, 1)
-
 			mockPushQueue = mocks.NewAPNSPushQueueMock()
 			hook.Reset()
 		})
@@ -76,9 +63,9 @@ var _ = Describe("APNS Pusher", func() {
 		Describe("Creating new apns pusher", func() {
 			It("should return configured pusher", func() {
 				pusher, err := NewAPNSPusher(
-					configFile,
 					certificatePath,
 					isProduction,
+					config,
 					logger,
 					mockStatsDClient,
 					mockDb,
@@ -86,7 +73,6 @@ var _ = Describe("APNS Pusher", func() {
 				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
-				Expect(pusher.ConfigFile).To(Equal(configFile))
 				Expect(pusher.CertificatePath).To(Equal(certificatePath))
 				Expect(pusher.IsProduction).To(Equal(isProduction))
 				Expect(pusher.run).To(BeFalse())
@@ -102,9 +88,9 @@ var _ = Describe("APNS Pusher", func() {
 		Describe("Start apns pusher", func() {
 			It("should launch go routines and run forever", func() {
 				pusher, err := NewAPNSPusher(
-					configFile,
 					certificatePath,
 					isProduction,
+					config,
 					logger,
 					mockStatsDClient,
 					mockDb,

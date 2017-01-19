@@ -26,11 +26,11 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/topfreegames/pusher/pusher"
+	"github.com/topfreegames/pusher/util"
 )
 
 func getVersion() {
-	fmt.Println(pusher.Version)
+	fmt.Println(util.Version)
 }
 
 // versionCmd represents the version command

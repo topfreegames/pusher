@@ -73,7 +73,7 @@ var _ = Describe("KafkaProducer Extension", func() {
 				}
 				Eventually(func() string {
 					return hook.LastEntry().Message
-				}).Should(ContainSubstring("delivered feedback to topic ttopic"))
+				}).Should(ContainSubstring("delivered feedback to topic"))
 			})
 		})
 	})

@@ -30,7 +30,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
-	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/util"
 )
@@ -51,30 +50,12 @@ var _ = Describe("GCM Pusher", func() {
 	})
 
 	Describe("[Unit]", func() {
-		var mockClient *mocks.GCMClientMock
 		var mockDb *mocks.PGMock
 		var mockStatsDClient *mocks.StatsDClientMock
-		var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
-		var mockKafkaProducerClient *mocks.KafkaProducerClientMock
-		var feedbackClients []interfaces.FeedbackReporter
 
 		BeforeEach(func() {
-			var err error
-
 			mockStatsDClient = mocks.NewStatsDClientMock()
-			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
-			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
-			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
-
-			kc, err := extensions.NewKafkaProducer(config, logger, mockKafkaProducerClient)
-			Expect(err).NotTo(HaveOccurred())
-			feedbackClients = []interfaces.FeedbackReporter{kc}
-
 			mockDb = mocks.NewPGMock(0, 1)
-
-			mockClient = mocks.NewGCMClientMock()
-			Expect(err).NotTo(HaveOccurred())
-
 			hook.Reset()
 		})
 
@@ -82,10 +63,10 @@ var _ = Describe("GCM Pusher", func() {
 			It("should return configured pusher", func() {
 				client := mocks.NewGCMClientMock()
 				pusher, err := NewGCMPusher(
-					configFile,
 					senderID,
 					apiKey,
 					isProduction,
+					config,
 					logger,
 					mockStatsDClient,
 					mockDb,
@@ -95,7 +76,6 @@ var _ = Describe("GCM Pusher", func() {
 				Expect(pusher).NotTo(BeNil())
 				Expect(pusher.apiKey).To(Equal(apiKey))
 				Expect(pusher.Config).NotTo(BeNil())
-				Expect(pusher.ConfigFile).To(Equal(configFile))
 				Expect(pusher.IsProduction).To(Equal(isProduction))
 				Expect(pusher.MessageHandler).NotTo(BeNil())
 				Expect(pusher.Queue).NotTo(BeNil())
@@ -110,10 +90,10 @@ var _ = Describe("GCM Pusher", func() {
 			It("should launch go routines and run forever", func() {
 				client := mocks.NewGCMClientMock()
 				pusher, err := NewGCMPusher(
-					configFile,
 					senderID,
 					apiKey,
 					isProduction,
+					config,
 					logger,
 					mockStatsDClient,
 					mockDb,
