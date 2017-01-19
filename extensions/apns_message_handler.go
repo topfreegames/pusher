@@ -237,7 +237,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	inflightMessagesMetadataLock.Unlock()
 
 	if err != nil {
-		l.Errorf("error sending feedback to reporter: %v", err)
+		l.WithError(err).Error("error sending feedback to reporter")
 	}
 	if res.Err != nil {
 		pushError, ok := res.Err.(*push.Error)

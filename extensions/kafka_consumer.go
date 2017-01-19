@@ -267,7 +267,7 @@ func (q *KafkaConsumer) handlePartitionEOF(ev kafka.Event) {
 		"partition": fmt.Sprintf("%v", ev),
 	})
 
-	l.Debugf("Reached partition EOF.")
+	l.Debug("Reached partition EOF.")
 }
 
 func (q *KafkaConsumer) handleOffsetsCommitted(ev kafka.Event) {
@@ -276,7 +276,7 @@ func (q *KafkaConsumer) handleOffsetsCommitted(ev kafka.Event) {
 		"partition": fmt.Sprintf("%v", ev),
 	})
 
-	l.Debugf("Offsets committed successfully.")
+	l.Debug("Offsets committed successfully.")
 }
 
 func (q *KafkaConsumer) handleError(ev kafka.Event) {

@@ -199,7 +199,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 
 	err = sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata)
 	if err != nil {
-		l.Errorf("error sending feedback to reporter: %v", err)
+		l.WithError(err).Error("error sending feedback to reporter")
 	}
 	if cm.Error != "" {
 		pErr := errors.NewPushError(strings.ToLower(cm.Error), cm.ErrorDescription)
