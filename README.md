@@ -180,3 +180,7 @@ The GCM library we're using requires that we specify a ping interval and timeout
 GCM supports at most 100 pending messages (see [Flow Control section](https://developers.google.com/cloud-messaging/ccs#flow) in GCM documentation).
 
 * `PUSHER_GCM_MAXPENDINGMESSAGES` - Max pending messages;
+
+If you wish Sentry integration simply set the following environment variable:
+
+* `PUSHER_SENTRY_URL` - Sentry Client Key (DSN);

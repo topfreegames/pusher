@@ -64,6 +64,10 @@ GCM supports at most 100 pending messages (see [Flow Control section](https://de
 
 * `PUSHER_GCM_MAXPENDINGMESSAGES` - Max pending messages;
 
+If you wish Sentry integration simply set the following environment variable:
+
+* `PUSHER_SENTRY_URL` - Sentry Client Key (DSN);
+
 ### Example command for running with Docker
 
 ```

@@ -76,23 +76,21 @@ var apnsCmd = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
-		apnsPusher, err := startApns(debug, json, production, certificate, config, nil, nil, nil)
-		if err != nil {
-			panic(err)
-		}
 
 		sentryURL := config.GetString("sentry.url")
-		if sentryURL == "" {
-			apnsPusher.Start()
-		} else {
+		if sentryURL != "" {
 			raven.SetDSN(sentryURL)
-			raven.CapturePanic(func() {
-				apnsPusher.Start()
-			}, map[string]string{
+		}
+
+		apnsPusher, err := startApns(debug, json, production, certificate, config, nil, nil, nil)
+		if err != nil {
+			raven.CaptureErrorAndWait(err, map[string]string{
 				"version": util.Version,
 				"cmd":     "apns",
 			})
+			panic(err)
 		}
+		apnsPusher.Start()
 	},
 }
 

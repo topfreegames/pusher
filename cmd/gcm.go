@@ -82,23 +82,20 @@ var gcmCmd = &cobra.Command{
 			panic(err)
 		}
 
-		gcmPusher, err := startGcm(debug, json, production, senderID, apiKey, config, nil, nil, nil)
-		if err != nil {
-			panic(err)
+		sentryURL := config.GetString("sentry.url")
+		if sentryURL != "" {
+			raven.SetDSN(sentryURL)
 		}
 
-		sentryURL := config.GetString("sentry.url")
-		if sentryURL == "" {
-			gcmPusher.Start()
-		} else {
-			raven.SetDSN(sentryURL)
-			raven.CapturePanic(func() {
-				gcmPusher.Start()
-			}, map[string]string{
+		gcmPusher, err := startGcm(debug, json, production, senderID, apiKey, config, nil, nil, nil)
+		if err != nil {
+			raven.CaptureErrorAndWait(err, map[string]string{
 				"version": util.Version,
 				"cmd":     "gcm",
 			})
+			panic(err)
 		}
+		gcmPusher.Start()
 	},
 }
 
