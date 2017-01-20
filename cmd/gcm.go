@@ -26,7 +26,6 @@ import (
 	"fmt"
 
 	"github.com/Sirupsen/logrus"
-	raven "github.com/getsentry/raven-go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
@@ -82,17 +81,8 @@ var gcmCmd = &cobra.Command{
 			panic(err)
 		}
 
-		sentryURL := config.GetString("sentry.url")
-		if sentryURL != "" {
-			raven.SetDSN(sentryURL)
-		}
-
 		gcmPusher, err := startGcm(debug, json, production, senderID, apiKey, config, nil, nil, nil)
 		if err != nil {
-			raven.CaptureErrorAndWait(err, map[string]string{
-				"version": util.Version,
-				"cmd":     "gcm",
-			})
 			panic(err)
 		}
 		gcmPusher.Start()

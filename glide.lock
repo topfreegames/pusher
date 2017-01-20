@@ -1,5 +1,5 @@
-hash: 06d34bafd82103b28b92e34790b48b1c62104d3542d9e01a7360ed1cd555971d
-updated: 2017-01-19T11:07:15.537131764-02:00
+hash: c29a053f03535548ad499bebfd0bf119ce542ae2956155338a8b5406ba2635dc
+updated: 2017-01-20T19:48:55.163544493-02:00
 imports:
 - name: github.com/alexcesaro/statsd
   version: 7fea3f0d2fab1ad973e641e51dba45443a311a90
@@ -15,8 +15,6 @@ imports:
   - spew
 - name: github.com/fsnotify/fsnotify
   version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
-- name: github.com/getsentry/raven-go
-  version: 3f7439d3e74d88e21d196ba20eb61a5a958bc118
 - name: github.com/hashicorp/hcl
   version: 37ab263305aaeb501a60eb16863e808d426e37f2
   subpackages:

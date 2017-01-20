@@ -26,10 +26,8 @@ import (
 	"fmt"
 
 	"github.com/Sirupsen/logrus"
-	raven "github.com/getsentry/raven-go"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
-	"github.com/topfreegames/pusher/util"
 )
 
 // TokenPG for sending metrics
@@ -82,10 +80,6 @@ func (t *TokenPG) HandleToken(token string) error {
 	query := fmt.Sprintf("DELETE FROM %s WHERE token = ?0;", t.tableName)
 	_, err := t.Client.DB.Exec(query, token)
 	if err != nil && err.Error() != "pg: no rows in result set" {
-		raven.CaptureError(err, map[string]string{
-			"version":   util.Version,
-			"extension": "token-pg",
-		})
 		l.WithError(err).Error("error deleting token")
 		return err
 	}
