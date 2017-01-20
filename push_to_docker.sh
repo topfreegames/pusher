@@ -24,7 +24,7 @@ if [ "$TRAVIS_BRANCH" != "master" ]; then
     exit 0
 fi
 
-if [ "$LIBRDKAFKA_VERSION" == "master" ]; then
+if [ "$LIBRDKAFKA_VERSION" != "master" ]; then
   VERSION=$(cat ./pusher/version.go | grep "var Version" | awk ' { print $4 } ' | sed s/\"//g)
 
   docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
