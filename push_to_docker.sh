@@ -24,22 +24,24 @@ if [ "$TRAVIS_BRANCH" != "master" ]; then
     exit 0
 fi
 
-VERSION=$(cat ./pusher/version.go | grep "var Version" | awk ' { print $4 } ' | sed s/\"//g)
+if [ "$LIBRDKAFKA_VERSION" -ne "master" ]; then
+  VERSION=$(cat ./pusher/version.go | grep "var Version" | awk ' { print $4 } ' | sed s/\"//g)
 
-docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+  docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
 
-docker build -t pusher .
-docker tag pusher:latest tfgco/pusher:$VERSION.$TRAVIS_BUILD_NUMBER
-docker tag pusher:latest tfgco/pusher:$VERSION
-docker tag pusher:latest tfgco/pusher:latest
-docker push tfgco/pusher:$VERSION.$TRAVIS_BUILD_NUMBER
-docker push tfgco/pusher:$VERSION
-docker push tfgco/pusher:latest
+  docker build -t pusher .
+  docker tag pusher:latest tfgco/pusher:$VERSION.$TRAVIS_BUILD_NUMBER
+  docker tag pusher:latest tfgco/pusher:$VERSION
+  docker tag pusher:latest tfgco/pusher:latest
+  docker push tfgco/pusher:$VERSION.$TRAVIS_BUILD_NUMBER
+  docker push tfgco/pusher:$VERSION
+  docker push tfgco/pusher:latest
 
-DOCKERHUB_LATEST=$(python get_latest_tag.py)
+  DOCKERHUB_LATEST=$(python get_latest_tag.py)
 
-if [ "$DOCKERHUB_LATEST" != "$VERSION.$TRAVIS_BUILD_NUMBER" ]; then
+  if [ "$DOCKERHUB_LATEST" != "$VERSION.$TRAVIS_BUILD_NUMBER" ]; then
     echo "Last version is not in docker hub!"
     echo "docker hub: $DOCKERHUB_LATEST, expected: $VERSION.$TRAVIS_BUILD_NUMBER"
     exit 1
+  fi
 fi
