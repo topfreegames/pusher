@@ -7,9 +7,9 @@ def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
 
 def random_message(service):
     if service == "apns":
-        return '{"DeviceToken":"'+id_generator(size=64)+'","Payload":{"aps":{"alert":"Helena miss you! come play!"}},"push_expiry":0}'
+        return '{"DeviceToken":"'+id_generator(size=64)+'","Payload":{"aps":{"alert":"Helena miss you! come play!"}},"push_expiry":0, "metadata": {"jobId": "86edb3c3-6b5e-40dc-9f14-4ba831daf87c"}}'
     else:
-        return '{"to": "'+id_generator(size=152)+'", "notification": {"title": "Come play!", "body": "Helena miss you! come play!"}, "dry_run": true}'
+        return '{"to": "'+id_generator(size=152)+'", "notification": {"title": "Come play!", "body": "Helena miss you! come play!"}, "dry_run": true, "metadata": {"jobId": "77372c1e-c124-4552-b77a-f4775bbad850"}}'
 
 
 script, filename = argv
