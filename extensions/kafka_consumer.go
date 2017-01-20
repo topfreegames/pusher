@@ -40,6 +40,7 @@ type KafkaConsumer struct {
 	Config                         *viper.Viper
 	Consumer                       interfaces.KafkaConsumerClient
 	ConsumerGroup                  string
+	ChannelSize                    int
 	Logger                         *logrus.Logger
 	messagesReceived               int64
 	msgChan                        chan []byte
@@ -61,7 +62,6 @@ func NewKafkaConsumer(
 		Config:            config,
 		Logger:            logger,
 		messagesReceived:  0,
-		msgChan:           make(chan []byte),
 		pendingMessagesWG: nil,
 	}
 	var client interfaces.KafkaConsumerClient
@@ -78,6 +78,7 @@ func NewKafkaConsumer(
 func (q *KafkaConsumer) loadConfigurationDefaults() {
 	q.Config.SetDefault("queue.topics", []string{"com.games.test"})
 	q.Config.SetDefault("queue.brokers", "localhost:9092")
+	q.Config.SetDefault("queue.channelSize", 100)
 	q.Config.SetDefault("queue.group", "test")
 	q.Config.SetDefault("queue.sessionTimeout", 6000)
 	q.Config.SetDefault("queue.offsetResetStrategy", "latest")
@@ -90,7 +91,10 @@ func (q *KafkaConsumer) configure(client interfaces.KafkaConsumerClient) error {
 	q.ConsumerGroup = q.Config.GetString("queue.group")
 	q.SessionTimeout = q.Config.GetInt("queue.sessionTimeout")
 	q.Topics = q.Config.GetStringSlice("queue.topics")
+	q.ChannelSize = q.Config.GetInt("queue.channelSize")
 	q.HandleAllMessagesBeforeExiting = q.Config.GetBool("queue.handleAllMessagesBeforeExiting")
+
+	q.msgChan = make(chan []byte, q.ChannelSize)
 
 	if q.HandleAllMessagesBeforeExiting {
 		var wg sync.WaitGroup

@@ -9,16 +9,17 @@ gcm:
 queue:
   topics:
     - "com.games.test"
-  brokers: "localhost:9941"
+  brokers: "localhost:9940"
   group: testGroup
   sessionTimeout: 6000
   offsetResetStrategy: latest
   handleAllMessagesBeforeExiting: true
+  channelSize: 100
 feedback:
   reporters:
     - kafka
   kafka:
-    topics: "com.games.test.feedbacks"
+    topics: "push-test_apns-feedbacks"
     brokers: "localhost:9941"
 stats:
   reporters:
