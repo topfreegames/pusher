@@ -18,8 +18,14 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-setup-ci:
+glide:
+	@wget https://github.com/Masterminds/glide/releases/download/v0.12.3/glide-v0.12.3-linux-amd64.tar.gz
+	@tar -zxvf glide-v0.12.3-linux-amd64.tar.gz
+	@chmod +x linux-amd64/glide && mv linux-amd64/glide ${GOPATH}/bin/glide
+
+setup-ci-deps:
 	@go get github.com/mattn/goveralls
 	@go get github.com/onsi/ginkgo/ginkgo
-	@go get -u github.com/Masterminds/glide/...
 	@glide install
+
+setup-ci: glide setup-ci-deps
