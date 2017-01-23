@@ -153,6 +153,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.successesReceived).To(Equal(int64(1)))
 			})
 
 			It("if reponse has error push.ErrMissingDeviceToken", func() {
@@ -166,6 +167,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
 				//Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
@@ -181,6 +183,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
 				//Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
@@ -196,6 +199,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 			})
 
@@ -210,6 +214,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 			})
 
@@ -224,6 +229,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 			})
 
@@ -238,6 +244,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 			})
 
@@ -252,6 +259,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 			})
 
@@ -266,6 +274,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 			})
 
@@ -280,6 +289,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
@@ -294,6 +304,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
@@ -308,6 +319,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
@@ -322,6 +334,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
@@ -336,6 +349,7 @@ var _ = Describe("APNS Message Handler", func() {
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("DefaultError"))
 			})
 		})
@@ -354,6 +368,24 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(func() { go handler.HandleMessages(queue.MessagesChannel()) }).ShouldNot(Panic())
 				time.Sleep(50 * time.Millisecond)
 				Expect(handler.run).To(BeTrue())
+			})
+		})
+
+		Describe("Log Stats", func() {
+			It("should log and zero stats", func() {
+				handler.sentMessages = 100
+				handler.responsesReceived = 90
+				handler.successesReceived = 60
+				handler.failuresReceived = 30
+				Expect(func() { go handler.LogStats() }).ShouldNot(Panic())
+				Eventually(func() int64 { return handler.sentMessages }).Should(Equal(int64(0)))
+				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("Sent messages"))
+				Eventually(func() int64 { return handler.responsesReceived }).Should(Equal(int64(0)))
+				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("Responses received"))
+				Eventually(func() int64 { return handler.successesReceived }).Should(Equal(int64(0)))
+				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("Successes received"))
+				Eventually(func() int64 { return handler.failuresReceived }).Should(Equal(int64(0)))
+				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("Failures received"))
 			})
 		})
 

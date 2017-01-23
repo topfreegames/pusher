@@ -26,6 +26,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"sync"
+	"time"
 
 	cert "github.com/RobotsAndPencils/buford/certificate"
 	"github.com/RobotsAndPencils/buford/push"
@@ -58,17 +59,20 @@ type APNSMessageHandler struct {
 	certificate              tls.Certificate
 	CertificatePath          string
 	Config                   *viper.Viper
+	failuresReceived         int64
 	feedbackReporters        []interfaces.FeedbackReporter
 	InflightMessagesMetadata map[string]interface{}
 	InvalidTokenHandlers     []interfaces.InvalidTokenHandler
 	IsProduction             bool
 	Logger                   *log.Logger
+	LogStatsInterval         time.Duration
 	pendingMessagesWG        *sync.WaitGroup
 	PushQueue                interfaces.APNSPushQueue
 	responsesReceived        int64
 	run                      bool
 	sentMessages             int64
 	StatsReporters           []interfaces.StatsReporter
+	successesReceived        int64
 	Topic                    string
 }
 
@@ -85,17 +89,19 @@ func NewAPNSMessageHandler(
 	queue interfaces.APNSPushQueue,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
-		CertificatePath: certificatePath,
-		Config:          config,
+		CertificatePath:          certificatePath,
+		Config:                   config,
+		failuresReceived:         0,
+		feedbackReporters:        feedbackReporters,
 		InflightMessagesMetadata: map[string]interface{}{},
 		InvalidTokenHandlers:     invalidTokenHandlers,
 		IsProduction:             isProduction,
 		Logger:                   logger,
+		pendingMessagesWG:        pendingMessagesWG,
 		responsesReceived:        0,
 		sentMessages:             0,
-		pendingMessagesWG:        pendingMessagesWG,
 		StatsReporters:           statsReporters,
-		feedbackReporters:        feedbackReporters,
+		successesReceived:        0,
 	}
 	if err := a.configure(queue); err != nil {
 		return nil, err
@@ -105,6 +111,8 @@ func NewAPNSMessageHandler(
 
 func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue) error {
 	a.loadConfigurationDefaults()
+	interval := a.Config.GetInt("apns.logStatsInterval")
+	a.LogStatsInterval = time.Duration(interval) * time.Millisecond
 	err := a.configureCertificate()
 	if err != nil {
 		return err
@@ -123,6 +131,7 @@ func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue) error {
 
 func (a *APNSMessageHandler) loadConfigurationDefaults() {
 	a.Config.SetDefault("apns.concurrentWorkers", 10)
+	a.Config.SetDefault("apns.logStatsInterval", 5000)
 }
 
 func (a *APNSMessageHandler) configureCertificate() error {
@@ -179,9 +188,6 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 	a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
 	inflightMessagesMetadataLock.Unlock()
 	a.sentMessages++
-	if a.sentMessages%1000 == 0 {
-		l.Infof("sent messages: %d", a.sentMessages)
-	}
 	return nil
 }
 
@@ -221,9 +227,6 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	l.Debug("got response from apns")
 	apnsResMutex.Lock()
 	a.responsesReceived++
-	if a.responsesReceived%1000 == 0 {
-		l.Infof("received responses: %d", a.responsesReceived)
-	}
 	apnsResMutex.Unlock()
 	var err error
 	responseWithMetadata := &ResponseWithMetadata{
@@ -240,6 +243,9 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 		l.WithError(err).Error("error sending feedback to reporter")
 	}
 	if res.Err != nil {
+		apnsResMutex.Lock()
+		a.failuresReceived++
+		apnsResMutex.Unlock()
 		pushError, ok := res.Err.(*push.Error)
 		if !ok {
 			l.WithFields(log.Fields{
@@ -293,8 +299,33 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	if sendFeedbackErr != nil {
 		l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
 	}
+	apnsResMutex.Lock()
+	a.successesReceived++
+	apnsResMutex.Unlock()
 	statsReporterHandleNotificationSuccess(a.StatsReporters)
 	return nil
+}
+
+// LogStats from time to time
+func (a *APNSMessageHandler) LogStats() {
+	l := a.Logger.WithFields(log.Fields{
+		"method":   "logStats",
+		"interval": a.LogStatsInterval,
+	})
+
+	ticker := time.NewTicker(a.LogStatsInterval)
+	for range ticker.C {
+		apnsResMutex.Lock()
+		l.WithField("count", a.sentMessages).Info("Sent messages")
+		l.WithField("count", a.responsesReceived).Info("Responses received")
+		l.WithField("count", a.successesReceived).Info("Successes received")
+		l.WithField("count", a.failuresReceived).Info("Failures received")
+		a.sentMessages = 0
+		a.responsesReceived = 0
+		a.successesReceived = 0
+		a.failuresReceived = 0
+		apnsResMutex.Unlock()
+	}
 }
 
 func (a *APNSMessageHandler) mapErrorReason(reason error) string {

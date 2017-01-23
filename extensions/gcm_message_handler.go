@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	gcm "github.com/rounds/go-gcm"
@@ -53,12 +54,14 @@ type CCSMessageWithMetadata struct {
 type GCMMessageHandler struct {
 	apiKey                   string
 	Config                   *viper.Viper
+	failuresReceived         int64
 	feedbackReporters        []interfaces.FeedbackReporter
 	GCMClient                interfaces.GCMClient
 	InflightMessagesMetadata map[string]interface{}
 	InvalidTokenHandlers     []interfaces.InvalidTokenHandler
 	IsProduction             bool
 	Logger                   *log.Logger
+	LogStatsInterval         time.Duration
 	pendingMessages          chan bool
 	pendingMessagesWG        *sync.WaitGroup
 	PingInterval             int
@@ -68,6 +71,7 @@ type GCMMessageHandler struct {
 	senderID                 string
 	sentMessages             int64
 	StatsReporters           []interfaces.StatsReporter
+	successesReceived        int64
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
@@ -90,18 +94,20 @@ func NewGCMMessageHandler(
 	})
 
 	g := &GCMMessageHandler{
-		apiKey: apiKey,
-		Config: config,
+		apiKey:                   apiKey,
+		Config:                   config,
+		failuresReceived:         0,
+		feedbackReporters:        feedbackReporters,
 		InflightMessagesMetadata: map[string]interface{}{},
 		InvalidTokenHandlers:     invalidTokenHandlers,
 		IsProduction:             isProduction,
 		Logger:                   logger,
+		pendingMessagesWG:        pendingMessagesWG,
 		responsesReceived:        0,
 		senderID:                 senderID,
 		sentMessages:             0,
-		pendingMessagesWG:        pendingMessagesWG,
 		StatsReporters:           statsReporters,
-		feedbackReporters:        feedbackReporters,
+		successesReceived:        0,
 	}
 	err := g.configure(client)
 	if err != nil {
@@ -114,6 +120,8 @@ func NewGCMMessageHandler(
 func (g *GCMMessageHandler) configure(client interfaces.GCMClient) error {
 	g.loadConfigurationDefaults()
 	g.pendingMessages = make(chan bool, g.Config.GetInt("gcm.maxPendingMessages"))
+	interval := g.Config.GetInt("gcm.logStatsInterval")
+	g.LogStatsInterval = time.Duration(interval) * time.Millisecond
 	var err error
 	if client != nil {
 		err = nil
@@ -131,6 +139,7 @@ func (g *GCMMessageHandler) loadConfigurationDefaults() {
 	g.Config.SetDefault("gcm.pingInterval", 20)
 	g.Config.SetDefault("gcm.pingTimeout", 30)
 	g.Config.SetDefault("gcm.maxPendingMessages", 100)
+	g.Config.SetDefault("gcm.logStatsInterval", 5000)
 }
 
 func (g *GCMMessageHandler) configureGCMClient() error {
@@ -181,9 +190,6 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	}
 
 	g.responsesReceived++
-	if g.responsesReceived%1000 == 0 {
-		l.Infof("received responses: %d", g.responsesReceived)
-	}
 	gcmResMutex.Unlock()
 
 	var err error
@@ -202,6 +208,9 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 		l.WithError(err).Error("error sending feedback to reporter")
 	}
 	if cm.Error != "" {
+		gcmResMutex.Lock()
+		g.failuresReceived++
+		gcmResMutex.Unlock()
 		pErr := errors.NewPushError(strings.ToLower(cm.Error), cm.ErrorDescription)
 		statsReporterHandleNotificationFailure(g.StatsReporters, pErr)
 
@@ -239,6 +248,9 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 		return err
 	}
 
+	gcmResMutex.Lock()
+	g.successesReceived++
+	gcmResMutex.Unlock()
 	statsReporterHandleNotificationSuccess(g.StatsReporters)
 
 	return nil
@@ -281,9 +293,6 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		"messageID": messageID,
 		"bytes":     bytes,
 	}).Debug("sent message")
-	if g.sentMessages%1000 == 0 {
-		l.Infof("sent messages: %d", g.sentMessages)
-	}
 	return nil
 }
 
@@ -300,6 +309,28 @@ func (g *GCMMessageHandler) HandleMessages(msgChan *chan []byte) {
 		case message := <-*msgChan:
 			g.sendMessage(message)
 		}
+	}
+}
+
+// LogStats from time to time
+func (g *GCMMessageHandler) LogStats() {
+	l := g.Logger.WithFields(log.Fields{
+		"method":   "logStats",
+		"interval": g.LogStatsInterval,
+	})
+
+	ticker := time.NewTicker(g.LogStatsInterval)
+	for range ticker.C {
+		apnsResMutex.Lock()
+		l.WithField("count", g.sentMessages).Info("Sent messages")
+		l.WithField("count", g.responsesReceived).Info("Responses received")
+		l.WithField("count", g.successesReceived).Info("Successes received")
+		l.WithField("count", g.failuresReceived).Info("Failures received")
+		g.sentMessages = 0
+		g.responsesReceived = 0
+		g.successesReceived = 0
+		g.failuresReceived = 0
+		apnsResMutex.Unlock()
 	}
 }
 

@@ -26,4 +26,5 @@ package interfaces
 type MessageHandler interface {
 	HandleMessages(msgChan *chan []byte)
 	HandleResponses()
+	LogStats()
 }
