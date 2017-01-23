@@ -23,15 +23,17 @@ FROM golang:1.7.3-alpine
 MAINTAINER TFG Co <backend@tfgco.com>
 
 RUN apk update
-RUN apk add make git curl g++ bash python
+RUN apk add make git g++ bash python wget
 
 ENV LIBRDKAFKA_VERSION 0.9.2
-RUN curl -Lk -o /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
+RUN wget -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
     tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
     cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
     ./configure && make && make install && make clean && ./configure --clean
 
-RUN go get -u github.com/Masterminds/glide
+RUN wget https://github.com/Masterminds/glide/releases/download/v0.12.3/glide-v0.12.3-linux-amd64.tar.gz
+RUN tar -zxvf glide-v0.12.3-linux-amd64.tar.gz
+RUN chmod +x linux-amd64/glide && mv linux-amd64/glide /usr/local/bin/glide
 
 RUN mkdir -p /go/src/github.com/topfreegames/pusher
 WORKDIR /go/src/github.com/topfreegames/pusher
