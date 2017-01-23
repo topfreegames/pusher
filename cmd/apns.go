@@ -26,6 +26,7 @@ import (
 	"fmt"
 
 	"github.com/Sirupsen/logrus"
+	raven "github.com/getsentry/raven-go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
@@ -76,8 +77,17 @@ var apnsCmd = &cobra.Command{
 			panic(err)
 		}
 
+		sentryURL := config.GetString("sentry.url")
+		if sentryURL != "" {
+			raven.SetDSN(sentryURL)
+		}
+
 		apnsPusher, err := startApns(debug, json, production, certificate, config, nil, nil, nil)
 		if err != nil {
+			raven.CaptureErrorAndWait(err, map[string]string{
+				"version": util.Version,
+				"cmd":     "apns",
+			})
 			panic(err)
 		}
 		apnsPusher.Start()
