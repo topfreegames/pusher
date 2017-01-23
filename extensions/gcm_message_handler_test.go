@@ -308,14 +308,11 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.successesReceived = 60
 				handler.failuresReceived = 30
 				Expect(func() { go handler.LogStats() }).ShouldNot(Panic())
+				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("flushing stats"))
 				Eventually(func() int64 { return handler.sentMessages }).Should(Equal(int64(0)))
-				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("Sent messages"))
 				Eventually(func() int64 { return handler.responsesReceived }).Should(Equal(int64(0)))
-				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("Responses received"))
 				Eventually(func() int64 { return handler.successesReceived }).Should(Equal(int64(0)))
-				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("Successes received"))
 				Eventually(func() int64 { return handler.failuresReceived }).Should(Equal(int64(0)))
-				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("Failures received"))
 			})
 		})
 

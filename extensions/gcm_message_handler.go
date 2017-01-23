@@ -315,17 +315,19 @@ func (g *GCMMessageHandler) HandleMessages(msgChan *chan []byte) {
 // LogStats from time to time
 func (g *GCMMessageHandler) LogStats() {
 	l := g.Logger.WithFields(log.Fields{
-		"method":   "logStats",
-		"interval": g.LogStatsInterval,
+		"method":       "logStats",
+		"interval(ns)": g.LogStatsInterval,
 	})
 
 	ticker := time.NewTicker(g.LogStatsInterval)
 	for range ticker.C {
 		apnsResMutex.Lock()
-		l.WithField("count", g.sentMessages).Info("Sent messages")
-		l.WithField("count", g.responsesReceived).Info("Responses received")
-		l.WithField("count", g.successesReceived).Info("Successes received")
-		l.WithField("count", g.failuresReceived).Info("Failures received")
+		l.WithFields(log.Fields{
+			"sentMessages":      g.sentMessages,
+			"responsesReceived": g.responsesReceived,
+			"successesReceived": g.successesReceived,
+			"failuresReceived":  g.failuresReceived,
+		}).Info("flushing stats")
 		g.sentMessages = 0
 		g.responsesReceived = 0
 		g.successesReceived = 0

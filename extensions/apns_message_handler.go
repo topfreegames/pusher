@@ -309,17 +309,19 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 // LogStats from time to time
 func (a *APNSMessageHandler) LogStats() {
 	l := a.Logger.WithFields(log.Fields{
-		"method":   "logStats",
-		"interval": a.LogStatsInterval,
+		"method":       "logStats",
+		"interval(ns)": a.LogStatsInterval,
 	})
 
 	ticker := time.NewTicker(a.LogStatsInterval)
 	for range ticker.C {
 		apnsResMutex.Lock()
-		l.WithField("count", a.sentMessages).Info("Sent messages")
-		l.WithField("count", a.responsesReceived).Info("Responses received")
-		l.WithField("count", a.successesReceived).Info("Successes received")
-		l.WithField("count", a.failuresReceived).Info("Failures received")
+		l.WithFields(log.Fields{
+			"sentMessages":      a.sentMessages,
+			"responsesReceived": a.responsesReceived,
+			"successesReceived": a.successesReceived,
+			"failuresReceived":  a.failuresReceived,
+		}).Info("flushing stats")
 		a.sentMessages = 0
 		a.responsesReceived = 0
 		a.successesReceived = 0
