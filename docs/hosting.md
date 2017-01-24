@@ -64,6 +64,11 @@ GCM supports at most 100 pending messages (see [Flow Control section](https://de
 
 * `PUSHER_GCM_MAXPENDINGMESSAGES` - Max pending messages;
 
+Pusher logs stats of sent messages and responses received (successes and failures) from time to time. The default interval is 5 seconds but you can change it using:
+
+* `PUSHER_APNS_LOGSTATSINTERVAL` - Interval for logging stats (in milliseconds);
+* `PUSHER_GCM_LOGSTATSINTERVAL` - Interval for logging stats (in milliseconds);
+
 If you wish Sentry integration simply set the following environment variable:
 
 * `PUSHER_SENTRY_URL` - Sentry Client Key (DSN);
