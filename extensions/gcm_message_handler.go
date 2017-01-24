@@ -203,10 +203,6 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	}
 	inflightMessagesMetadataLock.Unlock()
 
-	err = sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata)
-	if err != nil {
-		l.WithError(err).Error("error sending feedback to reporter")
-	}
 	if cm.Error != "" {
 		gcmResMutex.Lock()
 		g.failuresReceived++
@@ -222,6 +218,9 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 				"category":   "TokenError",
 				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
 			}).Debug("received an error")
+			if ccsMessageWithMetadata.Metadata != nil {
+				ccsMessageWithMetadata.Metadata["deleteToken"] = true
+			}
 			handleInvalidToken(g.InvalidTokenHandlers, cm.From)
 		case "INVALID_JSON":
 			l.WithFields(log.Fields{
@@ -244,8 +243,16 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 				log.ErrorKey: cm.Error,
 			}).Debug("received an error")
 		}
-
+		sendFeedbackErr := sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata)
+		if sendFeedbackErr != nil {
+			l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
+		}
 		return err
+	}
+
+	sendFeedbackErr := sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata)
+	if sendFeedbackErr != nil {
+		l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
 	}
 
 	gcmResMutex.Lock()

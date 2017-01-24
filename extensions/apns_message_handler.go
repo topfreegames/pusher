@@ -265,6 +265,9 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 				"category":   "TokenError",
 				log.ErrorKey: res.Err,
 			}).Debug("received an error")
+			if responseWithMetadata.Metadata != nil {
+				responseWithMetadata.Metadata["deleteToken"] = true
+			}
 			handleInvalidToken(a.InvalidTokenHandlers, res.DeviceToken)
 		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
 			l.WithFields(log.Fields{

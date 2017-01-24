@@ -492,7 +492,7 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(fromKafka.Metadata["some"]).To(BeNil())
 			})
 
-			It("should send feedback if error and metadata is present", func() {
+			It("should send feedback if error and metadata is present and token should be deleted", func() {
 				metadata := map[string]interface{}{
 					"some": "metadata",
 				}
@@ -512,7 +512,32 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(fromKafka.DeviceToken).To(Equal(res.DeviceToken))
 				Expect(fromKafka.ID).To(Equal(res.ID))
 				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
+				Expect(fromKafka.Metadata["deleteToken"]).To(BeTrue())
 				Expect(string(msg.Value)).To(ContainSubstring("bad device token"))
+			})
+
+			It("should send feedback if error and metadata is present and token should not be deleted", func() {
+				metadata := map[string]interface{}{
+					"some": "metadata",
+				}
+				handler.InflightMessagesMetadata["testToken1"] = metadata
+				res := push.Response{
+					DeviceToken: "testToken1",
+					ID:          "idTest1",
+					Err: &push.Error{
+						Reason: push.ErrBadMessageID,
+					},
+				}
+				go handler.handleAPNSResponse(res)
+
+				fromKafka := &ResponseWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.DeviceToken).To(Equal(res.DeviceToken))
+				Expect(fromKafka.ID).To(Equal(res.ID))
+				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
+				Expect(fromKafka.Metadata["deleteToken"]).To(BeNil())
+				Expect(string(msg.Value)).To(ContainSubstring("ID header value is bad"))
 			})
 
 			It("should send feedback if error and metadata is not present", func() {

@@ -431,7 +431,7 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(fromKafka.Metadata).To(BeNil())
 			})
 
-			It("should send feedback if error and metadata is present", func() {
+			It("should send feedback if error and metadata is present and token should be deleted", func() {
 				metadata := map[string]interface{}{
 					"some": "metadata",
 				}
@@ -454,6 +454,33 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(fromKafka.Category).To(Equal(res.Category))
 				Expect(fromKafka.Error).To(Equal(res.Error))
 				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
+				Expect(fromKafka.Metadata["deleteToken"]).To(BeTrue())
+			})
+
+			It("should send feedback if error and metadata is present and token should not be deleted", func() {
+				metadata := map[string]interface{}{
+					"some": "metadata",
+				}
+				handler.InflightMessagesMetadata["idTest1"] = metadata
+				res := gcm.CCSMessage{
+					From:        "testToken1",
+					MessageID:   "idTest1",
+					MessageType: "nack",
+					Category:    "testCategory",
+					Error:       "INVALID_JSON",
+				}
+				go handler.handleGCMResponse(res)
+
+				fromKafka := &CCSMessageWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.From).To(Equal(res.From))
+				Expect(fromKafka.MessageID).To(Equal(res.MessageID))
+				Expect(fromKafka.MessageType).To(Equal(res.MessageType))
+				Expect(fromKafka.Category).To(Equal(res.Category))
+				Expect(fromKafka.Error).To(Equal(res.Error))
+				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
+				Expect(fromKafka.Metadata["deleteToken"]).To(BeNil())
 			})
 
 			It("should send feedback if error and metadata is not present", func() {
