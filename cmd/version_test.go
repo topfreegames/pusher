@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/topfreegames/pusher/testing"
+	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("Version", func() {
@@ -34,7 +35,7 @@ var _ = Describe("Version", func() {
 			out := CaptureStdout(func() {
 				getVersion()
 			})
-			Expect(out).To(Equal("0.2.0"))
+			Expect(out).To(Equal(util.Version))
 		})
 	})
 })
