@@ -11,6 +11,7 @@ Pusher
 * [librdkafka](https://github.com/edenhill/librdkafka)
 
 ### Setup
+First, set your $GOPATH ([Go Lang](https://golang.org/doc/install)) env variable and add $GOPATH/bin to your $PATH
 
 ```bash
 make setup
