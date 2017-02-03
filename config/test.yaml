@@ -22,7 +22,9 @@ feedback:
   kafka:
     topics: "com.games.test.feedbacks"
     brokers: "localhost:9941"
-  requestTimeout: 100
+  cache:
+    requestTimeout: 100
+    tick: 20
 stats:
   reporters:
     - statsd

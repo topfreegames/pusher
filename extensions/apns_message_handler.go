@@ -187,8 +187,10 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 	statsReporterHandleNotificationSent(a.StatsReporters)
 	a.PushQueue.Push(n.DeviceToken, h, payload)
 	inflightMessagesMetadataLock.Lock()
+
 	a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
 	a.requestsHeap.AddRequest(n.DeviceToken)
+
 	inflightMessagesMetadataLock.Unlock()
 	a.sentMessages++
 	return nil
@@ -214,7 +216,8 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
 		}
 
-		time.Sleep(1 * time.Minute)
+		duration := time.Duration(a.Config.GetInt("feedback.cache.tick"))
+		time.Sleep(duration * time.Millisecond)
 	}
 }
 

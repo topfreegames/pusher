@@ -124,7 +124,8 @@ func NewTimeoutHeap(
 ) *timeoutHeap {
 	th := make(timeoutHeap, 0)
 	heap.Init(&th)
-	timeoutCte = int64(config.GetInt("feedback.requestTimeout"))
+	timeoutCte = int64(config.GetInt("feedback.cache.requestTimeout"))
+
 	return &th
 }
 
