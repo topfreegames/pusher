@@ -307,6 +307,9 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 func (g *GCMMessageHandler) HandleResponses() {
 }
 
+func (h GCMMessageHandler) CleanMetadataCache() {
+}
+
 // HandleMessages get messages from msgChan and send to GCM
 func (g *GCMMessageHandler) HandleMessages(msgChan *chan []byte) {
 	g.run = true
