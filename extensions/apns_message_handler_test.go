@@ -371,6 +371,27 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 		})
 
+		Describe("Clean Cache", func() {
+			It("should remove from push queue after timeout", func() {
+				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
+				time.Sleep(500 * time.Millisecond)
+				Expect(handler.requestsHeap.Len()).To(BeZero())
+			})
+
+			It("should not panic if a request got a response", func() {
+				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
+				res := push.Response{
+					DeviceToken: uuid.NewV4().String(),
+					ID:          uuid.NewV4().String(),
+				}
+				handler.handleAPNSResponse(res)
+				time.Sleep(500 * time.Millisecond)
+				Expect(handler.requestsHeap.Len()).To(BeZero())
+			})
+		})
+
 		Describe("Log Stats", func() {
 			It("should log and zero stats", func() {
 				handler.sentMessages = 100
