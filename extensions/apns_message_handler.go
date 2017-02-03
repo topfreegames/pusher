@@ -74,7 +74,7 @@ type APNSMessageHandler struct {
 	StatsReporters           []interfaces.StatsReporter
 	successesReceived        int64
 	Topic                    string
-	timeoutHeap              *timeoutHeap
+	requestsHeap             *timeoutHeap
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
@@ -103,7 +103,7 @@ func NewAPNSMessageHandler(
 		sentMessages:             0,
 		StatsReporters:           statsReporters,
 		successesReceived:        0,
-		timeoutHeap:              NewTimeoutHeap(),
+		requestsHeap:             NewTimeoutHeap(config),
 	}
 	if err := a.configure(queue); err != nil {
 		return nil, err
@@ -188,7 +188,7 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 	a.PushQueue.Push(n.DeviceToken, h, payload)
 	inflightMessagesMetadataLock.Lock()
 	a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
-	a.timeoutHeap.AddRequest(n.DeviceToken)
+	a.requestsHeap.AddRequest(n.DeviceToken)
 	inflightMessagesMetadataLock.Unlock()
 	a.sentMessages++
 	return nil
@@ -209,9 +209,9 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 	var deviceToken string
 	var hasIndeed bool
 	for {
-		for deviceToken, hasIndeed = a.timeoutHeap.HasExpiredRequest(); hasIndeed; {
+		for deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest(); hasIndeed; {
 			delete(a.InflightMessagesMetadata, deviceToken)
-			deviceToken, hasIndeed = a.timeoutHeap.HasExpiredRequest()
+			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
 		}
 
 		time.Sleep(1 * time.Minute)

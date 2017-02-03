@@ -24,6 +24,7 @@ package extensions
 
 import (
 	"container/heap"
+	"github.com/spf13/viper"
 	"sync"
 	"time"
 )
@@ -36,7 +37,7 @@ type timeoutNode struct {
 }
 
 // TODO: remove this constant and get it from config file
-const timeoutCte int64 = 10
+var timeoutCte int64
 
 // Mutex for secure concurrency
 var mutex sync.Mutex
@@ -118,9 +119,12 @@ func (th *timeoutHeap) completeHasExpiredRequest() (string, int64, bool) {
 // API: Timeout Heap functions
 // For thread safe guarantee, use only the methods below from this api
 // Creates and returns a new timeoutHeap
-func NewTimeoutHeap() *timeoutHeap {
+func NewTimeoutHeap(
+	config *viper.Viper,
+) *timeoutHeap {
 	th := make(timeoutHeap, 0)
 	heap.Init(&th)
+	timeoutCte = int64(config.GetInt("feedback.requestTimeout"))
 	return &th
 }
 

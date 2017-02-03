@@ -27,14 +27,20 @@ import (
 	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/topfreegames/pusher/util"
 	"sync"
 	"time"
 )
 
 var _ = Describe("[Unit]", func() {
+	configFile := "../config/test.yaml"
+	config, err := util.NewViperWithConfigFile(configFile)
+
+	Expect(err).NotTo(HaveOccurred())
+
 	Describe("TimeoutHeap", func() {
 		It("should push a new timeout node to heap", func() {
-			th := NewTimeoutHeap()
+			th := NewTimeoutHeap(config)
 
 			var deviceToken string = "string_device"
 			th.AddRequest(deviceToken)
@@ -45,7 +51,7 @@ var _ = Describe("[Unit]", func() {
 		})
 
 		It("should pop timeout nodes in order of timeout", func() {
-			th := NewTimeoutHeap()
+			th := NewTimeoutHeap(config)
 
 			tokens := [3]string{"test_device_1", "test_device_2", "test_device_3"}
 			var node *timeoutNode
@@ -63,7 +69,7 @@ var _ = Describe("[Unit]", func() {
 		})
 
 		It("should return true if heap is empty", func() {
-			th := NewTimeoutHeap()
+			th := NewTimeoutHeap(config)
 			Ω(th.empty()).Should(BeTrue())
 
 			th.AddRequest("token")
@@ -71,7 +77,7 @@ var _ = Describe("[Unit]", func() {
 		})
 
 		It("should return nodes in order of time stamp from threads", func() {
-			th := NewTimeoutHeap()
+			th := NewTimeoutHeap(config)
 			var wg sync.WaitGroup
 
 			startPushing := func(threadId int) {
@@ -101,7 +107,7 @@ var _ = Describe("[Unit]", func() {
 
 	Describe("Timeout expiration", func() {
 		It("should remove node request after timeout", func() {
-			th := NewTimeoutHeap()
+			th := NewTimeoutHeap(config)
 			var wg sync.WaitGroup
 
 			startPushing := func(threadId int) {
