@@ -72,6 +72,7 @@ type GCMMessageHandler struct {
 	sentMessages             int64
 	StatsReporters           []interfaces.StatsReporter
 	successesReceived        int64
+	requestsHeap             *timeoutHeap
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
@@ -108,6 +109,7 @@ func NewGCMMessageHandler(
 		sentMessages:             0,
 		StatsReporters:           statsReporters,
 		successesReceived:        0,
+		requestsHeap:             NewTimeoutHeap(config),
 	}
 	err := g.configure(client)
 	if err != nil {
@@ -289,7 +291,10 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	if messageID != "" {
 		if km.Metadata != nil && len(km.Metadata) > 0 {
 			inflightMessagesMetadataLock.Lock()
+
 			g.InflightMessagesMetadata[messageID] = km.Metadata
+			g.requestsHeap.AddRequest(messageID)
+
 			inflightMessagesMetadataLock.Unlock()
 		}
 	}
@@ -305,6 +310,21 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 
 // HandleResponses from gcm
 func (g *GCMMessageHandler) HandleResponses() {
+}
+
+// Clears cache after timeout
+func (g *GCMMessageHandler) CleanMetadataCache() {
+	var deviceToken string
+	var hasIndeed bool
+	for {
+		for deviceToken, hasIndeed = g.requestsHeap.HasExpiredRequest(); hasIndeed; {
+			delete(g.InflightMessagesMetadata, deviceToken)
+			deviceToken, hasIndeed = g.requestsHeap.HasExpiredRequest()
+		}
+
+		duration := time.Duration(g.Config.GetInt("feedback.cache.tick"))
+		time.Sleep(duration * time.Millisecond)
+	}
 }
 
 // HandleMessages get messages from msgChan and send to GCM

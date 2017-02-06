@@ -157,6 +157,7 @@ func (a *APNSPusher) Start() {
 	go a.Queue.ConsumeLoop()
 	go a.reportGoStats()
 	go a.MessageHandler.LogStats()
+	go a.MessageHandler.CleanMetadataCache()
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
