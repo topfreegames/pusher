@@ -36,15 +36,11 @@ type timeoutNode struct {
 	index         int
 }
 
-// TODO: remove this constant and get it from config file
 var timeoutCte int64
-
-// Mutex for secure concurrency
 var mutex sync.Mutex
 
 type timeoutHeap []*timeoutNode
 
-// newTimeoutNode for creating a new timeoutNode instance
 func (th *timeoutHeap) newTimeoutNode(
 	deviceToken string,
 ) *timeoutNode {
@@ -57,21 +53,24 @@ func (th *timeoutHeap) newTimeoutNode(
 	return node
 }
 
-// Helper functions
 func getNowInUnixMilliseconds() int64 {
 	return time.Now().UnixNano() / int64(time.Millisecond)
 }
 
-// Implements heap interface
-func (th timeoutHeap) Len() int           { return len(th) }
+// Len returns how many elements are in the heap
+func (th timeoutHeap) Len() int { return len(th) }
+
+// Less returns true if element at index i has timeout before element at index j
 func (th timeoutHeap) Less(i, j int) bool { return th[i].UnixTimeStamp < th[j].UnixTimeStamp }
+
+// Swap in the heap elements at index i and j
 func (th timeoutHeap) Swap(i, j int) {
 	th[i], th[j] = th[j], th[i]
 	th[i].index = i
 	th[j].index = j
 }
 
-// Receives device token string and pushes it to heap
+// Push receives device token string and pushes it to heap
 func (th *timeoutHeap) Push(x interface{}) {
 	node := x.(*timeoutNode)
 
@@ -80,7 +79,7 @@ func (th *timeoutHeap) Push(x interface{}) {
 	*th = append(*th, node)
 }
 
-// Pops the device token of the next request that expires
+// Pop pops the device token of the next request that expires
 func (th *timeoutHeap) Pop() interface{} {
 	old := *th
 	n := len(old)
@@ -91,12 +90,10 @@ func (th *timeoutHeap) Pop() interface{} {
 	return node
 }
 
-// Returns true if heap is empty
 func (th *timeoutHeap) empty() bool {
 	return th.Len() == 0
 }
 
-// Returns all information about the poped node
 func (th *timeoutHeap) completeHasExpiredRequest() (string, int64, bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -118,7 +115,8 @@ func (th *timeoutHeap) completeHasExpiredRequest() (string, int64, bool) {
 
 // API: Timeout Heap functions
 // For thread safe guarantee, use only the methods below from this api
-// Creates and returns a new timeoutHeap
+
+// NewTimeoutHeap creates and returns a new timeoutHeap
 func NewTimeoutHeap(
 	config *viper.Viper,
 ) *timeoutHeap {
@@ -129,7 +127,7 @@ func NewTimeoutHeap(
 	return &th
 }
 
-// Pushes new request
+// AddRequest pushes new request
 func (th *timeoutHeap) AddRequest(deviceToken string) {
 	mutex.Lock()
 	node := th.newTimeoutNode(deviceToken)
@@ -137,7 +135,7 @@ func (th *timeoutHeap) AddRequest(deviceToken string) {
 	mutex.Unlock()
 }
 
-// If heap has expired Request, remove it and return deviceToken
+// HasExpiredRequest removes expired requests, if any, and return deviceToken
 func (th *timeoutHeap) HasExpiredRequest() (string, bool) {
 	deviceToken, _, has := th.completeHasExpiredRequest()
 	return deviceToken, has

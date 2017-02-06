@@ -211,10 +211,12 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 	var deviceToken string
 	var hasIndeed bool
 	for {
+		inflightMessagesMetadataLock.Lock()
 		for deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest(); hasIndeed; {
 			delete(a.InflightMessagesMetadata, deviceToken)
 			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
 		}
+		inflightMessagesMetadataLock.Unlock()
 
 		duration := time.Duration(a.Config.GetInt("feedback.cache.tick"))
 		time.Sleep(duration * time.Millisecond)
