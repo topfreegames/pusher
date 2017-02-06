@@ -371,6 +371,59 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 		})
 
+		Describe("Clean Cache", func() {
+			It("should remove from push queue after timeout", func() {
+				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
+				time.Sleep(500 * time.Millisecond)
+				Expect(*handler.requestsHeap).To(BeEmpty())
+				Expect(handler.InflightMessagesMetadata).To(BeEmpty())
+			})
+
+			It("should not panic if a request got a response", func() {
+				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
+				res := push.Response{
+					DeviceToken: uuid.NewV4().String(),
+					ID:          uuid.NewV4().String(),
+				}
+
+				handler.handleAPNSResponse(res)
+				time.Sleep(500 * time.Millisecond)
+				Expect(*handler.requestsHeap).To(BeEmpty())
+				Expect(handler.InflightMessagesMetadata).To(BeEmpty())
+			})
+
+			It("should handle all responses or remove them after timeout", func() {
+				var n int = 10
+				sendRequests := func() {
+					for i := 0; i < n; i++ {
+						handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+					}
+				}
+
+				handleResponses := func() {
+					for i := 0; i < n/2; i++ {
+						res := push.Response{
+							DeviceToken: uuid.NewV4().String(),
+							ID:          uuid.NewV4().String(),
+						}
+
+						handler.handleAPNSResponse(res)
+					}
+				}
+
+				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
+				Expect(func() { go sendRequests() }).ShouldNot(Panic())
+				time.Sleep(10 * time.Millisecond)
+				Expect(func() { go handleResponses() }).ShouldNot(Panic())
+				time.Sleep(500 * time.Millisecond)
+
+				Expect(*handler.requestsHeap).To(BeEmpty())
+				Expect(handler.InflightMessagesMetadata).To(BeEmpty())
+			})
+		})
+
 		Describe("Log Stats", func() {
 			It("should log and zero stats", func() {
 				handler.sentMessages = 100
