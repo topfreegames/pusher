@@ -75,6 +75,7 @@ type APNSMessageHandler struct {
 	successesReceived        int64
 	Topic                    string
 	requestsHeap             *TimeoutHeap
+	CacheCleaningInterval    int
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
@@ -115,6 +116,7 @@ func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue) error {
 	a.loadConfigurationDefaults()
 	interval := a.Config.GetInt("apns.logStatsInterval")
 	a.LogStatsInterval = time.Duration(interval) * time.Millisecond
+	a.CacheCleaningInterval = a.Config.GetInt("feedback.cache.cleaningInterval")
 	err := a.configureCertificate()
 	if err != nil {
 		return err
@@ -134,6 +136,7 @@ func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue) error {
 func (a *APNSMessageHandler) loadConfigurationDefaults() {
 	a.Config.SetDefault("apns.concurrentWorkers", 10)
 	a.Config.SetDefault("apns.logStatsInterval", 5000)
+	a.Config.SetDefault("feedback.cache.cleaningInterval", 300000)
 }
 
 func (a *APNSMessageHandler) configureCertificate() error {
@@ -216,7 +219,7 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
 		}
 
-		duration := time.Duration(a.Config.GetInt("feedback.cache.tick"))
+		duration := time.Duration(a.CacheCleaningInterval)
 		time.Sleep(duration * time.Millisecond)
 	}
 }

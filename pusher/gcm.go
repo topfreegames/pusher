@@ -162,7 +162,9 @@ func (g *GCMPusher) Start() {
 	go g.Queue.ConsumeLoop()
 	go g.reportGoStats()
 	go g.MessageHandler.LogStats()
-	go g.MessageHandler.CleanMetadataCache()
+
+	msgHandler, _ := g.MessageHandler.(*extensions.GCMMessageHandler)
+	go msgHandler.CleanMetadataCache()
 
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)

@@ -27,5 +27,4 @@ type MessageHandler interface {
 	HandleMessages(msgChan *chan []byte)
 	HandleResponses()
 	LogStats()
-	CleanMetadataCache()
 }

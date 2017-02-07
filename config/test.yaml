@@ -24,7 +24,7 @@ feedback:
     brokers: "localhost:9941"
   cache:
     requestTimeout: 100
-    tick: 20
+    cleaningInterval: 20
 stats:
   reporters:
     - statsd

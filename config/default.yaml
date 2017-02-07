@@ -23,7 +23,7 @@ feedback:
     brokers: "localhost:9941"
   cache:
     requestTimeout: 86400000
-    tick: 300000
+    cleaningInterval: 300000
 stats:
   reporters:
     - statsd

@@ -73,6 +73,7 @@ type GCMMessageHandler struct {
 	StatsReporters           []interfaces.StatsReporter
 	successesReceived        int64
 	requestsHeap             *TimeoutHeap
+	CacheCleaningInterval    int
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
@@ -124,6 +125,7 @@ func (g *GCMMessageHandler) configure(client interfaces.GCMClient) error {
 	g.pendingMessages = make(chan bool, g.Config.GetInt("gcm.maxPendingMessages"))
 	interval := g.Config.GetInt("gcm.logStatsInterval")
 	g.LogStatsInterval = time.Duration(interval) * time.Millisecond
+	g.CacheCleaningInterval = g.Config.GetInt("feedback.cache.cleaningInterval")
 	var err error
 	if client != nil {
 		err = nil
@@ -142,6 +144,7 @@ func (g *GCMMessageHandler) loadConfigurationDefaults() {
 	g.Config.SetDefault("gcm.pingTimeout", 30)
 	g.Config.SetDefault("gcm.maxPendingMessages", 100)
 	g.Config.SetDefault("gcm.logStatsInterval", 5000)
+	g.Config.SetDefault("feedback.cache.cleaningInterval", 300000)
 }
 
 func (g *GCMMessageHandler) configureGCMClient() error {
