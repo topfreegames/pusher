@@ -42,13 +42,13 @@ var timeoutCte int64
 // Mutex for secure concurrency
 var mutex sync.Mutex
 
-type timeoutHeap []*timeoutNode
+// TimeoutHeap is a array of timeoutNode, which has request ID and expiration time
+type TimeoutHeap []*timeoutNode
 
-// newTimeoutNode for creating a new timeoutNode instance
-func (th *timeoutHeap) newTimeoutNode(
+func (th *TimeoutHeap) newTimeoutNode(
 	deviceToken string,
 ) *timeoutNode {
-	var now int64 = getNowInUnixMilliseconds()
+	now := getNowInUnixMilliseconds()
 	node := &timeoutNode{
 		UnixTimeStamp: now + timeoutCte,
 		DeviceToken:   deviceToken,
@@ -62,17 +62,21 @@ func getNowInUnixMilliseconds() int64 {
 	return time.Now().UnixNano() / int64(time.Millisecond)
 }
 
-// Implements heap interface
-func (th timeoutHeap) Len() int           { return len(th) }
-func (th timeoutHeap) Less(i, j int) bool { return th[i].UnixTimeStamp < th[j].UnixTimeStamp }
-func (th timeoutHeap) Swap(i, j int) {
+// Len returns the length of the heap
+func (th TimeoutHeap) Len() int { return len(th) }
+
+// Less returns true if request at index i expires before request at index j
+func (th TimeoutHeap) Less(i, j int) bool { return th[i].UnixTimeStamp < th[j].UnixTimeStamp }
+
+// Swap swaps requests at index i and j
+func (th TimeoutHeap) Swap(i, j int) {
 	th[i], th[j] = th[j], th[i]
 	th[i].index = i
 	th[j].index = j
 }
 
-// Receives device token string and pushes it to heap
-func (th *timeoutHeap) Push(x interface{}) {
+// Push receives device token string and pushes it to heap
+func (th *TimeoutHeap) Push(x interface{}) {
 	node := x.(*timeoutNode)
 
 	n := len(*th)
@@ -80,8 +84,8 @@ func (th *timeoutHeap) Push(x interface{}) {
 	*th = append(*th, node)
 }
 
-// Pops the device token of the next request that expires
-func (th *timeoutHeap) Pop() interface{} {
+// Pop pops the device token of the next request that expires
+func (th *TimeoutHeap) Pop() interface{} {
 	old := *th
 	n := len(old)
 	node := old[n-1]
@@ -92,12 +96,12 @@ func (th *timeoutHeap) Pop() interface{} {
 }
 
 // Returns true if heap is empty
-func (th *timeoutHeap) empty() bool {
+func (th *TimeoutHeap) empty() bool {
 	return th.Len() == 0
 }
 
 // Returns all information about the poped node
-func (th *timeoutHeap) completeHasExpiredRequest() (string, int64, bool) {
+func (th *TimeoutHeap) completeHasExpiredRequest() (string, int64, bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -110,35 +114,34 @@ func (th *timeoutHeap) completeHasExpiredRequest() (string, int64, bool) {
 
 	if now < node.UnixTimeStamp {
 		return "", 0, false
-	} else {
-		heap.Pop(th)
-		return node.DeviceToken, node.UnixTimeStamp, true
 	}
+	heap.Pop(th)
+	return node.DeviceToken, node.UnixTimeStamp, true
 }
 
-// API: Timeout Heap functions
 // For thread safe guarantee, use only the methods below from this api
-// Creates and returns a new timeoutHeap
+
+// NewTimeoutHeap creates and returns a new TimeoutHeap
 func NewTimeoutHeap(
 	config *viper.Viper,
-) *timeoutHeap {
-	th := make(timeoutHeap, 0)
+) *TimeoutHeap {
+	th := make(TimeoutHeap, 0)
 	heap.Init(&th)
 	timeoutCte = int64(config.GetInt("feedback.cache.requestTimeout"))
 
 	return &th
 }
 
-// Pushes new request
-func (th *timeoutHeap) AddRequest(deviceToken string) {
+// AddRequest pushes new request
+func (th *TimeoutHeap) AddRequest(deviceToken string) {
 	mutex.Lock()
 	node := th.newTimeoutNode(deviceToken)
 	heap.Push(th, node)
 	mutex.Unlock()
 }
 
-// If heap has expired Request, remove it and return deviceToken
-func (th *timeoutHeap) HasExpiredRequest() (string, bool) {
+// HasExpiredRequest removes expired request, if any
+func (th *TimeoutHeap) HasExpiredRequest() (string, bool) {
 	deviceToken, _, has := th.completeHasExpiredRequest()
 	return deviceToken, has
 }

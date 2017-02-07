@@ -72,7 +72,7 @@ type GCMMessageHandler struct {
 	sentMessages             int64
 	StatsReporters           []interfaces.StatsReporter
 	successesReceived        int64
-	requestsHeap             *timeoutHeap
+	requestsHeap             *TimeoutHeap
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
@@ -312,7 +312,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 func (g *GCMMessageHandler) HandleResponses() {
 }
 
-// Clears cache after timeout
+// CleanMetadataCache clears cache after timeout
 func (g *GCMMessageHandler) CleanMetadataCache() {
 	var deviceToken string
 	var hasIndeed bool

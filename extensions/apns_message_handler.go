@@ -74,7 +74,7 @@ type APNSMessageHandler struct {
 	StatsReporters           []interfaces.StatsReporter
 	successesReceived        int64
 	Topic                    string
-	requestsHeap             *timeoutHeap
+	requestsHeap             *TimeoutHeap
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
@@ -206,7 +206,7 @@ func (a *APNSMessageHandler) HandleResponses() {
 	}
 }
 
-// If a apns request times out, it is cleared from memory
+// CleanMetadataCache clears expired requests from memory
 func (a *APNSMessageHandler) CleanMetadataCache() {
 	var deviceToken string
 	var hasIndeed bool
