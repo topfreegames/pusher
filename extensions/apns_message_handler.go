@@ -74,6 +74,8 @@ type APNSMessageHandler struct {
 	StatsReporters           []interfaces.StatsReporter
 	successesReceived        int64
 	Topic                    string
+	requestsHeap             *TimeoutHeap
+	CacheCleaningInterval    int
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
@@ -102,6 +104,7 @@ func NewAPNSMessageHandler(
 		sentMessages:             0,
 		StatsReporters:           statsReporters,
 		successesReceived:        0,
+		requestsHeap:             NewTimeoutHeap(config),
 	}
 	if err := a.configure(queue); err != nil {
 		return nil, err
@@ -113,6 +116,7 @@ func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue) error {
 	a.loadConfigurationDefaults()
 	interval := a.Config.GetInt("apns.logStatsInterval")
 	a.LogStatsInterval = time.Duration(interval) * time.Millisecond
+	a.CacheCleaningInterval = a.Config.GetInt("feedback.cache.cleaningInterval")
 	err := a.configureCertificate()
 	if err != nil {
 		return err
@@ -132,6 +136,7 @@ func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue) error {
 func (a *APNSMessageHandler) loadConfigurationDefaults() {
 	a.Config.SetDefault("apns.concurrentWorkers", 10)
 	a.Config.SetDefault("apns.logStatsInterval", 5000)
+	a.Config.SetDefault("feedback.cache.cleaningInterval", 300000)
 }
 
 func (a *APNSMessageHandler) configureCertificate() error {
@@ -185,7 +190,10 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 	statsReporterHandleNotificationSent(a.StatsReporters)
 	a.PushQueue.Push(n.DeviceToken, h, payload)
 	inflightMessagesMetadataLock.Lock()
+
 	a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
+	a.requestsHeap.AddRequest(n.DeviceToken)
+
 	inflightMessagesMetadataLock.Unlock()
 	a.sentMessages++
 	return nil
@@ -198,6 +206,21 @@ func (a *APNSMessageHandler) HandleResponses() {
 		for resp := range q.Responses {
 			a.handleAPNSResponse(resp)
 		}
+	}
+}
+
+// CleanMetadataCache clears expired requests from memory
+func (a *APNSMessageHandler) CleanMetadataCache() {
+	var deviceToken string
+	var hasIndeed bool
+	for {
+		for deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest(); hasIndeed; {
+			delete(a.InflightMessagesMetadata, deviceToken)
+			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
+		}
+
+		duration := time.Duration(a.CacheCleaningInterval)
+		time.Sleep(duration * time.Millisecond)
 	}
 }
 

@@ -32,3 +32,8 @@ test.txt
 
 # External packages folder
 vendor/
+
+# Vim backup files
+*.swp
+*.swo
+.*swp

@@ -72,6 +72,8 @@ type GCMMessageHandler struct {
 	sentMessages             int64
 	StatsReporters           []interfaces.StatsReporter
 	successesReceived        int64
+	requestsHeap             *TimeoutHeap
+	CacheCleaningInterval    int
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
@@ -108,6 +110,7 @@ func NewGCMMessageHandler(
 		sentMessages:             0,
 		StatsReporters:           statsReporters,
 		successesReceived:        0,
+		requestsHeap:             NewTimeoutHeap(config),
 	}
 	err := g.configure(client)
 	if err != nil {
@@ -122,6 +125,7 @@ func (g *GCMMessageHandler) configure(client interfaces.GCMClient) error {
 	g.pendingMessages = make(chan bool, g.Config.GetInt("gcm.maxPendingMessages"))
 	interval := g.Config.GetInt("gcm.logStatsInterval")
 	g.LogStatsInterval = time.Duration(interval) * time.Millisecond
+	g.CacheCleaningInterval = g.Config.GetInt("feedback.cache.cleaningInterval")
 	var err error
 	if client != nil {
 		err = nil
@@ -140,6 +144,7 @@ func (g *GCMMessageHandler) loadConfigurationDefaults() {
 	g.Config.SetDefault("gcm.pingTimeout", 30)
 	g.Config.SetDefault("gcm.maxPendingMessages", 100)
 	g.Config.SetDefault("gcm.logStatsInterval", 5000)
+	g.Config.SetDefault("feedback.cache.cleaningInterval", 300000)
 }
 
 func (g *GCMMessageHandler) configureGCMClient() error {
@@ -289,7 +294,10 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	if messageID != "" {
 		if km.Metadata != nil && len(km.Metadata) > 0 {
 			inflightMessagesMetadataLock.Lock()
+
 			g.InflightMessagesMetadata[messageID] = km.Metadata
+			g.requestsHeap.AddRequest(messageID)
+
 			inflightMessagesMetadataLock.Unlock()
 		}
 	}
@@ -305,6 +313,21 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 
 // HandleResponses from gcm
 func (g *GCMMessageHandler) HandleResponses() {
+}
+
+// CleanMetadataCache clears cache after timeout
+func (g *GCMMessageHandler) CleanMetadataCache() {
+	var deviceToken string
+	var hasIndeed bool
+	for {
+		for deviceToken, hasIndeed = g.requestsHeap.HasExpiredRequest(); hasIndeed; {
+			delete(g.InflightMessagesMetadata, deviceToken)
+			deviceToken, hasIndeed = g.requestsHeap.HasExpiredRequest()
+		}
+
+		duration := time.Duration(g.Config.GetInt("feedback.cache.tick"))
+		time.Sleep(duration * time.Millisecond)
+	}
 }
 
 // HandleMessages get messages from msgChan and send to GCM

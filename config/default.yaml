@@ -21,6 +21,9 @@ feedback:
   kafka:
     topics: "push-test_apns-feedbacks"
     brokers: "localhost:9941"
+  cache:
+    requestTimeout: 86400000
+    cleaningInterval: 300000
 stats:
   reporters:
     - statsd
