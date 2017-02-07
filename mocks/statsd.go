@@ -22,6 +22,8 @@
 
 package mocks
 
+import "sync"
+
 //StatsDClientMock should be used for tests that need to send xmpp messages to StatsD
 type StatsDClientMock struct {
 	Count   map[string]int
@@ -40,19 +42,27 @@ func NewStatsDClientMock() *StatsDClientMock {
 	}
 }
 
+var mutexCount, mutexGauges, mutexTimings sync.Mutex
+
 //Increment stores the new count in a map
 func (m *StatsDClientMock) Increment(bucket string) {
+	mutexCount.Lock()
 	m.Count[bucket]++
+	mutexCount.Unlock()
 }
 
 //Gauge stores the count in a map
 func (m *StatsDClientMock) Gauge(bucket string, value interface{}) {
+	mutexGauges.Lock()
 	m.Gauges[bucket] = value
+	mutexGauges.Unlock()
 }
 
 //Timing stores the count in a map
 func (m *StatsDClientMock) Timing(bucket string, value interface{}) {
+	mutexTimings.Lock()
 	m.Timings[bucket] = value
+	mutexTimings.Unlock()
 }
 
 //Close records that it is closed

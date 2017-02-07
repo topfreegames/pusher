@@ -29,17 +29,13 @@ import (
 	"time"
 )
 
-// A timeoutNode contains device token and the time when the request expires
 type timeoutNode struct {
 	UnixTimeStamp int64
 	DeviceToken   string
 	index         int
 }
 
-// TODO: remove this constant and get it from config file
 var timeoutCte int64
-
-// Mutex for secure concurrency
 var mutex sync.Mutex
 
 // TimeoutHeap is a array of timeoutNode, which has request ID and expiration time
@@ -100,7 +96,6 @@ func (th *TimeoutHeap) empty() bool {
 	return th.Len() == 0
 }
 
-// Returns all information about the poped node
 func (th *TimeoutHeap) completeHasExpiredRequest() (string, int64, bool) {
 	mutex.Lock()
 	defer mutex.Unlock()

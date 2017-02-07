@@ -38,7 +38,6 @@ import (
 )
 
 var apnsResMutex sync.Mutex
-var inflightMessagesMetadataLock sync.Mutex
 
 // Notification is the notification base struct
 type Notification struct {
@@ -56,26 +55,27 @@ type ResponseWithMetadata struct {
 
 // APNSMessageHandler implements the messagehandler interface
 type APNSMessageHandler struct {
-	certificate              tls.Certificate
-	CertificatePath          string
-	Config                   *viper.Viper
-	failuresReceived         int64
-	feedbackReporters        []interfaces.FeedbackReporter
-	InflightMessagesMetadata map[string]interface{}
-	InvalidTokenHandlers     []interfaces.InvalidTokenHandler
-	IsProduction             bool
-	Logger                   *log.Logger
-	LogStatsInterval         time.Duration
-	pendingMessagesWG        *sync.WaitGroup
-	PushQueue                interfaces.APNSPushQueue
-	responsesReceived        int64
-	run                      bool
-	sentMessages             int64
-	StatsReporters           []interfaces.StatsReporter
-	successesReceived        int64
-	Topic                    string
-	requestsHeap             *TimeoutHeap
-	CacheCleaningInterval    int
+	certificate                  tls.Certificate
+	CertificatePath              string
+	Config                       *viper.Viper
+	failuresReceived             int64
+	feedbackReporters            []interfaces.FeedbackReporter
+	InflightMessagesMetadata     map[string]interface{}
+	InvalidTokenHandlers         []interfaces.InvalidTokenHandler
+	IsProduction                 bool
+	Logger                       *log.Logger
+	LogStatsInterval             time.Duration
+	pendingMessagesWG            *sync.WaitGroup
+	inflightMessagesMetadataLock *sync.Mutex
+	PushQueue                    interfaces.APNSPushQueue
+	responsesReceived            int64
+	run                          bool
+	sentMessages                 int64
+	StatsReporters               []interfaces.StatsReporter
+	successesReceived            int64
+	Topic                        string
+	requestsHeap                 *TimeoutHeap
+	CacheCleaningInterval        int
 }
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
@@ -91,20 +91,21 @@ func NewAPNSMessageHandler(
 	queue interfaces.APNSPushQueue,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
-		CertificatePath:          certificatePath,
-		Config:                   config,
-		failuresReceived:         0,
-		feedbackReporters:        feedbackReporters,
-		InflightMessagesMetadata: map[string]interface{}{},
-		InvalidTokenHandlers:     invalidTokenHandlers,
-		IsProduction:             isProduction,
-		Logger:                   logger,
-		pendingMessagesWG:        pendingMessagesWG,
-		responsesReceived:        0,
-		sentMessages:             0,
-		StatsReporters:           statsReporters,
-		successesReceived:        0,
-		requestsHeap:             NewTimeoutHeap(config),
+		CertificatePath:              certificatePath,
+		Config:                       config,
+		failuresReceived:             0,
+		feedbackReporters:            feedbackReporters,
+		InflightMessagesMetadata:     map[string]interface{}{},
+		InvalidTokenHandlers:         invalidTokenHandlers,
+		IsProduction:                 isProduction,
+		Logger:                       logger,
+		pendingMessagesWG:            pendingMessagesWG,
+		inflightMessagesMetadataLock: &sync.Mutex{},
+		responsesReceived:            0,
+		sentMessages:                 0,
+		StatsReporters:               statsReporters,
+		successesReceived:            0,
+		requestsHeap:                 NewTimeoutHeap(config),
 	}
 	if err := a.configure(queue); err != nil {
 		return nil, err
@@ -189,12 +190,12 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 	}
 	statsReporterHandleNotificationSent(a.StatsReporters)
 	a.PushQueue.Push(n.DeviceToken, h, payload)
-	inflightMessagesMetadataLock.Lock()
+	a.inflightMessagesMetadataLock.Lock()
 
 	a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
 	a.requestsHeap.AddRequest(n.DeviceToken)
 
-	inflightMessagesMetadataLock.Unlock()
+	a.inflightMessagesMetadataLock.Unlock()
 	a.sentMessages++
 	return nil
 }
@@ -214,10 +215,12 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 	var deviceToken string
 	var hasIndeed bool
 	for {
+		a.inflightMessagesMetadataLock.Lock()
 		for deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest(); hasIndeed; {
 			delete(a.InflightMessagesMetadata, deviceToken)
 			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
 		}
+		a.inflightMessagesMetadataLock.Unlock()
 
 		duration := time.Duration(a.CacheCleaningInterval)
 		time.Sleep(duration * time.Millisecond)
@@ -255,12 +258,12 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	responseWithMetadata := &ResponseWithMetadata{
 		Response: res,
 	}
-	inflightMessagesMetadataLock.Lock()
+	a.inflightMessagesMetadataLock.Lock()
 	if val, ok := a.InflightMessagesMetadata[res.DeviceToken]; ok {
 		responseWithMetadata.Metadata = val.(map[string]interface{})
 		delete(a.InflightMessagesMetadata, res.DeviceToken)
 	}
-	inflightMessagesMetadataLock.Unlock()
+	a.inflightMessagesMetadataLock.Unlock()
 
 	if err != nil {
 		l.WithError(err).Error("error sending feedback to reporter")

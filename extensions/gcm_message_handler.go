@@ -52,28 +52,29 @@ type CCSMessageWithMetadata struct {
 
 // GCMMessageHandler implements the messagehandler interface
 type GCMMessageHandler struct {
-	apiKey                   string
-	Config                   *viper.Viper
-	failuresReceived         int64
-	feedbackReporters        []interfaces.FeedbackReporter
-	GCMClient                interfaces.GCMClient
-	InflightMessagesMetadata map[string]interface{}
-	InvalidTokenHandlers     []interfaces.InvalidTokenHandler
-	IsProduction             bool
-	Logger                   *log.Logger
-	LogStatsInterval         time.Duration
-	pendingMessages          chan bool
-	pendingMessagesWG        *sync.WaitGroup
-	PingInterval             int
-	PingTimeout              int
-	responsesReceived        int64
-	run                      bool
-	senderID                 string
-	sentMessages             int64
-	StatsReporters           []interfaces.StatsReporter
-	successesReceived        int64
-	requestsHeap             *TimeoutHeap
-	CacheCleaningInterval    int
+	apiKey                       string
+	Config                       *viper.Viper
+	failuresReceived             int64
+	feedbackReporters            []interfaces.FeedbackReporter
+	GCMClient                    interfaces.GCMClient
+	InflightMessagesMetadata     map[string]interface{}
+	InvalidTokenHandlers         []interfaces.InvalidTokenHandler
+	IsProduction                 bool
+	Logger                       *log.Logger
+	LogStatsInterval             time.Duration
+	pendingMessages              chan bool
+	pendingMessagesWG            *sync.WaitGroup
+	inflightMessagesMetadataLock *sync.Mutex
+	PingInterval                 int
+	PingTimeout                  int
+	responsesReceived            int64
+	run                          bool
+	senderID                     string
+	sentMessages                 int64
+	StatsReporters               []interfaces.StatsReporter
+	successesReceived            int64
+	requestsHeap                 *TimeoutHeap
+	CacheCleaningInterval        int
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
@@ -96,21 +97,22 @@ func NewGCMMessageHandler(
 	})
 
 	g := &GCMMessageHandler{
-		apiKey:                   apiKey,
-		Config:                   config,
-		failuresReceived:         0,
-		feedbackReporters:        feedbackReporters,
-		InflightMessagesMetadata: map[string]interface{}{},
-		InvalidTokenHandlers:     invalidTokenHandlers,
-		IsProduction:             isProduction,
-		Logger:                   logger,
-		pendingMessagesWG:        pendingMessagesWG,
-		responsesReceived:        0,
-		senderID:                 senderID,
-		sentMessages:             0,
-		StatsReporters:           statsReporters,
-		successesReceived:        0,
-		requestsHeap:             NewTimeoutHeap(config),
+		apiKey:                       apiKey,
+		Config:                       config,
+		failuresReceived:             0,
+		feedbackReporters:            feedbackReporters,
+		InflightMessagesMetadata:     map[string]interface{}{},
+		InvalidTokenHandlers:         invalidTokenHandlers,
+		IsProduction:                 isProduction,
+		Logger:                       logger,
+		pendingMessagesWG:            pendingMessagesWG,
+		inflightMessagesMetadataLock: &sync.Mutex{},
+		responsesReceived:            0,
+		senderID:                     senderID,
+		sentMessages:                 0,
+		StatsReporters:               statsReporters,
+		successesReceived:            0,
+		requestsHeap:                 NewTimeoutHeap(config),
 	}
 	err := g.configure(client)
 	if err != nil {
@@ -201,12 +203,12 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	ccsMessageWithMetadata := &CCSMessageWithMetadata{
 		CCSMessage: cm,
 	}
-	inflightMessagesMetadataLock.Lock()
+	g.inflightMessagesMetadataLock.Lock()
 	if val, ok := g.InflightMessagesMetadata[cm.MessageID]; ok {
 		ccsMessageWithMetadata.Metadata = val.(map[string]interface{})
 		delete(g.InflightMessagesMetadata, cm.MessageID)
 	}
-	inflightMessagesMetadataLock.Unlock()
+	g.inflightMessagesMetadataLock.Unlock()
 
 	if cm.Error != "" {
 		gcmResMutex.Lock()
@@ -293,12 +295,12 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 
 	if messageID != "" {
 		if km.Metadata != nil && len(km.Metadata) > 0 {
-			inflightMessagesMetadataLock.Lock()
+			g.inflightMessagesMetadataLock.Lock()
 
 			g.InflightMessagesMetadata[messageID] = km.Metadata
 			g.requestsHeap.AddRequest(messageID)
 
-			inflightMessagesMetadataLock.Unlock()
+			g.inflightMessagesMetadataLock.Unlock()
 		}
 	}
 
@@ -320,12 +322,14 @@ func (g *GCMMessageHandler) CleanMetadataCache() {
 	var deviceToken string
 	var hasIndeed bool
 	for {
+		g.inflightMessagesMetadataLock.Lock()
 		for deviceToken, hasIndeed = g.requestsHeap.HasExpiredRequest(); hasIndeed; {
 			delete(g.InflightMessagesMetadata, deviceToken)
 			deviceToken, hasIndeed = g.requestsHeap.HasExpiredRequest()
 		}
+		g.inflightMessagesMetadataLock.Unlock()
 
-		duration := time.Duration(g.Config.GetInt("feedback.cache.tick"))
+		duration := time.Duration(g.CacheCleaningInterval)
 		time.Sleep(duration * time.Millisecond)
 	}
 }
