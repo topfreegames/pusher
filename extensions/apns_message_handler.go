@@ -50,7 +50,8 @@ type Notification struct {
 // ResponseWithMetadata is a enriched Response with a Metadata field
 type ResponseWithMetadata struct {
 	push.Response
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	Timestamp int64                  `json:"timestamp"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // APNSMessageHandler implements the messagehandler interface
@@ -190,12 +191,15 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 	}
 	statsReporterHandleNotificationSent(a.StatsReporters)
 	a.PushQueue.Push(n.DeviceToken, h, payload)
-	a.inflightMessagesMetadataLock.Lock()
+	if n.Metadata != nil {
+		a.inflightMessagesMetadataLock.Lock()
 
-	a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
-	a.requestsHeap.AddRequest(n.DeviceToken)
+		n.Metadata["timestamp"] = time.Now().Unix()
+		a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
+		a.requestsHeap.AddRequest(n.DeviceToken)
 
-	a.inflightMessagesMetadataLock.Unlock()
+		a.inflightMessagesMetadataLock.Unlock()
+	}
 	a.sentMessages++
 	return nil
 }
@@ -261,6 +265,8 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	a.inflightMessagesMetadataLock.Lock()
 	if val, ok := a.InflightMessagesMetadata[res.DeviceToken]; ok {
 		responseWithMetadata.Metadata = val.(map[string]interface{})
+		responseWithMetadata.Timestamp = responseWithMetadata.Metadata["timestamp"].(int64)
+		delete(responseWithMetadata.Metadata, "timestamp")
 		delete(a.InflightMessagesMetadata, res.DeviceToken)
 	}
 	a.inflightMessagesMetadataLock.Unlock()

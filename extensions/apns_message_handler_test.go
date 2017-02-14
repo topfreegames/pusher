@@ -511,9 +511,29 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
+			It("should include a timestamp in feedback root", func() {
+				timestampNow := time.Now().Unix()
+				metadata := map[string]interface{}{
+					"some":      "metadata",
+					"timestamp": timestampNow,
+				}
+				handler.InflightMessagesMetadata["testToken1"] = metadata
+				res := push.Response{
+					DeviceToken: "testToken1",
+					ID:          "idTest1",
+				}
+				go handler.handleAPNSResponse(res)
+
+				fromKafka := &ResponseWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.Timestamp).To(Equal(timestampNow))
+			})
+
 			It("should send feedback if success and metadata is present", func() {
 				metadata := map[string]interface{}{
-					"some": "metadata",
+					"some":      "metadata",
+					"timestamp": time.Now().Unix(),
 				}
 				handler.InflightMessagesMetadata["testToken1"] = metadata
 				res := push.Response{
@@ -547,7 +567,8 @@ var _ = Describe("APNS Message Handler", func() {
 
 			It("should send feedback if error and metadata is present and token should be deleted", func() {
 				metadata := map[string]interface{}{
-					"some": "metadata",
+					"some":      "metadata",
+					"timestamp": time.Now().Unix(),
 				}
 				handler.InflightMessagesMetadata["testToken1"] = metadata
 				res := push.Response{
@@ -571,7 +592,8 @@ var _ = Describe("APNS Message Handler", func() {
 
 			It("should send feedback if error and metadata is present and token should not be deleted", func() {
 				metadata := map[string]interface{}{
-					"some": "metadata",
+					"some":      "metadata",
+					"timestamp": time.Now().Unix(),
 				}
 				handler.InflightMessagesMetadata["testToken1"] = metadata
 				res := push.Response{

@@ -237,7 +237,8 @@ var _ = Describe("GCM Message Handler", func() {
 			It("should send xmpp message with metadata", func() {
 				ttl := uint(0)
 				metadata := map[string]interface{}{
-					"some": "metadata",
+					"some":      "metadata",
+					"timestamp": time.Now().Unix(),
 				}
 				msg := &KafkaGCMMessage{
 					gcm.XMPPMessage{
@@ -446,9 +447,31 @@ var _ = Describe("GCM Message Handler", func() {
 
 			})
 
+			It("should include a timestamp in feedback root", func() {
+				timestampNow := time.Now().Unix()
+				metadata := map[string]interface{}{
+					"some":      "metadata",
+					"timestamp": timestampNow,
+				}
+				handler.InflightMessagesMetadata["idTest1"] = metadata
+				res := gcm.CCSMessage{
+					From:        "testToken1",
+					MessageID:   "idTest1",
+					MessageType: "ack",
+					Category:    "testCategory",
+				}
+				go handler.handleGCMResponse(res)
+
+				fromKafka := &CCSMessageWithMetadata{}
+				msg := <-mockKafkaProducerClient.ProduceChannel()
+				json.Unmarshal(msg.Value, fromKafka)
+				Expect(fromKafka.Timestamp).To(Equal(timestampNow))
+			})
+
 			It("should send feedback if success and metadata is present", func() {
 				metadata := map[string]interface{}{
-					"some": "metadata",
+					"some":      "metadata",
+					"timestamp": time.Now().Unix(),
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := gcm.CCSMessage{
@@ -490,7 +513,8 @@ var _ = Describe("GCM Message Handler", func() {
 
 			It("should send feedback if error and metadata is present and token should be deleted", func() {
 				metadata := map[string]interface{}{
-					"some": "metadata",
+					"some":      "metadata",
+					"timestamp": time.Now().Unix(),
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := gcm.CCSMessage{
@@ -516,7 +540,8 @@ var _ = Describe("GCM Message Handler", func() {
 
 			It("should send feedback if error and metadata is present and token should not be deleted", func() {
 				metadata := map[string]interface{}{
-					"some": "metadata",
+					"some":      "metadata",
+					"timestamp": time.Now().Unix(),
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := gcm.CCSMessage{

@@ -47,7 +47,8 @@ type KafkaGCMMessage struct {
 // CCSMessageWithMetadata is a enriched CCSMessage with a metadata field
 type CCSMessageWithMetadata struct {
 	gcm.CCSMessage
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	Timestamp int64                  `json:"timestamp"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // GCMMessageHandler implements the messagehandler interface
@@ -206,6 +207,8 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	g.inflightMessagesMetadataLock.Lock()
 	if val, ok := g.InflightMessagesMetadata[cm.MessageID]; ok {
 		ccsMessageWithMetadata.Metadata = val.(map[string]interface{})
+		ccsMessageWithMetadata.Timestamp = ccsMessageWithMetadata.Metadata["timestamp"].(int64)
+		delete(ccsMessageWithMetadata.Metadata, "timestamp")
 		delete(g.InflightMessagesMetadata, cm.MessageID)
 	}
 	g.inflightMessagesMetadataLock.Unlock()
@@ -297,6 +300,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		if km.Metadata != nil && len(km.Metadata) > 0 {
 			g.inflightMessagesMetadataLock.Lock()
 
+			km.Metadata["timestamp"] = time.Now().Unix()
 			g.InflightMessagesMetadata[messageID] = km.Metadata
 			g.requestsHeap.AddRequest(messageID)
 
