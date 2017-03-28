@@ -24,6 +24,7 @@ package extensions
 
 import (
 	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -447,11 +448,16 @@ var _ = Describe("GCM Message Handler", func() {
 
 			})
 
-			It("should include a timestamp in feedback root", func() {
+			It("should include a timestamp in feedback root and the hostname and msgid in metadata", func() {
 				timestampNow := time.Now().Unix()
+				msgID := uuid.NewV4().String()
+				hostname, err := os.Hostname()
+				Expect(err).NotTo(HaveOccurred())
 				metadata := map[string]interface{}{
 					"some":      "metadata",
 					"timestamp": timestampNow,
+					"hostname":  hostname,
+					"msgid":     msgID,
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := gcm.CCSMessage{
@@ -466,6 +472,8 @@ var _ = Describe("GCM Message Handler", func() {
 				msg := <-mockKafkaProducerClient.ProduceChannel()
 				json.Unmarshal(msg.Value, fromKafka)
 				Expect(fromKafka.Timestamp).To(Equal(timestampNow))
+				Expect(fromKafka.Metadata["msgid"]).To(Equal(msgID))
+				Expect(fromKafka.Metadata["hostname"]).To(Equal(hostname))
 			})
 
 			It("should send feedback if success and metadata is present", func() {

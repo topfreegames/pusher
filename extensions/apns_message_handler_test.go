@@ -24,6 +24,7 @@ package extensions
 
 import (
 	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/RobotsAndPencils/buford/push"
@@ -511,11 +512,16 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should include a timestamp in feedback root", func() {
+			It("should include a timestamp in feedback root and the hostname and msgid in metadata", func() {
 				timestampNow := time.Now().Unix()
+				msgID := uuid.NewV4().String()
+				hostname, err := os.Hostname()
+				Expect(err).NotTo(HaveOccurred())
 				metadata := map[string]interface{}{
 					"some":      "metadata",
 					"timestamp": timestampNow,
+					"hostname":  hostname,
+					"msgid":     msgID,
 				}
 				handler.InflightMessagesMetadata["testToken1"] = metadata
 				res := push.Response{
@@ -528,6 +534,8 @@ var _ = Describe("APNS Message Handler", func() {
 				msg := <-mockKafkaProducerClient.ProduceChannel()
 				json.Unmarshal(msg.Value, fromKafka)
 				Expect(fromKafka.Timestamp).To(Equal(timestampNow))
+				Expect(fromKafka.Metadata["msgid"]).To(Equal(msgID))
+				Expect(fromKafka.Metadata["hostname"]).To(Equal(hostname))
 			})
 
 			It("should send feedback if success and metadata is present", func() {

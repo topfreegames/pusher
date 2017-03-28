@@ -25,12 +25,14 @@ package extensions
 import (
 	"crypto/tls"
 	"encoding/json"
+	"os"
 	"sync"
 	"time"
 
 	cert "github.com/RobotsAndPencils/buford/certificate"
 	"github.com/RobotsAndPencils/buford/push"
 	log "github.com/Sirupsen/logrus"
+	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/certificate"
 	"github.com/topfreegames/pusher/errors"
@@ -191,15 +193,23 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 	}
 	statsReporterHandleNotificationSent(a.StatsReporters)
 	a.PushQueue.Push(n.DeviceToken, h, payload)
-	if n.Metadata != nil {
-		a.inflightMessagesMetadataLock.Lock()
-
-		n.Metadata["timestamp"] = time.Now().Unix()
-		a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
-		a.requestsHeap.AddRequest(n.DeviceToken)
-
-		a.inflightMessagesMetadataLock.Unlock()
+	if n.Metadata == nil {
+		n.Metadata = map[string]interface{}{}
 	}
+	a.inflightMessagesMetadataLock.Lock()
+
+	n.Metadata["timestamp"] = time.Now().Unix()
+	hostname, err := os.Hostname()
+	if err != nil {
+		l.WithError(err).Error("error retrieving hostname")
+	} else {
+		n.Metadata["hostname"] = hostname
+	}
+	n.Metadata["msgid"] = uuid.NewV4().String()
+	a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
+	a.requestsHeap.AddRequest(n.DeviceToken)
+
+	a.inflightMessagesMetadataLock.Unlock()
 	a.sentMessages++
 	return nil
 }

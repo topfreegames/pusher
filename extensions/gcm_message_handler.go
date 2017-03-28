@@ -25,12 +25,14 @@ package extensions
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
 	gcm "github.com/rounds/go-gcm"
+	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
@@ -297,15 +299,23 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	}
 
 	if messageID != "" {
-		if km.Metadata != nil && len(km.Metadata) > 0 {
-			g.inflightMessagesMetadataLock.Lock()
-
-			km.Metadata["timestamp"] = time.Now().Unix()
-			g.InflightMessagesMetadata[messageID] = km.Metadata
-			g.requestsHeap.AddRequest(messageID)
-
-			g.inflightMessagesMetadataLock.Unlock()
+		if km.Metadata == nil {
+			km.Metadata = map[string]interface{}{}
 		}
+		g.inflightMessagesMetadataLock.Lock()
+
+		km.Metadata["timestamp"] = time.Now().Unix()
+		hostname, err := os.Hostname()
+		if err != nil {
+			l.WithError(err).Error("error retrieving hostname")
+		} else {
+			km.Metadata["hostname"] = hostname
+		}
+		km.Metadata["msgid"] = uuid.NewV4().String()
+		g.InflightMessagesMetadata[messageID] = km.Metadata
+		g.requestsHeap.AddRequest(messageID)
+
+		g.inflightMessagesMetadataLock.Unlock()
 	}
 
 	statsReporterHandleNotificationSent(g.StatsReporters)
