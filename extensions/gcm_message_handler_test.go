@@ -51,8 +51,7 @@ var _ = Describe("GCM Message Handler", func() {
 	var statsClients []interfaces.StatsReporter
 
 	configFile := "../config/test.yaml"
-	config, err := util.NewViperWithConfigFile(configFile)
-	Expect(err).NotTo(HaveOccurred())
+	config, _ := util.NewViperWithConfigFile(configFile)
 	senderID := "sender-id"
 	apiKey := "api-key"
 	isProduction := false

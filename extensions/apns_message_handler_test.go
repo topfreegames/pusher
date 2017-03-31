@@ -51,8 +51,7 @@ var _ = Describe("APNS Message Handler", func() {
 	var statsClients []interfaces.StatsReporter
 
 	configFile := "../config/test.yaml"
-	config, err := util.NewViperWithConfigFile(configFile)
-	Expect(err).NotTo(HaveOccurred())
+	config, _ := util.NewViperWithConfigFile(configFile)
 	certificatePath := "../tls/self_signed_cert.pem"
 	isProduction := false
 	logger, hook := test.NewNullLogger()

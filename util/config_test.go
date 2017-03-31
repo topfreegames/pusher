@@ -39,7 +39,7 @@ var _ = Describe("Config", func() {
 			It("should panic if path is invalid", func() {
 				config, err := NewViperWithConfigFile("")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Config File \"config\" Not Found in \"[]\""))
+				Expect(err.Error()).To(Equal("Unsupported Config Type \"\""))
 				Expect(config).To(BeNil())
 			})
 		})

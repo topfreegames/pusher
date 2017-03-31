@@ -34,9 +34,7 @@ import (
 
 var _ = Describe("[Unit]", func() {
 	configFile := "../config/test.yaml"
-	config, err := util.NewViperWithConfigFile(configFile)
-
-	Expect(err).NotTo(HaveOccurred())
+	config, _ := util.NewViperWithConfigFile(configFile)
 
 	Describe("TimeoutHeap", func() {
 		It("should push a new timeout node to heap", func() {
