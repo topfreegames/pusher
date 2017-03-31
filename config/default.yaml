@@ -2,10 +2,12 @@
 gracefulShutdownTimeout: 30
 apns:
   concurrentWorkers: 100
+  logStatsInterval: 10000
 gcm:
   pingInterval: 30
   pingTimeout: 10
   maxPendingMessages: 100
+  logStatsInterval: 10000
 queue:
   topics:
     - "com.games.test"

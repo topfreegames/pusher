@@ -25,7 +25,7 @@ gcm:
 	@go run main.go gcm --senderId=test --apiKey=123 --app=test
 
 apns:
-	@go run main.go apns --app test --certificate=./tls/_fixtures/certificate-valid.pem
+	@go run main.go apns --certificate=./tls/_fixtures/certificate-valid.pem
 
 local-deps:
 	@env MY_IP=${MY_IP} docker-compose --project-name pusher up -d
