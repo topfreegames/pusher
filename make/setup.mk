@@ -23,7 +23,7 @@ setup:
 	@/bin/bash -c '[ "`uname -s`" == "Darwin" ] && [ "`which brew`" != "" ] && [ ! -d "/usr/local/Cellar/librdkafka" ] && echo "librdkafka was not found. Installing with brew..." && brew install librdkafka; exit 0'
 	# Ensuring librdkafka is installed in Debian and Ubuntu
 	@/bin/bash -c '[ "`uname -s`" == "Linux" ] && [ "`which apt-get`" != "" ] && echo "Ensuring librdkafka is installed..." && ./debian-install-librdkafka.sh; exit 0'
-	@go get -u github.com/Masterminds/glide/...
+	@go get -u github.com/Masterminds/dep/cmd/dep
 	@go get -u github.com/onsi/ginkgo/ginkgo
 	@go get github.com/gordonklaus/ineffassign
-	@glide install
+	@dep ensure

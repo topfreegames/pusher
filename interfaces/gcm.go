@@ -22,7 +22,7 @@
 
 package interfaces
 
-import gcm "github.com/rounds/go-gcm"
+import gcm "github.com/topfreegames/go-gcm"
 
 //GCMClient represents the contract for a GCM Client
 type GCMClient interface {

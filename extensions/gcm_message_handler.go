@@ -30,8 +30,8 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
-	gcm "github.com/rounds/go-gcm"
+	log "github.com/sirupsen/logrus"
+	gcm "github.com/topfreegames/go-gcm"
 	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/errors"

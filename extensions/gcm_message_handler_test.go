@@ -27,12 +27,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/Sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/rounds/go-gcm"
 	uuid "github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	. "github.com/topfreegames/pusher/testing"
@@ -217,7 +217,6 @@ var _ = Describe("GCM Message Handler", func() {
 				ttl := uint(0)
 				msg := &gcm.XMPPMessage{
 					TimeToLive:               &ttl,
-					DelayWhileIdle:           false,
 					DeliveryReceiptRequested: false,
 					DryRun: true,
 					To:     uuid.NewV4().String(),
@@ -243,7 +242,6 @@ var _ = Describe("GCM Message Handler", func() {
 				msg := &KafkaGCMMessage{
 					gcm.XMPPMessage{
 						TimeToLive:               &ttl,
-						DelayWhileIdle:           false,
 						DeliveryReceiptRequested: false,
 						DryRun: true,
 						To:     uuid.NewV4().String(),
@@ -266,7 +264,6 @@ var _ = Describe("GCM Message Handler", func() {
 				ttl := uint(0)
 				msg := &gcm.XMPPMessage{
 					TimeToLive:               &ttl,
-					DelayWhileIdle:           false,
 					DeliveryReceiptRequested: false,
 					DryRun: true,
 					To:     uuid.NewV4().String(),
@@ -379,7 +376,6 @@ var _ = Describe("GCM Message Handler", func() {
 				ttl := uint(0)
 				msg := &gcm.XMPPMessage{
 					TimeToLive:               &ttl,
-					DelayWhileIdle:           false,
 					DeliveryReceiptRequested: false,
 					DryRun: true,
 					To:     uuid.NewV4().String(),

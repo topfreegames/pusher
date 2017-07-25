@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	raven "github.com/getsentry/raven-go"
 	"github.com/spf13/viper"

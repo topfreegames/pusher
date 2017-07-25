@@ -23,7 +23,7 @@
 package mocks
 
 import (
-	gcm "github.com/rounds/go-gcm"
+	gcm "github.com/topfreegames/go-gcm"
 	uuid "github.com/satori/go.uuid"
 )
 

@@ -25,7 +25,7 @@ package extensions
 import (
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/alexcesaro/statsd"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/errors"

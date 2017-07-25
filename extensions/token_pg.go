@@ -25,7 +25,7 @@ package extensions
 import (
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	raven "github.com/getsentry/raven-go"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"

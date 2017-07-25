@@ -31,7 +31,7 @@ import (
 
 	cert "github.com/RobotsAndPencils/buford/certificate"
 	"github.com/RobotsAndPencils/buford/push"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/certificate"

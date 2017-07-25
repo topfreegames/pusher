@@ -30,8 +30,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/Sirupsen/logrus/hooks/test"
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/util"

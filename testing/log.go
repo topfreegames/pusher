@@ -25,7 +25,7 @@ package testing
 import (
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/onsi/gomega/types"
 )
 

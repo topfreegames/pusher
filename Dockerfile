@@ -18,7 +18,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-FROM golang:1.7.3-alpine
+FROM golang:1.8-alpine
 
 MAINTAINER TFG Co <backend@tfgco.com>
 
@@ -31,18 +31,13 @@ RUN wget -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/ede
     cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
     ./configure && make && make install && make clean && ./configure --clean
 
-RUN wget https://github.com/Masterminds/glide/releases/download/v0.12.3/glide-v0.12.3-linux-amd64.tar.gz
-RUN tar -zxvf glide-v0.12.3-linux-amd64.tar.gz
-RUN chmod +x linux-amd64/glide && mv linux-amd64/glide /usr/local/bin/glide
+RUN go get -u github.com/golang/dep/cmd/dep
 
 RUN mkdir -p /go/src/github.com/topfreegames/pusher
 WORKDIR /go/src/github.com/topfreegames/pusher
 
-ADD glide.yaml /go/src/github.com/topfreegames/pusher/glide.yaml
-ADD glide.lock /go/src/github.com/topfreegames/pusher/glide.lock
-RUN glide install
-
 ADD . /go/src/github.com/topfreegames/pusher
+RUN dep ensure
 
 ENV CPLUS_INCLUDE_PATH /usr/local/include
 ENV LIBRARY_PATH /usr/local/lib

@@ -5,3 +5,4 @@ bench
 README.md
 LICENSE
 docker-compose.yml
+vendor

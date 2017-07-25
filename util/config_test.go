@@ -37,9 +37,9 @@ var _ = Describe("Config", func() {
 			})
 
 			It("should panic if path is invalid", func() {
-				config, err := NewViperWithConfigFile("")
+				config, err := NewViperWithConfigFile("../config/aaaa.yaml")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Unsupported Config Type \"\""))
+				Expect(err.Error()).To(Equal("open ../config/aaaa.yaml: no such file or directory"))
 				Expect(config).To(BeNil())
 			})
 		})

@@ -23,7 +23,7 @@
 package pusher
 
 import (
-	"github.com/Sirupsen/logrus/hooks/test"
+	"github.com/sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
