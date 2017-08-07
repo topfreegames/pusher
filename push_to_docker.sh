@@ -25,10 +25,12 @@ if [ "$TRAVIS_BRANCH" != "master" ]; then
 fi
 
 if [ "$LIBRDKAFKA_VERSION" != "master" ]; then
+  echo "building image to send to dockerhub"
   VERSION=$(cat ./util/version.go | grep "var Version" | awk ' { print $4 } ' | sed s/\"//g)
 
   docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
 
+  echo "sending image to dockerhub"
   docker build -t pusher .
   docker tag pusher:latest tfgco/pusher:$VERSION.$TRAVIS_BUILD_NUMBER
   docker tag pusher:latest tfgco/pusher:$VERSION
