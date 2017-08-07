@@ -203,6 +203,62 @@ var _ = Describe("GCM Message Handler", func() {
 			})
 		})
 
+		Describe("Test push expiration", func() {
+			It("should send message if PushExpiry is in the future", func() {
+				ttl := uint(0)
+				metadata := map[string]interface{}{
+					"some":      "metadata",
+					"timestamp": time.Now().Unix(),
+				}
+				msg := &KafkaGCMMessage{
+					gcm.XMPPMessage{
+						TimeToLive:               &ttl,
+						DeliveryReceiptRequested: false,
+						DryRun: true,
+						To:     uuid.NewV4().String(),
+						Data:   map[string]interface{}{},
+					},
+					metadata,
+					time.Now().Unix() + int64(1000000),
+				}
+				msgBytes, err := json.Marshal(msg)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = handler.sendMessage(msgBytes)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(handler.sentMessages).To(Equal(int64(1)))
+				Expect(handler.ignoredMessages).To(Equal(int64(0)))
+				Expect(hook.LastEntry().Message).To(Equal("sent message"))
+			})
+			It("should not send message if PushExpiry is in the past", func() {
+				ttl := uint(0)
+				metadata := map[string]interface{}{
+					"some":      "metadata",
+					"timestamp": time.Now().Unix(),
+				}
+				msg := &KafkaGCMMessage{
+					gcm.XMPPMessage{
+						TimeToLive:               &ttl,
+						DeliveryReceiptRequested: false,
+						DryRun: true,
+						To:     uuid.NewV4().String(),
+						Data:   map[string]interface{}{},
+					},
+					metadata,
+					time.Now().Unix() - int64(100),
+				}
+				msgBytes, err := json.Marshal(msg)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = handler.sendMessage(msgBytes)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(handler.sentMessages).To(Equal(int64(0)))
+				Expect(handler.ignoredMessages).To(Equal(int64(1)))
+				Expect(hook.LastEntry().Message).To(ContainSubstring("ignoring push"))
+			})
+
+		})
+
 		Describe("Send message", func() {
 			It("should send xmpp message and not increment sentMessages if an error occurs", func() {
 				err := handler.sendMessage([]byte("gogogo"))
@@ -248,6 +304,7 @@ var _ = Describe("GCM Message Handler", func() {
 						Data:   map[string]interface{}{},
 					},
 					metadata,
+					time.Now().Unix() + int64(1000000),
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
@@ -362,12 +419,14 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.responsesReceived = 90
 				handler.successesReceived = 60
 				handler.failuresReceived = 30
+				handler.ignoredMessages = 10
 				Expect(func() { go handler.LogStats() }).ShouldNot(Panic())
 				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("flushing stats"))
 				Eventually(func() int64 { return handler.sentMessages }).Should(Equal(int64(0)))
 				Eventually(func() int64 { return handler.responsesReceived }).Should(Equal(int64(0)))
 				Eventually(func() int64 { return handler.successesReceived }).Should(Equal(int64(0)))
 				Eventually(func() int64 { return handler.failuresReceived }).Should(Equal(int64(0)))
+				Eventually(func() int64 { return handler.ignoredMessages }).Should(Equal(int64(0)))
 			})
 		})
 

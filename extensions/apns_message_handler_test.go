@@ -24,15 +24,16 @@ package extensions
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/RobotsAndPencils/buford/push"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	. "github.com/topfreegames/pusher/testing"
@@ -671,6 +672,20 @@ var _ = Describe("APNS Message Handler", func() {
 		Describe("Send message", func() {
 			It("should add message to push queue and increment sentMessages", func() {
 				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				Eventually(handler.PushQueue.(*push.Queue).Responses, 5*time.Second).Should(Receive())
+				Expect(handler.sentMessages).To(Equal(int64(1)))
+			})
+		})
+
+		Describe("PushExpiry", func() {
+			It("should not send message if PushExpiry is in the past", func() {
+				handler.sendMessage([]byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d }`, time.Now().Unix()-int64(100))))
+				Eventually(handler.PushQueue.(*push.Queue).Responses, 5*time.Second).Should(Receive())
+				Expect(handler.sentMessages).To(Equal(int64(0)))
+				Expect(handler.ignoredMessages).To(Equal(int64(1)))
+			})
+			It("should send message if PushExpiry is in the future", func() {
+				handler.sendMessage([]byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d}`, time.Now().Unix()+int64(100))))
 				Eventually(handler.PushQueue.(*push.Queue).Responses, 5*time.Second).Should(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 			})

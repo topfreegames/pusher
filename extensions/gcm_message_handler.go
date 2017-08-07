@@ -30,10 +30,10 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-	gcm "github.com/topfreegames/go-gcm"
 	uuid "github.com/satori/go.uuid"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	gcm "github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
 )
@@ -43,7 +43,8 @@ var gcmResMutex sync.Mutex
 // KafkaGCMMessage is a enriched XMPPMessage with a Metadata field
 type KafkaGCMMessage struct {
 	gcm.XMPPMessage
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	Metadata   map[string]interface{} `json:"metadata,omitempty"`
+	PushExpiry int64                  `json:"push_expiry,omitempty"`
 }
 
 // CCSMessageWithMetadata is a enriched CCSMessage with a metadata field
@@ -67,6 +68,7 @@ type GCMMessageHandler struct {
 	LogStatsInterval             time.Duration
 	pendingMessages              chan bool
 	pendingMessagesWG            *sync.WaitGroup
+	ignoredMessages              int64
 	inflightMessagesMetadataLock *sync.Mutex
 	PingInterval                 int
 	PingTimeout                  int
@@ -109,6 +111,7 @@ func NewGCMMessageHandler(
 		IsProduction:                 isProduction,
 		Logger:                       logger,
 		pendingMessagesWG:            pendingMessagesWG,
+		ignoredMessages:              0,
 		inflightMessagesMetadataLock: &sync.Mutex{},
 		responsesReceived:            0,
 		senderID:                     senderID,
@@ -286,6 +289,11 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		l.WithError(err).Error("Error unmarshaling message.")
 		return err
 	}
+	if km.PushExpiry > 0 && km.PushExpiry < time.Now().Unix() {
+		l.Warnf("ignoring push message because it has expired: %s", km.Data)
+		g.ignoredMessages++
+		return nil
+	}
 	l.WithField("message", km).Debug("sending message to gcm")
 	var messageID string
 	var bytes int
@@ -373,12 +381,14 @@ func (g *GCMMessageHandler) LogStats() {
 		l.WithFields(log.Fields{
 			"sentMessages":      g.sentMessages,
 			"responsesReceived": g.responsesReceived,
+			"ignoredMessages":   g.ignoredMessages,
 			"successesReceived": g.successesReceived,
 			"failuresReceived":  g.failuresReceived,
 		}).Info("flushing stats")
 		g.sentMessages = 0
 		g.responsesReceived = 0
 		g.successesReceived = 0
+		g.ignoredMessages = 0
 		g.failuresReceived = 0
 		apnsResMutex.Unlock()
 	}

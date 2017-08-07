@@ -31,8 +31,8 @@ import (
 
 	cert "github.com/RobotsAndPencils/buford/certificate"
 	"github.com/RobotsAndPencils/buford/push"
-	log "github.com/sirupsen/logrus"
 	uuid "github.com/satori/go.uuid"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/certificate"
 	"github.com/topfreegames/pusher/errors"
@@ -46,7 +46,7 @@ type Notification struct {
 	DeviceToken string
 	Payload     interface{}
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	PushExpiry  int                    `json:"push_expiry,omitempty"`
+	PushExpiry  int64                  `json:"push_expiry,omitempty"`
 }
 
 // ResponseWithMetadata is a enriched Response with a Metadata field
@@ -74,6 +74,7 @@ type APNSMessageHandler struct {
 	responsesReceived            int64
 	run                          bool
 	sentMessages                 int64
+	ignoredMessages              int64
 	StatsReporters               []interfaces.StatsReporter
 	successesReceived            int64
 	Topic                        string
@@ -103,6 +104,7 @@ func NewAPNSMessageHandler(
 		IsProduction:                 isProduction,
 		Logger:                       logger,
 		pendingMessagesWG:            pendingMessagesWG,
+		ignoredMessages:              0,
 		inflightMessagesMetadataLock: &sync.Mutex{},
 		responsesReceived:            0,
 		sentMessages:                 0,
@@ -190,6 +192,11 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 	if err != nil {
 		l.WithError(err).Error("error marshaling message payload")
 		return err
+	}
+	if n.PushExpiry > 0 && n.PushExpiry < time.Now().Unix() {
+		l.Warnf("ignoring push message because it has expired: %s", n.Payload)
+		a.ignoredMessages++
+		return nil
 	}
 	statsReporterHandleNotificationSent(a.StatsReporters)
 	a.PushQueue.Push(n.DeviceToken, h, payload)
@@ -363,12 +370,14 @@ func (a *APNSMessageHandler) LogStats() {
 		apnsResMutex.Lock()
 		l.WithFields(log.Fields{
 			"sentMessages":      a.sentMessages,
+			"ignoredMessages":   a.ignoredMessages,
 			"responsesReceived": a.responsesReceived,
 			"successesReceived": a.successesReceived,
 			"failuresReceived":  a.failuresReceived,
 		}).Info("flushing stats")
 		a.sentMessages = 0
 		a.responsesReceived = 0
+		a.ignoredMessages = 0
 		a.successesReceived = 0
 		a.failuresReceived = 0
 		apnsResMutex.Unlock()
