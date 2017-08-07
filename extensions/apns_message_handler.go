@@ -196,6 +196,9 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 	if n.PushExpiry > 0 && n.PushExpiry < time.Now().Unix() {
 		l.Warnf("ignoring push message because it has expired: %s", n.Payload)
 		a.ignoredMessages++
+		if a.pendingMessagesWG != nil {
+			a.pendingMessagesWG.Done()
+		}
 		return nil
 	}
 	statsReporterHandleNotificationSent(a.StatsReporters)

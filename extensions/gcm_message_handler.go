@@ -292,6 +292,9 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 	if km.PushExpiry > 0 && km.PushExpiry < time.Now().Unix() {
 		l.Warnf("ignoring push message because it has expired: %s", km.Data)
 		g.ignoredMessages++
+		if g.pendingMessagesWG != nil {
+			g.pendingMessagesWG.Done()
+		}
 		return nil
 	}
 	l.WithField("message", km).Debug("sending message to gcm")

@@ -11,7 +11,7 @@ gcm:
 queue:
   topics:
     - "com.games.test"
-  brokers: "localhost:9940"
+  brokers: "localhost:9941"
   group: testGroup
   sessionTimeout: 6000
   offsetResetStrategy: latest
