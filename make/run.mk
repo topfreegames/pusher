@@ -22,7 +22,7 @@ run:
 	@go run main.go
 
 gcm:
-	@go run main.go gcm --senderId=test --apiKey=123 --app=test
+	@go run main.go gcm --senderId=test --apiKey=123
 
 apns:
 	@go run main.go apns --certificate=./tls/_fixtures/certificate-valid.pem
