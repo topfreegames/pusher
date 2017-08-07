@@ -26,9 +26,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	raven "github.com/getsentry/raven-go"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/util"
@@ -131,6 +131,8 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 			"group.id":                        q.ConsumerGroup,
 			"session.timeout.ms":              q.SessionTimeout,
 			"go.events.channel.enable":        true,
+			"debug":                           "broker,topic",
+			"socket.keepalive.enable":         true,
 			"go.application.rebalance.enable": true,
 			"enable.auto.commit":              true,
 			"default.topic.config": kafka.ConfigMap{
