@@ -48,6 +48,7 @@ type APNSPusher struct {
 	Queue                   interfaces.Queue
 	run                     bool
 	StatsReporters          []interfaces.StatsReporter
+	stopChannel             chan struct{}
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
@@ -65,6 +66,7 @@ func NewAPNSPusher(
 		Config:          config,
 		IsProduction:    isProduction,
 		Logger:          logger,
+		stopChannel:     make(chan struct{}),
 	}
 	var queue interfaces.APNSPushQueue
 	if len(queueOrNil) > 0 {
@@ -94,7 +96,11 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	if err = a.configureInvalidTokenHandlers(db); err != nil {
 		return err
 	}
-	q, err := extensions.NewKafkaConsumer(a.Config, a.Logger)
+	q, err := extensions.NewKafkaConsumer(
+		a.Config,
+		a.Logger,
+		&a.stopChannel,
+	)
 	if err != nil {
 		return err
 	}
@@ -168,6 +174,9 @@ func (a *APNSPusher) Start() {
 		select {
 		case sig := <-sigchan:
 			l.Warnf("caught signal %v: terminating\n", sig)
+			a.run = false
+		case <-a.stopChannel:
+			l.Warn("Stop channel closed\n")
 			a.run = false
 		}
 	}

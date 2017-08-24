@@ -49,6 +49,7 @@ type GCMPusher struct {
 	run                     bool
 	senderID                string
 	StatsReporters          []interfaces.StatsReporter
+	stopChannel             chan struct{}
 }
 
 // NewGCMPusher for getting a new GCMPusher instance
@@ -68,6 +69,7 @@ func NewGCMPusher(
 		IsProduction: isProduction,
 		Logger:       logger,
 		senderID:     senderID,
+		stopChannel:  make(chan struct{}),
 	}
 	var client interfaces.GCMClient
 	if len(clientOrNil) > 0 {
@@ -98,7 +100,11 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 	if err = g.configureInvalidTokenHandlers(db); err != nil {
 		return err
 	}
-	q, err := extensions.NewKafkaConsumer(g.Config, g.Logger)
+	q, err := extensions.NewKafkaConsumer(
+		g.Config,
+		g.Logger,
+		&g.stopChannel,
+	)
 	if err != nil {
 		return err
 	}
@@ -173,6 +179,9 @@ func (g *GCMPusher) Start() {
 		select {
 		case sig := <-sigchan:
 			l.Warnf("caught signal %v: terminating\n", sig)
+			g.run = false
+		case <-g.stopChannel:
+			l.Warn("Stop channel closed\n")
 			g.run = false
 		}
 	}

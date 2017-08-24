@@ -26,9 +26,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	raven "github.com/getsentry/raven-go"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/util"
@@ -50,12 +50,14 @@ type KafkaConsumer struct {
 	Topics                         []string
 	pendingMessagesWG              *sync.WaitGroup
 	HandleAllMessagesBeforeExiting bool
+	stopChannel                    chan struct{}
 }
 
 // NewKafkaConsumer for creating a new KafkaConsumer instance
 func NewKafkaConsumer(
 	config *viper.Viper,
 	logger *logrus.Logger,
+	stopChannel *chan struct{},
 	clientOrNil ...interfaces.KafkaConsumerClient,
 ) (*KafkaConsumer, error) {
 	q := &KafkaConsumer{
@@ -63,6 +65,7 @@ func NewKafkaConsumer(
 		Logger:            logger,
 		messagesReceived:  0,
 		pendingMessagesWG: nil,
+		stopChannel:       *stopChannel,
 	}
 	var client interfaces.KafkaConsumerClient
 	if len(clientOrNil) == 1 {
@@ -204,6 +207,7 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 			case kafka.Error:
 				q.handleError(ev)
 				q.StopConsuming()
+				close(q.stopChannel)
 				return e
 			default:
 				q.handleUnrecognized(e)
