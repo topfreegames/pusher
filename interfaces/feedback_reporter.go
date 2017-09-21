@@ -24,5 +24,5 @@ package interfaces
 
 // FeedbackReporter interface for making new feedback reporters pluggable easily
 type FeedbackReporter interface {
-	SendFeedback(feedback []byte)
+	SendFeedback(game string, platform string, feedback []byte)
 }

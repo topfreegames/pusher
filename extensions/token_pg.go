@@ -25,8 +25,8 @@ package extensions
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	raven "github.com/getsentry/raven-go"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/util"
@@ -34,10 +34,9 @@ import (
 
 // TokenPG for sending metrics
 type TokenPG struct {
-	Client    *PGClient
-	Config    *viper.Viper
-	Logger    *logrus.Logger
-	tableName string
+	Client *PGClient
+	Config *viper.Viper
+	Logger *logrus.Logger
 }
 
 // NewTokenPG for creating a new TokenPG instance
@@ -59,7 +58,6 @@ func (t *TokenPG) loadConfigurationDefaults() {}
 func (t *TokenPG) configure(db interfaces.DB) error {
 	l := t.Logger.WithField("method", "configure")
 	t.loadConfigurationDefaults()
-	t.tableName = t.Config.GetString("invalidToken.pg.table")
 
 	var err error
 	t.Client, err = NewPGClient("invalidToken.pg", t.Config, db)
@@ -73,13 +71,13 @@ func (t *TokenPG) configure(db interfaces.DB) error {
 }
 
 // HandleToken handles an invalid token
-func (t *TokenPG) HandleToken(token string) error {
+func (t *TokenPG) HandleToken(token string, game string, platform string) error {
 	l := t.Logger.WithFields(logrus.Fields{
 		"method": "HandleToken",
 		"token":  token,
 	})
 	l.Debug("deleting token")
-	query := fmt.Sprintf("DELETE FROM %s WHERE token = ?0;", t.tableName)
+	query := fmt.Sprintf("DELETE FROM %s WHERE token = ?0;", game+"_"+platform)
 	_, err := t.Client.DB.Exec(query, token)
 	if err != nil && err.Error() != "pg: no rows in result set" {
 		raven.CaptureError(err, map[string]string{

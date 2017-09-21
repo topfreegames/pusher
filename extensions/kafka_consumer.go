@@ -43,7 +43,7 @@ type KafkaConsumer struct {
 	ChannelSize                    int
 	Logger                         *logrus.Logger
 	messagesReceived               int64
-	msgChan                        chan []byte
+	msgChan                        chan interfaces.KafkaMessage
 	OffsetResetStrategy            string
 	run                            bool
 	SessionTimeout                 int
@@ -97,7 +97,7 @@ func (q *KafkaConsumer) configure(client interfaces.KafkaConsumerClient) error {
 	q.ChannelSize = q.Config.GetInt("queue.channelSize")
 	q.HandleAllMessagesBeforeExiting = q.Config.GetBool("queue.handleAllMessagesBeforeExiting")
 
-	q.msgChan = make(chan []byte, q.ChannelSize)
+	q.msgChan = make(chan interfaces.KafkaMessage, q.ChannelSize)
 
 	if q.HandleAllMessagesBeforeExiting {
 		var wg sync.WaitGroup
@@ -164,7 +164,7 @@ func (q *KafkaConsumer) StopConsuming() {
 }
 
 // MessagesChannel returns the channel that will receive all messages got from kafka
-func (q *KafkaConsumer) MessagesChannel() *chan []byte {
+func (q *KafkaConsumer) MessagesChannel() *chan interfaces.KafkaMessage {
 	return &q.msgChan
 }
 
@@ -264,7 +264,14 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 	if q.pendingMessagesWG != nil {
 		q.pendingMessagesWG.Add(1)
 	}
-	q.msgChan <- value
+
+	message := interfaces.KafkaMessage{
+		Game:  getGameAndPlatformFromTopic(*topicPartition.Topic).Game,
+		Topic: *topicPartition.Topic,
+		Value: value,
+	}
+
+	q.msgChan <- message
 
 	l.Debug("Received message processed.")
 }

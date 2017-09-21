@@ -357,30 +357,20 @@ var _ = Describe("APNS Message Handler", func() {
 
 		Describe("Send message", func() {
 			It("should add message to push queue and increment sentMessages", func() {
-				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_apns",
+					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
+				})
 				Expect(handler.sentMessages).To(Equal(int64(1)))
-			})
-		})
-
-		Describe("Handle Messages", func() {
-			It("should start without panicking and set run to true", func() {
-				stopChannel := make(chan struct{})
-				queue, err := NewKafkaConsumer(
-					handler.Config,
-					logger,
-					&stopChannel,
-					mockKafkaConsumerClient,
-				)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(func() { go handler.HandleMessages(queue.MessagesChannel()) }).ShouldNot(Panic())
-				time.Sleep(50 * time.Millisecond)
-				Expect(handler.run).To(BeTrue())
 			})
 		})
 
 		Describe("Clean Cache", func() {
 			It("should remove from push queue after timeout", func() {
-				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_apns",
+					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
+				})
 				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
 				time.Sleep(500 * time.Millisecond)
 				Expect(*handler.requestsHeap).To(BeEmpty())
@@ -388,7 +378,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("should not panic if a request got a response", func() {
-				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_apns",
+					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
+				})
 				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
 				res := push.Response{
 					DeviceToken: uuid.NewV4().String(),
@@ -405,7 +398,10 @@ var _ = Describe("APNS Message Handler", func() {
 				var n int = 10
 				sendRequests := func() {
 					for i := 0; i < n; i++ {
-						handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+						handler.sendMessage(interfaces.KafkaMessage{
+							Topic: "push-game_apns",
+							Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
+						})
 					}
 				}
 
@@ -450,11 +446,15 @@ var _ = Describe("APNS Message Handler", func() {
 			It("should call HandleNotificationSent upon message sent to queue", func() {
 				Expect(handler).NotTo(BeNil())
 				Expect(handler.StatsReporters).To(Equal(statsClients))
+				kafkaMessage := interfaces.KafkaMessage{
+					Game:  "game",
+					Topic: "push-game_apns",
+					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
+				}
+				handler.sendMessage(kafkaMessage)
+				handler.sendMessage(kafkaMessage)
 
-				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
-				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
-
-				Expect(mockStatsDClient.Count["sent"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["apns.game.sent"]).To(Equal(2))
 			})
 
 			It("should call HandleNotificationSuccess upon message response received", func() {
@@ -468,7 +468,7 @@ var _ = Describe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				handler.handleAPNSResponse(res)
 
-				Expect(mockStatsDClient.Count["ack"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["apns..ack"]).To(Equal(2))
 			})
 
 			It("should call HandleNotificationFailure upon message response received", func() {
@@ -486,8 +486,8 @@ var _ = Describe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				handler.handleAPNSResponse(res)
 
-				Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
-				Expect(mockStatsDClient.Count["missing-device-token"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["apns..failed"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["apns..missing-device-token"]).To(Equal(2))
 			})
 		})
 
@@ -528,12 +528,15 @@ var _ = Describe("APNS Message Handler", func() {
 					"timestamp": timestampNow,
 					"hostname":  hostname,
 					"msgid":     msgID,
+					"game":      "game",
+					"platform":  "apns",
 				}
-				handler.InflightMessagesMetadata["testToken1"] = metadata
+				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := push.Response{
 					DeviceToken: "testToken1",
 					ID:          "idTest1",
 				}
+
 				go handler.handleAPNSResponse(res)
 
 				fromKafka := &ResponseWithMetadata{}
@@ -548,8 +551,10 @@ var _ = Describe("APNS Message Handler", func() {
 				metadata := map[string]interface{}{
 					"some":      "metadata",
 					"timestamp": time.Now().Unix(),
+					"game":      "game",
+					"platform":  "apns",
 				}
-				handler.InflightMessagesMetadata["testToken1"] = metadata
+				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := push.Response{
 					DeviceToken: "testToken1",
 					ID:          "idTest1",
@@ -583,8 +588,10 @@ var _ = Describe("APNS Message Handler", func() {
 				metadata := map[string]interface{}{
 					"some":      "metadata",
 					"timestamp": time.Now().Unix(),
+					"game":      "game",
+					"platform":  "apns",
 				}
-				handler.InflightMessagesMetadata["testToken1"] = metadata
+				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := push.Response{
 					DeviceToken: "testToken1",
 					ID:          "idTest1",
@@ -608,8 +615,10 @@ var _ = Describe("APNS Message Handler", func() {
 				metadata := map[string]interface{}{
 					"some":      "metadata",
 					"timestamp": time.Now().Unix(),
+					"game":      "game",
+					"platform":  "apns",
 				}
-				handler.InflightMessagesMetadata["testToken1"] = metadata
+				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := push.Response{
 					DeviceToken: "testToken1",
 					ID:          "idTest1",
@@ -677,7 +686,10 @@ var _ = Describe("APNS Message Handler", func() {
 
 		Describe("Send message", func() {
 			It("should add message to push queue and increment sentMessages", func() {
-				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_apns",
+					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
+				})
 				Eventually(handler.PushQueue.(*push.Queue).Responses, 5*time.Second).Should(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 			})
@@ -685,13 +697,19 @@ var _ = Describe("APNS Message Handler", func() {
 
 		Describe("PushExpiry", func() {
 			It("should not send message if PushExpiry is in the past", func() {
-				handler.sendMessage([]byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d }`, time.Now().Unix()-int64(100))))
+				handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_apns",
+					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d }`, time.Now().Unix()-int64(100))),
+				})
 				Eventually(handler.PushQueue.(*push.Queue).Responses, 5*time.Second).Should(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(0)))
 				Expect(handler.ignoredMessages).To(Equal(int64(1)))
 			})
 			It("should send message if PushExpiry is in the future", func() {
-				handler.sendMessage([]byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d}`, time.Now().Unix()+int64(100))))
+				handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_apns",
+					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d}`, time.Now().Unix()+int64(100))),
+				})
 				Eventually(handler.PushQueue.(*push.Queue).Responses, 5*time.Second).Should(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 			})

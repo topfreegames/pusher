@@ -18,37 +18,35 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-FROM golang:1.8-alpine
+FROM golang:1.9-alpine
 
 MAINTAINER TFG Co <backend@tfgco.com>
 
-RUN apk update
-RUN apk add make git g++ bash python wget
-
 ENV LIBRDKAFKA_VERSION 0.11.0
-RUN wget -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
-    tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
-    cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
-    ./configure && make && make install && make clean && ./configure --clean
-
-RUN go get -u github.com/golang/dep/cmd/dep
-
-RUN mkdir -p /go/src/github.com/topfreegames/pusher
-WORKDIR /go/src/github.com/topfreegames/pusher
-
-ADD . /go/src/github.com/topfreegames/pusher
-RUN dep ensure
-
 ENV CPLUS_INCLUDE_PATH /usr/local/include
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
-RUN export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH && make build
 
-RUN mkdir /app
-RUN mv /go/src/github.com/topfreegames/pusher/bin/pusher /app/pusher
-RUN mv /go/src/github.com/topfreegames/pusher/config /app/config
-RUN mv /go/src/github.com/topfreegames/pusher/tls /app/tls
-RUN rm -r /go/src/github.com/topfreegames/pusher
+WORKDIR /go/src/github.com/topfreegames/pusher
+
+RUN apk add --no-cache make git g++ bash python wget && \
+    wget -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
+    tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
+    cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
+    ./configure && make && make install && make clean && ./configure --clean && \
+    go get -u github.com/golang/dep/cmd/dep && \
+    mkdir -p /go/src/github.com/topfreegames/pusher
+
+
+ADD . /go/src/github.com/topfreegames/pusher
+
+RUN dep ensure && \
+    export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH && make build && \
+    mkdir /app && \
+    mv /go/src/github.com/topfreegames/pusher/bin/pusher /app/pusher && \
+    mv /go/src/github.com/topfreegames/pusher/config /app/config && \
+    mv /go/src/github.com/topfreegames/pusher/tls /app/tls && \
+    rm -r /go/src/github.com/topfreegames/pusher
 
 WORKDIR /app
 

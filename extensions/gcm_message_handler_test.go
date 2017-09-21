@@ -209,6 +209,8 @@ var _ = Describe("GCM Message Handler", func() {
 				metadata := map[string]interface{}{
 					"some":      "metadata",
 					"timestamp": time.Now().Unix(),
+					"game":      "game",
+					"platform":  "gcm",
 				}
 				msg := &KafkaGCMMessage{
 					gcm.XMPPMessage{
@@ -224,7 +226,10 @@ var _ = Describe("GCM Message Handler", func() {
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = handler.sendMessage(msgBytes)
+				err = handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_gcm",
+					Value: msgBytes,
+				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 				Expect(handler.ignoredMessages).To(Equal(int64(0)))
@@ -235,6 +240,8 @@ var _ = Describe("GCM Message Handler", func() {
 				metadata := map[string]interface{}{
 					"some":      "metadata",
 					"timestamp": time.Now().Unix(),
+					"game":      "game",
+					"platform":  "gcm",
 				}
 				msg := &KafkaGCMMessage{
 					gcm.XMPPMessage{
@@ -250,7 +257,10 @@ var _ = Describe("GCM Message Handler", func() {
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = handler.sendMessage(msgBytes)
+				err = handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_gcm",
+					Value: msgBytes,
+				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler.sentMessages).To(Equal(int64(0)))
 				Expect(handler.ignoredMessages).To(Equal(int64(1)))
@@ -261,7 +271,10 @@ var _ = Describe("GCM Message Handler", func() {
 
 		Describe("Send message", func() {
 			It("should send xmpp message and not increment sentMessages if an error occurs", func() {
-				err := handler.sendMessage([]byte("gogogo"))
+				err := handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_gcm",
+					Value: []byte("gogogo"),
+				})
 				Expect(err).To(HaveOccurred())
 				Expect(handler.sentMessages).To(Equal(int64(0)))
 				Expect(hook.Entries).To(ContainLogMessage("Error unmarshaling message."))
@@ -281,7 +294,10 @@ var _ = Describe("GCM Message Handler", func() {
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = handler.sendMessage(msgBytes)
+				err = handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_gcm",
+					Value: msgBytes,
+				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 				Expect(hook.LastEntry().Message).To(Equal("sent message"))
@@ -294,6 +310,8 @@ var _ = Describe("GCM Message Handler", func() {
 				metadata := map[string]interface{}{
 					"some":      "metadata",
 					"timestamp": time.Now().Unix(),
+					"game":      "game",
+					"platform":  "gcm",
 				}
 				msg := &KafkaGCMMessage{
 					gcm.XMPPMessage{
@@ -309,7 +327,10 @@ var _ = Describe("GCM Message Handler", func() {
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = handler.sendMessage(msgBytes)
+				err = handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_gcm",
+					Value: msgBytes,
+				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 				Expect(hook.LastEntry().Message).To(Equal("sent message"))
@@ -330,13 +351,19 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for i := 1; i <= 3; i++ {
-					err = handler.sendMessage(msgBytes)
+					err = handler.sendMessage(interfaces.KafkaMessage{
+						Topic: "push-game_gcm",
+						Value: msgBytes,
+					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(handler.sentMessages).To(Equal(int64(i)))
 					Expect(len(handler.pendingMessages)).To(Equal(i))
 				}
 
-				go handler.sendMessage(msgBytes)
+				go handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_gcm",
+					Value: msgBytes,
+				})
 				Consistently(handler.sentMessages).Should(Equal(int64(3)))
 				Consistently(len(handler.pendingMessages)).Should(Equal(3))
 
@@ -346,23 +373,12 @@ var _ = Describe("GCM Message Handler", func() {
 			})
 		})
 
-		Describe("Handle Messages", func() {
-			It("should start without panicking and set run to true", func() {
-				stopChannel := make(chan struct{})
-				queue, err := NewKafkaConsumer(
-					handler.Config, logger,
-					&stopChannel, mockKafkaConsumerClient,
-				)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(func() { go handler.HandleMessages(queue.MessagesChannel()) }).ShouldNot(Panic())
-				time.Sleep(time.Millisecond)
-				Expect(handler.run).To(BeTrue())
-			})
-		})
-
 		Describe("Clean Cache", func() {
 			It("should remove from push queue after timeout", func() {
-				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_gcm",
+					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
+				})
 				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
 				time.Sleep(500 * time.Millisecond)
 				Expect(*handler.requestsHeap).To(BeEmpty())
@@ -370,7 +386,10 @@ var _ = Describe("GCM Message Handler", func() {
 			})
 
 			It("should not panic if a request got a response", func() {
-				handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+				handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_gcm",
+					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
+				})
 				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
 				res := gcm.CCSMessage{
 					From:        "testToken1",
@@ -389,7 +408,10 @@ var _ = Describe("GCM Message Handler", func() {
 				var n int = 10
 				sendRequests := func() {
 					for i := 0; i < n; i++ {
-						handler.sendMessage([]byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`))
+						handler.sendMessage(interfaces.KafkaMessage{
+							Topic: "push-game_gcm",
+							Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
+						})
 					}
 				}
 
@@ -446,22 +468,24 @@ var _ = Describe("GCM Message Handler", func() {
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
-
-				err = handler.sendMessage(msgBytes)
+				kafkaMessage := interfaces.KafkaMessage{
+					Game:  "game",
+					Topic: "push-game_gcm",
+					Value: msgBytes,
+				}
+				err = handler.sendMessage(kafkaMessage)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = handler.sendMessage(msgBytes)
+				err = handler.sendMessage(kafkaMessage)
 				Expect(err).NotTo(HaveOccurred())
-
-				Expect(mockStatsDClient.Count["sent"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["gcm.game.sent"]).To(Equal(2))
 			})
 
 			It("should call HandleNotificationSuccess upon message response received", func() {
 				res := gcm.CCSMessage{}
 				handler.handleGCMResponse(res)
 				handler.handleGCMResponse(res)
-
-				Expect(mockStatsDClient.Count["ack"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["gcm..ack"]).To(Equal(2))
 			})
 
 			It("should call HandleNotificationFailure upon message response received", func() {
@@ -471,8 +495,8 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.handleGCMResponse(res)
 				handler.handleGCMResponse(res)
 
-				Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
-				Expect(mockStatsDClient.Count["device_unregistered"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["gcm..failed"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["gcm..device_unregistered"]).To(Equal(2))
 			})
 		})
 
@@ -516,6 +540,8 @@ var _ = Describe("GCM Message Handler", func() {
 					"timestamp": timestampNow,
 					"hostname":  hostname,
 					"msgid":     msgID,
+					"game":      "game",
+					"platform":  "gcm",
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := gcm.CCSMessage{
@@ -538,6 +564,8 @@ var _ = Describe("GCM Message Handler", func() {
 				metadata := map[string]interface{}{
 					"some":      "metadata",
 					"timestamp": time.Now().Unix(),
+					"game":      "game",
+					"platform":  "gcm",
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := gcm.CCSMessage{
@@ -581,6 +609,8 @@ var _ = Describe("GCM Message Handler", func() {
 				metadata := map[string]interface{}{
 					"some":      "metadata",
 					"timestamp": time.Now().Unix(),
+					"game":      "game",
+					"platform":  "gcm",
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := gcm.CCSMessage{
@@ -608,6 +638,8 @@ var _ = Describe("GCM Message Handler", func() {
 				metadata := map[string]interface{}{
 					"some":      "metadata",
 					"timestamp": time.Now().Unix(),
+					"game":      "game",
+					"platform":  "gcm",
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
 				res := gcm.CCSMessage{

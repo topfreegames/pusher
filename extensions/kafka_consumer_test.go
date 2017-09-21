@@ -32,6 +32,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	. "github.com/topfreegames/pusher/testing"
 	"github.com/topfreegames/pusher/util"
@@ -186,7 +187,7 @@ var _ = Describe("Kafka Extension", func() {
 			})
 
 			It("should receive message", func() {
-				topic := consumer.Config.GetStringSlice("queue.topics")[0]
+				topic := "push-games_apns-single"
 				startConsuming()
 				defer consumer.StopConsuming()
 				part := kafka.TopicPartition{
@@ -198,7 +199,10 @@ var _ = Describe("Kafka Extension", func() {
 				consumer.messagesReceived = 999
 
 				publishEvent(event)
-				Eventually(consumer.msgChan, 5).Should(Receive(&val))
+				Eventually(consumer.msgChan, 5).Should(Receive(&interfaces.KafkaMessage{
+					Topic: topic,
+					Value: val,
+				}))
 				Expect(consumer.messagesReceived).To(BeEquivalentTo(1000))
 			})
 

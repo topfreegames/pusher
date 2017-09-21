@@ -25,8 +25,8 @@ package extensions
 import (
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/alexcesaro/statsd"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
@@ -89,19 +89,19 @@ func (s *StatsD) configure(client interfaces.StatsDClient) error {
 }
 
 //HandleNotificationSent stores notification count in StatsD
-func (s *StatsD) HandleNotificationSent() {
-	s.Client.Increment("sent")
+func (s *StatsD) HandleNotificationSent(game string, platform string) {
+	s.Client.Increment(platform + "." + game + "." + "sent")
 }
 
 //HandleNotificationSuccess stores notifications success in StatsD
-func (s *StatsD) HandleNotificationSuccess() {
-	s.Client.Increment("ack")
+func (s *StatsD) HandleNotificationSuccess(game string, platform string) {
+	s.Client.Increment(platform + "." + game + "." + "ack")
 }
 
 //HandleNotificationFailure stores each type of failure
-func (s *StatsD) HandleNotificationFailure(err *errors.PushError) {
-	s.Client.Increment("failed")
-	s.Client.Increment(err.Key)
+func (s *StatsD) HandleNotificationFailure(game string, platform string, err *errors.PushError) {
+	s.Client.Increment(platform + "." + game + "." + "failed")
+	s.Client.Increment(platform + "." + game + "." + err.Key)
 }
 
 //ReportGoStats reports go stats in statsd

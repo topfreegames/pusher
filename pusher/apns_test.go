@@ -25,18 +25,16 @@ package pusher
 import (
 	"time"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
-	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("APNS Pusher", func() {
 	var config *viper.Viper
-	certificatePath := "../tls/self_signed_cert.pem"
 	configFile := "../config/test.yaml"
 	isProduction := false
 	logger, hook := test.NewNullLogger()
@@ -63,7 +61,6 @@ var _ = Describe("APNS Pusher", func() {
 		Describe("Creating new apns pusher", func() {
 			It("should return configured pusher", func() {
 				pusher, err := NewAPNSPusher(
-					certificatePath,
 					isProduction,
 					config,
 					logger,
@@ -73,7 +70,6 @@ var _ = Describe("APNS Pusher", func() {
 				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
-				Expect(pusher.CertificatePath).To(Equal(certificatePath))
 				Expect(pusher.IsProduction).To(Equal(isProduction))
 				Expect(pusher.run).To(BeFalse())
 				Expect(pusher.Queue).NotTo(BeNil())
@@ -81,14 +77,13 @@ var _ = Describe("APNS Pusher", func() {
 				Expect(pusher.MessageHandler).NotTo(BeNil())
 
 				Expect(pusher.StatsReporters).To(HaveLen(1))
-				Expect(pusher.MessageHandler.(*extensions.APNSMessageHandler).StatsReporters).To(HaveLen(1))
+				Expect(pusher.MessageHandler).To(HaveLen(1))
 			})
 		})
 
 		Describe("Start apns pusher", func() {
 			It("should launch go routines and run forever", func() {
 				pusher, err := NewAPNSPusher(
-					certificatePath,
 					isProduction,
 					config,
 					logger,

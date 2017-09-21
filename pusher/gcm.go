@@ -44,7 +44,7 @@ type GCMPusher struct {
 	InvalidTokenHandlers    []interfaces.InvalidTokenHandler
 	IsProduction            bool
 	Logger                  *logrus.Logger
-	MessageHandler          interfaces.MessageHandler
+	MessageHandler          map[string]interfaces.MessageHandler
 	Queue                   interfaces.Queue
 	run                     bool
 	senderID                string
@@ -89,6 +89,9 @@ func (g *GCMPusher) loadConfigurationDefaults() {
 
 func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, statsdClientOrNil interfaces.StatsDClient) error {
 	var err error
+	l := g.Logger.WithFields(logrus.Fields{
+		"method": "configure",
+	})
 	g.loadConfigurationDefaults()
 	g.GracefulShutdownTimeout = g.Config.GetInt("gracefulShutdownTimeout")
 	if err = g.configureStatsReporters(statsdClientOrNil); err != nil {
@@ -109,22 +112,34 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 		return err
 	}
 	g.Queue = q
-	handler, err := extensions.NewGCMMessageHandler(
-		g.senderID,
-		g.apiKey,
-		g.IsProduction,
-		g.Config,
-		g.Logger,
-		g.Queue.PendingMessagesWaitGroup(),
-		g.StatsReporters,
-		g.feedbackReporters,
-		g.InvalidTokenHandlers,
-		client,
-	)
+	g.MessageHandler = make(map[string]interfaces.MessageHandler)
+	for k := range g.Config.GetStringMap("gcm.games") {
+		senderID := g.Config.GetString("gcm.certs." + k + ".senderID")
+		apiKey := g.Config.GetString("gcm.certs." + k + ".apiKey")
+		l.Infof(
+			"Configuring messageHandler for game %s with senderID %s and apiKey %s",
+			k, senderID, apiKey,
+		)
+		handler, herr := extensions.NewGCMMessageHandler(
+			senderID,
+			apiKey,
+			g.IsProduction,
+			g.Config,
+			g.Logger,
+			g.Queue.PendingMessagesWaitGroup(),
+			g.StatsReporters,
+			g.feedbackReporters,
+			g.InvalidTokenHandlers,
+			client,
+		)
+		if herr != nil {
+			return herr
+		}
+		g.MessageHandler[k] = handler
+	}
 	if err != nil {
 		return err
 	}
-	g.MessageHandler = handler
 	return nil
 }
 
@@ -155,6 +170,22 @@ func (g *GCMPusher) configureInvalidTokenHandlers(dbOrNil interfaces.DB) error {
 	return nil
 }
 
+func (g *GCMPusher) routeMessages(msgChan *chan interfaces.KafkaMessage) {
+	for g.run == true {
+		select {
+		case message := <-*msgChan:
+			if handler, ok := g.MessageHandler[message.Game]; ok {
+				handler.HandleMessages(message)
+			} else {
+				g.Logger.WithFields(logrus.Fields{
+					"method": "routeMessages",
+					"game":   message.Game,
+				}).Error("Game not found")
+			}
+		}
+	}
+}
+
 // Start starts pusher in apns mode
 func (g *GCMPusher) Start() {
 	g.run = true
@@ -163,14 +194,15 @@ func (g *GCMPusher) Start() {
 		"senderID": g.senderID,
 	})
 	l.Info("starting pusher in gcm mode...")
-	go g.MessageHandler.HandleMessages(g.Queue.MessagesChannel())
-	go g.MessageHandler.HandleResponses()
+	for _, v := range g.MessageHandler {
+		go v.HandleResponses()
+		go v.LogStats()
+		msgHandler, _ := v.(*extensions.GCMMessageHandler)
+		go msgHandler.CleanMetadataCache()
+	}
+
 	go g.Queue.ConsumeLoop()
 	go g.reportGoStats()
-	go g.MessageHandler.LogStats()
-
-	msgHandler, _ := g.MessageHandler.(*extensions.GCMMessageHandler)
-	go msgHandler.CleanMetadataCache()
 
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)

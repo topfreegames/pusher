@@ -23,10 +23,8 @@
 package cmd
 
 import (
-	"fmt"
-
-	"github.com/sirupsen/logrus"
 	raven "github.com/getsentry/raven-go"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
@@ -35,11 +33,9 @@ import (
 )
 
 var app string
-var certificate string
 
 func startApns(
 	debug, json, production bool,
-	certificate string,
 	config *viper.Viper,
 	statsdClientOrNil interfaces.StatsDClient,
 	dbOrNil interfaces.DB,
@@ -54,16 +50,7 @@ func startApns(
 	} else {
 		log.Level = logrus.InfoLevel
 	}
-	l := log.WithFields(logrus.Fields{
-		"method": "apnsCmd",
-		"debug":  debug,
-	})
-	if len(certificate) == 0 {
-		err := fmt.Errorf("pem certificate must be set")
-		l.Error(err)
-		return nil, err
-	}
-	return pusher.NewAPNSPusher(certificate, production, config, log, statsdClientOrNil, dbOrNil, queueOrNil)
+	return pusher.NewAPNSPusher(production, config, log, statsdClientOrNil, dbOrNil, queueOrNil)
 }
 
 // apnsCmd represents the apns command
@@ -82,7 +69,7 @@ var apnsCmd = &cobra.Command{
 			raven.SetDSN(sentryURL)
 		}
 
-		apnsPusher, err := startApns(debug, json, production, certificate, config, nil, nil, nil)
+		apnsPusher, err := startApns(debug, json, production, config, nil, nil, nil)
 		if err != nil {
 			raven.CaptureErrorAndWait(err, map[string]string{
 				"version": util.Version,
@@ -95,6 +82,6 @@ var apnsCmd = &cobra.Command{
 }
 
 func init() {
-	apnsCmd.Flags().StringVar(&certificate, "certificate", "", "pem certificate path")
+	apnsCmd.Flags()
 	RootCmd.AddCommand(apnsCmd)
 }
