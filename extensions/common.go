@@ -24,44 +24,61 @@ package extensions
 
 import (
 	"encoding/json"
+	"regexp"
 
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
 )
 
-func handleInvalidToken(invalidTokenHandlers []interfaces.InvalidTokenHandler, token string) {
+var topicRegex = regexp.MustCompile("push-([^-_]+)[-_]([^-_]+)")
+
+// ParsedTopic contains game and platform extracted from topic name
+type ParsedTopic struct {
+	Platform string
+	Game     string
+}
+
+func handleInvalidToken(invalidTokenHandlers []interfaces.InvalidTokenHandler, token string, game string, platform string) {
 	for _, invalidTokenHandler := range invalidTokenHandlers {
-		invalidTokenHandler.HandleToken(token)
+		invalidTokenHandler.HandleToken(token, game, platform)
 	}
 }
 
-func sendToFeedbackReporters(feedbackReporters []interfaces.FeedbackReporter, res interface{}) error {
+func getGameAndPlatformFromTopic(topic string) ParsedTopic {
+	res := topicRegex.FindStringSubmatch(topic)
+	return ParsedTopic{
+		Platform: res[2],
+		Game:     res[1],
+	}
+}
+
+func sendToFeedbackReporters(feedbackReporters []interfaces.FeedbackReporter, res interface{}, topic ParsedTopic) error {
 	jres, err := json.Marshal(res)
 	if err != nil {
 		return err
 	}
 	if feedbackReporters != nil {
 		for _, feedbackReporter := range feedbackReporters {
-			feedbackReporter.SendFeedback(jres)
+			feedbackReporter.SendFeedback(topic.Game, topic.Platform, jres)
 		}
 	}
 	return nil
 }
 
-func statsReporterHandleNotificationSent(statsReporters []interfaces.StatsReporter) {
+func statsReporterHandleNotificationSent(statsReporters []interfaces.StatsReporter, game string, platform string) {
 	for _, statsReporter := range statsReporters {
-		statsReporter.HandleNotificationSent()
+		statsReporter.HandleNotificationSent(game, platform)
 	}
 }
 
-func statsReporterHandleNotificationSuccess(statsReporters []interfaces.StatsReporter) {
+func statsReporterHandleNotificationSuccess(statsReporters []interfaces.StatsReporter, game string, platform string) {
 	for _, statsReporter := range statsReporters {
-		statsReporter.HandleNotificationSuccess()
+		statsReporter.HandleNotificationSuccess(game, platform)
 	}
 }
 
-func statsReporterHandleNotificationFailure(statsReporters []interfaces.StatsReporter, err *errors.PushError) {
+func statsReporterHandleNotificationFailure(statsReporters []interfaces.StatsReporter, game string, platform string, err *errors.PushError) {
 	for _, statsReporter := range statsReporters {
-		statsReporter.HandleNotificationFailure(err)
+		statsReporter.HandleNotificationFailure(game, platform, err)
 	}
 }

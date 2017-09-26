@@ -144,7 +144,7 @@ var _ = Describe("PG Extension", func() {
 			})
 
 			It("should return error if error when closing connection", func() {
-				pErr := fmt.Errorf("Failed to close connection.")
+				pErr := fmt.Errorf("failed to close connection")
 				mockDb = mocks.NewPGMock(0, 1)
 				client, err := NewPGClient("push.db", config, mockDb)
 				Expect(err).NotTo(HaveOccurred())
@@ -153,7 +153,7 @@ var _ = Describe("PG Extension", func() {
 
 				err = client.Cleanup()
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("Failed to close connection."))
+				Expect(err.Error()).To(ContainSubstring("failed to close connection"))
 			})
 		})
 	})

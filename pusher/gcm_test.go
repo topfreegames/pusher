@@ -25,11 +25,10 @@ package pusher
 import (
 	"time"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
-	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/util"
 )
@@ -82,7 +81,7 @@ var _ = Describe("GCM Pusher", func() {
 				Expect(pusher.run).To(BeFalse())
 				Expect(pusher.senderID).To(Equal(senderID))
 				Expect(pusher.StatsReporters).To(HaveLen(1))
-				Expect(pusher.MessageHandler.(*extensions.GCMMessageHandler).StatsReporters).To(HaveLen(1))
+				Expect(pusher.MessageHandler).To(HaveLen(1))
 			})
 		})
 

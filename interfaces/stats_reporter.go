@@ -26,8 +26,8 @@ import "github.com/topfreegames/pusher/errors"
 
 // StatsReporter interface for making stats reporters pluggable easily
 type StatsReporter interface {
-	HandleNotificationSent()
-	HandleNotificationSuccess()
-	HandleNotificationFailure(*errors.PushError)
+	HandleNotificationSent(game string, platform string)
+	HandleNotificationSuccess(game string, platform string)
+	HandleNotificationFailure(game string, platform string, err *errors.PushError)
 	ReportGoStats(numGoRoutines int, allocatedAndNotFreed, heapObjects, nextGCBytes, pauseGCNano uint64)
 }

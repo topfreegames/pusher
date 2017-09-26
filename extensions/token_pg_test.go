@@ -25,10 +25,10 @@ package extensions
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/util"
@@ -62,7 +62,6 @@ var _ = Describe("TokenPG Extension", func() {
 
 				Expect(t.Config).NotTo(BeNil())
 				Expect(t.Logger).NotTo(BeNil())
-				Expect(t.tableName).To(Equal("test_apns"))
 			})
 
 			It("should return an error if failed to connect to postgres", func() {
@@ -76,7 +75,7 @@ var _ = Describe("TokenPG Extension", func() {
 
 		Describe("Handle invalid token", func() {
 			It("should delete apns token", func() {
-				err := tokenPG.HandleToken(token)
+				err := tokenPG.HandleToken(token, "test", "apns")
 				Expect(err).NotTo(HaveOccurred())
 
 				query := "DELETE FROM test_apns WHERE token = ?0;"
@@ -87,7 +86,7 @@ var _ = Describe("TokenPG Extension", func() {
 
 			It("should not break if token does not exist in db", func() {
 				mockClient.Error = fmt.Errorf("pg: no rows in result set")
-				err := tokenPG.HandleToken(token)
+				err := tokenPG.HandleToken(token, "test", "apns")
 				Expect(err).NotTo(HaveOccurred())
 
 				query := "DELETE FROM test_apns WHERE token = ?0;"
@@ -98,7 +97,7 @@ var _ = Describe("TokenPG Extension", func() {
 
 			It("should return an error if pg error occurred", func() {
 				mockClient.Error = fmt.Errorf("pg: error")
-				err := tokenPG.HandleToken(token)
+				err := tokenPG.HandleToken(token, "test", "apns")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("pg: error"))
 			})

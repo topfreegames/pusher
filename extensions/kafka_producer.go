@@ -23,9 +23,9 @@
 package extensions
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	raven "github.com/getsentry/raven-go"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/util"
@@ -116,10 +116,11 @@ func (q *KafkaProducer) listenForKafkaResponses() {
 }
 
 // SendFeedback sends the feedback to the kafka Queue
-func (q *KafkaProducer) SendFeedback(feedback []byte) {
+func (q *KafkaProducer) SendFeedback(game string, platform string, feedback []byte) {
+	topic := "push-" + game + "-" + platform + "-feedbacks"
 	m := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
-			Topic:     &q.Topic,
+			Topic:     &topic,
 			Partition: kafka.PartitionAny,
 		},
 		Value: feedback,

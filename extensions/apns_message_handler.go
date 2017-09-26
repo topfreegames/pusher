@@ -180,14 +180,16 @@ func (a *APNSMessageHandler) configureAPNSPushQueue() error {
 	return nil
 }
 
-func (a *APNSMessageHandler) sendMessage(message []byte) error {
+func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
+	deviceIdentifier := uuid.NewV4().String()
 	l := a.Logger.WithField("method", "sendMessage")
 	l.WithField("message", message).Debug("sending message to apns")
 	h := &push.Headers{
 		Topic: a.Topic,
+		ID:    deviceIdentifier,
 	}
 	n := &Notification{}
-	json.Unmarshal(message, n)
+	json.Unmarshal(message.Value, n)
 	payload, err := json.Marshal(n.Payload)
 	if err != nil {
 		l.WithError(err).Error("error marshaling message payload")
@@ -201,7 +203,7 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 		}
 		return nil
 	}
-	statsReporterHandleNotificationSent(a.StatsReporters)
+	statsReporterHandleNotificationSent(a.StatsReporters, message.Game, "apns")
 	a.PushQueue.Push(n.DeviceToken, h, payload)
 	if n.Metadata == nil {
 		n.Metadata = map[string]interface{}{}
@@ -209,6 +211,8 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 	a.inflightMessagesMetadataLock.Lock()
 
 	n.Metadata["timestamp"] = time.Now().Unix()
+	n.Metadata["game"] = message.Game
+	n.Metadata["platform"] = "apns"
 	hostname, err := os.Hostname()
 	if err != nil {
 		l.WithError(err).Error("error retrieving hostname")
@@ -216,8 +220,8 @@ func (a *APNSMessageHandler) sendMessage(message []byte) error {
 		n.Metadata["hostname"] = hostname
 	}
 	n.Metadata["msgid"] = uuid.NewV4().String()
-	a.InflightMessagesMetadata[n.DeviceToken] = n.Metadata
-	a.requestsHeap.AddRequest(n.DeviceToken)
+	a.InflightMessagesMetadata[deviceIdentifier] = n.Metadata
+	a.requestsHeap.AddRequest(deviceIdentifier)
 
 	a.inflightMessagesMetadataLock.Unlock()
 	a.sentMessages++
@@ -252,15 +256,8 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 }
 
 // HandleMessages get messages from msgChan and send to APNS
-func (a *APNSMessageHandler) HandleMessages(msgChan *chan []byte) {
-	a.run = true
-
-	for a.run == true {
-		select {
-		case message := <-*msgChan:
-			a.sendMessage(message)
-		}
-	}
+func (a *APNSMessageHandler) HandleMessages(message interfaces.KafkaMessage) {
+	a.sendMessage(message)
 }
 
 func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
@@ -278,22 +275,26 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	apnsResMutex.Lock()
 	a.responsesReceived++
 	apnsResMutex.Unlock()
+	parsedTopic := ParsedTopic{}
 	var err error
 	responseWithMetadata := &ResponseWithMetadata{
 		Response: res,
 	}
 	a.inflightMessagesMetadataLock.Lock()
-	if val, ok := a.InflightMessagesMetadata[res.DeviceToken]; ok {
+	if val, ok := a.InflightMessagesMetadata[res.ID]; ok {
 		responseWithMetadata.Metadata = val.(map[string]interface{})
 		responseWithMetadata.Timestamp = responseWithMetadata.Metadata["timestamp"].(int64)
+		parsedTopic.Game = responseWithMetadata.Metadata["game"].(string)
+		parsedTopic.Platform = responseWithMetadata.Metadata["platform"].(string)
 		delete(responseWithMetadata.Metadata, "timestamp")
-		delete(a.InflightMessagesMetadata, res.DeviceToken)
+		delete(a.InflightMessagesMetadata, res.ID)
 	}
 	a.inflightMessagesMetadataLock.Unlock()
 
 	if err != nil {
 		l.WithError(err).Error("error sending feedback to reporter")
 	}
+
 	if res.Err != nil {
 		apnsResMutex.Lock()
 		a.failuresReceived++
@@ -308,7 +309,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 		}
 		reason := pushError.Reason
 		pErr := errors.NewPushError(a.mapErrorReason(reason), pushError.Error())
-		statsReporterHandleNotificationFailure(a.StatsReporters, pErr)
+		statsReporterHandleNotificationFailure(a.StatsReporters, parsedTopic.Game, "apns", pErr)
 
 		err = pErr
 		switch reason {
@@ -320,7 +321,10 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 			if responseWithMetadata.Metadata != nil {
 				responseWithMetadata.Metadata["deleteToken"] = true
 			}
-			handleInvalidToken(a.InvalidTokenHandlers, res.DeviceToken)
+			handleInvalidToken(
+				a.InvalidTokenHandlers, res.DeviceToken,
+				parsedTopic.Game, parsedTopic.Platform,
+			)
 		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
 			l.WithFields(log.Fields{
 				"category":   "CertificateError",
@@ -343,13 +347,13 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 			}).Debug("received an error")
 		}
 		responseWithMetadata.Err = pErr
-		sendFeedbackErr := sendToFeedbackReporters(a.feedbackReporters, responseWithMetadata)
+		sendFeedbackErr := sendToFeedbackReporters(a.feedbackReporters, responseWithMetadata, parsedTopic)
 		if sendFeedbackErr != nil {
 			l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
 		}
 		return err
 	}
-	sendFeedbackErr := sendToFeedbackReporters(a.feedbackReporters, responseWithMetadata)
+	sendFeedbackErr := sendToFeedbackReporters(a.feedbackReporters, responseWithMetadata, parsedTopic)
 
 	if sendFeedbackErr != nil {
 		l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
@@ -357,7 +361,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	apnsResMutex.Lock()
 	a.successesReceived++
 	apnsResMutex.Unlock()
-	statsReporterHandleNotificationSuccess(a.StatsReporters)
+	statsReporterHandleNotificationSuccess(a.StatsReporters, parsedTopic.Game, "apns")
 	return nil
 }
 

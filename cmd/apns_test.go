@@ -25,9 +25,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/util"
@@ -35,7 +35,6 @@ import (
 
 var _ = Describe("APNS", func() {
 	cfg := "../config/test.yaml"
-	cert := "../tls/self_signed_cert.pem"
 
 	var config *viper.Viper
 	var mockPushQueue *mocks.APNSPushQueueMock
@@ -53,10 +52,9 @@ var _ = Describe("APNS", func() {
 
 	Describe("[Unit]", func() {
 		It("Should return apnsPusher without errors", func() {
-			apnsPusher, err := startApns(false, false, false, cert, config, mockStatsDClient, mockDb, mockPushQueue)
+			apnsPusher, err := startApns(false, false, false, config, mockStatsDClient, mockDb, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
-			Expect(apnsPusher.CertificatePath).To(Equal(cert))
 			Expect(apnsPusher.Config).NotTo(BeNil())
 			Expect(apnsPusher.IsProduction).To(BeFalse())
 			Expect(apnsPusher.Logger.Level).To(Equal(logrus.InfoLevel))
@@ -64,31 +62,24 @@ var _ = Describe("APNS", func() {
 		})
 
 		It("Should set log to json format", func() {
-			apnsPusher, err := startApns(false, true, false, cert, config, mockStatsDClient, mockDb, mockPushQueue)
+			apnsPusher, err := startApns(false, true, false, config, mockStatsDClient, mockDb, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
 			Expect(fmt.Sprintf("%T", apnsPusher.Logger.Formatter)).To(Equal(fmt.Sprintf("%T", &logrus.JSONFormatter{})))
 		})
 
 		It("Should set log to debug", func() {
-			apnsPusher, err := startApns(true, false, false, cert, config, mockStatsDClient, mockDb, mockPushQueue)
+			apnsPusher, err := startApns(true, false, false, config, mockStatsDClient, mockDb, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
 			Expect(apnsPusher.Logger.Level).To(Equal(logrus.DebugLevel))
 		})
 
 		It("Should set log to production", func() {
-			apnsPusher, err := startApns(false, false, true, cert, config, mockStatsDClient, mockDb, mockPushQueue)
+			apnsPusher, err := startApns(false, false, true, config, mockStatsDClient, mockDb, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
 			Expect(apnsPusher.IsProduction).To(BeTrue())
-		})
-
-		It("Should return error if certificate is not provided", func() {
-			apnsPusher, err := startApns(false, true, false, "", config, mockStatsDClient, mockDb, mockPushQueue)
-			Expect(apnsPusher).To(BeNil())
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("pem certificate must be set"))
 		})
 	})
 })

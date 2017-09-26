@@ -44,7 +44,7 @@ type APNSPusher struct {
 	InvalidTokenHandlers    []interfaces.InvalidTokenHandler
 	IsProduction            bool
 	Logger                  *logrus.Logger
-	MessageHandler          interfaces.MessageHandler
+	MessageHandler          map[string]interfaces.MessageHandler
 	Queue                   interfaces.Queue
 	run                     bool
 	StatsReporters          []interfaces.StatsReporter
@@ -53,7 +53,6 @@ type APNSPusher struct {
 
 // NewAPNSPusher for getting a new APNSPusher instance
 func NewAPNSPusher(
-	certificatePath string,
 	isProduction bool,
 	config *viper.Viper,
 	logger *logrus.Logger,
@@ -62,11 +61,10 @@ func NewAPNSPusher(
 	queueOrNil ...interfaces.APNSPushQueue,
 ) (*APNSPusher, error) {
 	a := &APNSPusher{
-		CertificatePath: certificatePath,
-		Config:          config,
-		IsProduction:    isProduction,
-		Logger:          logger,
-		stopChannel:     make(chan struct{}),
+		Config:       config,
+		IsProduction: isProduction,
+		Logger:       logger,
+		stopChannel:  make(chan struct{}),
 	}
 	var queue interfaces.APNSPushQueue
 	if len(queueOrNil) > 0 {
@@ -85,6 +83,9 @@ func (a *APNSPusher) loadConfigurationDefaults() {
 
 func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB, statsdClientOrNil interfaces.StatsDClient) error {
 	var err error
+	l := a.Logger.WithFields(logrus.Fields{
+		"method": "configure",
+	})
 	a.loadConfigurationDefaults()
 	a.GracefulShutdownTimeout = a.Config.GetInt("gracefulShutdownTimeout")
 	if err = a.configureStatsReporters(statsdClientOrNil); err != nil {
@@ -104,22 +105,30 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	if err != nil {
 		return err
 	}
+	a.MessageHandler = make(map[string]interfaces.MessageHandler)
 	a.Queue = q
-	handler, err := extensions.NewAPNSMessageHandler(
-		a.CertificatePath,
-		a.IsProduction,
-		a.Config,
-		a.Logger,
-		a.Queue.PendingMessagesWaitGroup(),
-		a.StatsReporters,
-		a.feedbackReporters,
-		a.InvalidTokenHandlers,
-		queue,
-	)
-	if err != nil {
-		return err
+
+	for k, v := range a.Config.GetStringMap("apns.games") {
+		l.Infof(
+			"Configuring messageHandler for game %s with certificate: %s",
+			k, v,
+		)
+		handler, err := extensions.NewAPNSMessageHandler(
+			v.(string),
+			a.IsProduction,
+			a.Config,
+			a.Logger,
+			a.Queue.PendingMessagesWaitGroup(),
+			a.StatsReporters,
+			a.feedbackReporters,
+			a.InvalidTokenHandlers,
+			queue,
+		)
+		if err != nil {
+			return err
+		}
+		a.MessageHandler[k] = handler
 	}
-	a.MessageHandler = handler
 	return nil
 }
 
@@ -150,6 +159,22 @@ func (a *APNSPusher) configureInvalidTokenHandlers(dbOrNil interfaces.DB) error 
 	return nil
 }
 
+func (a *APNSPusher) routeMessages(msgChan *chan interfaces.KafkaMessage) {
+	for a.run == true {
+		select {
+		case message := <-*msgChan:
+			if handler, ok := a.MessageHandler[message.Game]; ok {
+				handler.HandleMessages(message)
+			} else {
+				a.Logger.WithFields(logrus.Fields{
+					"method": "routeMessages",
+					"game":   message.Game,
+				}).Error("Game not found")
+			}
+		}
+	}
+}
+
 // Start starts pusher in apns mode
 func (a *APNSPusher) Start() {
 	a.run = true
@@ -158,14 +183,15 @@ func (a *APNSPusher) Start() {
 		"certificatePath": a.CertificatePath,
 	})
 	l.Info("starting pusher in apns mode...")
-	go a.MessageHandler.HandleMessages(a.Queue.MessagesChannel())
-	go a.MessageHandler.HandleResponses()
+	go a.routeMessages(a.Queue.MessagesChannel())
+	for _, v := range a.MessageHandler {
+		go v.HandleResponses()
+		go v.LogStats()
+		msgHandler, _ := v.(*extensions.APNSMessageHandler)
+		go msgHandler.CleanMetadataCache()
+	}
 	go a.Queue.ConsumeLoop()
 	go a.reportGoStats()
-	go a.MessageHandler.LogStats()
-
-	msgHandler, _ := a.MessageHandler.(*extensions.APNSMessageHandler)
-	go msgHandler.CleanMetadataCache()
 
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)

@@ -69,7 +69,7 @@ var _ = Describe("Common", func() {
 		Describe("Handle token error", func() {
 			It("should be successful", func() {
 				token := uuid.NewV4().String()
-				handleInvalidToken(invalidTokenHandlers, token)
+				handleInvalidToken(invalidTokenHandlers, token, "test", "apns")
 				query := "DELETE FROM test_apns WHERE token = ?0;"
 				Expect(db.Execs).To(HaveLen(2))
 				Expect(db.Execs[1][0]).To(BeEquivalentTo(query))
@@ -79,7 +79,7 @@ var _ = Describe("Common", func() {
 			It("should fail silently", func() {
 				token := uuid.NewV4().String()
 				db.Error = fmt.Errorf("pg: error")
-				handleInvalidToken(invalidTokenHandlers, token)
+				handleInvalidToken(invalidTokenHandlers, token, "test", "apns")
 				Expect(db.Execs).To(HaveLen(2))
 				query := "DELETE FROM test_apns WHERE token = ?0;"
 				Expect(db.Execs[1][0]).To(BeEquivalentTo(query))
@@ -90,7 +90,7 @@ var _ = Describe("Common", func() {
 		Describe("Send feedback to reporters", func() {
 			It("should return an error if res cannot be marshaled", func() {
 				badContent := make(chan int)
-				err := sendToFeedbackReporters(feedbackClients, badContent)
+				err := sendToFeedbackReporters(feedbackClients, badContent, ParsedTopic{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("json: unsupported type: chan int"))
 			})

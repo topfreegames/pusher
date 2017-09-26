@@ -6,7 +6,7 @@ Pusher
 ======
 
 ### Dependencies
-* Go 1.7
+* Go 1.9
 * Kafka >= 0.9.0
 * [librdkafka](https://github.com/edenhill/librdkafka)
 

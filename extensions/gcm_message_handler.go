@@ -209,10 +209,13 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	ccsMessageWithMetadata := &CCSMessageWithMetadata{
 		CCSMessage: cm,
 	}
+	parsedTopic := ParsedTopic{}
 	g.inflightMessagesMetadataLock.Lock()
 	if val, ok := g.InflightMessagesMetadata[cm.MessageID]; ok {
 		ccsMessageWithMetadata.Metadata = val.(map[string]interface{})
 		ccsMessageWithMetadata.Timestamp = ccsMessageWithMetadata.Metadata["timestamp"].(int64)
+		parsedTopic.Game = ccsMessageWithMetadata.Metadata["game"].(string)
+		parsedTopic.Platform = ccsMessageWithMetadata.Metadata["platform"].(string)
 		delete(ccsMessageWithMetadata.Metadata, "timestamp")
 		delete(g.InflightMessagesMetadata, cm.MessageID)
 	}
@@ -223,7 +226,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 		g.failuresReceived++
 		gcmResMutex.Unlock()
 		pErr := errors.NewPushError(strings.ToLower(cm.Error), cm.ErrorDescription)
-		statsReporterHandleNotificationFailure(g.StatsReporters, pErr)
+		statsReporterHandleNotificationFailure(g.StatsReporters, parsedTopic.Game, "gcm", pErr)
 
 		err = pErr
 		switch cm.Error {
@@ -236,7 +239,10 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 			if ccsMessageWithMetadata.Metadata != nil {
 				ccsMessageWithMetadata.Metadata["deleteToken"] = true
 			}
-			handleInvalidToken(g.InvalidTokenHandlers, cm.From)
+			handleInvalidToken(
+				g.InvalidTokenHandlers, cm.From,
+				parsedTopic.Game, parsedTopic.Platform,
+			)
 		case "INVALID_JSON":
 			l.WithFields(log.Fields{
 				"category":   "JsonError",
@@ -258,14 +264,14 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 				log.ErrorKey: cm.Error,
 			}).Debug("received an error")
 		}
-		sendFeedbackErr := sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata)
+		sendFeedbackErr := sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata, parsedTopic)
 		if sendFeedbackErr != nil {
 			l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
 		}
 		return err
 	}
 
-	sendFeedbackErr := sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata)
+	sendFeedbackErr := sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata, parsedTopic)
 	if sendFeedbackErr != nil {
 		l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
 	}
@@ -273,17 +279,17 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	gcmResMutex.Lock()
 	g.successesReceived++
 	gcmResMutex.Unlock()
-	statsReporterHandleNotificationSuccess(g.StatsReporters)
+	statsReporterHandleNotificationSuccess(g.StatsReporters, parsedTopic.Game, "gcm")
 
 	return nil
 }
 
-func (g *GCMMessageHandler) sendMessage(message []byte) error {
+func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 	g.pendingMessages <- true
 	l := g.Logger.WithField("method", "sendMessage")
 	//ttl := uint(0)
 	km := KafkaGCMMessage{}
-	err := json.Unmarshal(message, &km)
+	err := json.Unmarshal(message.Value, &km)
 	if err != nil {
 		<-g.pendingMessages
 		l.WithError(err).Error("Error unmarshaling message.")
@@ -313,6 +319,7 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		if km.Metadata == nil {
 			km.Metadata = map[string]interface{}{}
 		}
+
 		g.inflightMessagesMetadataLock.Lock()
 
 		km.Metadata["timestamp"] = time.Now().Unix()
@@ -322,14 +329,18 @@ func (g *GCMMessageHandler) sendMessage(message []byte) error {
 		} else {
 			km.Metadata["hostname"] = hostname
 		}
+
 		km.Metadata["msgid"] = uuid.NewV4().String()
+		km.Metadata["game"] = message.Game
+		km.Metadata["platform"] = "gcm"
+
 		g.InflightMessagesMetadata[messageID] = km.Metadata
 		g.requestsHeap.AddRequest(messageID)
 
 		g.inflightMessagesMetadataLock.Unlock()
 	}
 
-	statsReporterHandleNotificationSent(g.StatsReporters)
+	statsReporterHandleNotificationSent(g.StatsReporters, message.Game, "gcm")
 	g.sentMessages++
 	l.WithFields(log.Fields{
 		"messageID": messageID,
@@ -360,15 +371,8 @@ func (g *GCMMessageHandler) CleanMetadataCache() {
 }
 
 // HandleMessages get messages from msgChan and send to GCM
-func (g *GCMMessageHandler) HandleMessages(msgChan *chan []byte) {
-	g.run = true
-
-	for g.run == true {
-		select {
-		case message := <-*msgChan:
-			g.sendMessage(message)
-		}
-	}
+func (g *GCMMessageHandler) HandleMessages(msg interfaces.KafkaMessage) {
+	g.sendMessage(msg)
 }
 
 // LogStats from time to time
