@@ -23,10 +23,8 @@
 package cmd
 
 import (
-	"fmt"
-
-	"github.com/sirupsen/logrus"
 	raven "github.com/getsentry/raven-go"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
@@ -54,21 +52,7 @@ func startGcm(
 	} else {
 		log.Level = logrus.InfoLevel
 	}
-	l := log.WithFields(logrus.Fields{
-		"method": "gcmCmd",
-		"debug":  debug,
-	})
-	if len(senderID) == 0 {
-		err := fmt.Errorf("senderId must be set")
-		l.Error(err)
-		return nil, err
-	}
-	if len(apiKey) == 0 {
-		err := fmt.Errorf("apiKey must be set")
-		l.Error(err)
-		return nil, err
-	}
-	return pusher.NewGCMPusher(senderID, apiKey, production, config, log, statsdClientOrNil, dbOrNil, clientOrNil)
+	return pusher.NewGCMPusher(production, config, log, statsdClientOrNil, dbOrNil, clientOrNil)
 }
 
 // gcmCmd represents the gcm command
@@ -100,7 +84,5 @@ var gcmCmd = &cobra.Command{
 }
 
 func init() {
-	gcmCmd.Flags().StringVar(&senderID, "senderId", "", "gcm senderID")
-	gcmCmd.Flags().StringVar(&apiKey, "apiKey", "", "gcm apiKey")
 	RootCmd.AddCommand(gcmCmd)
 }

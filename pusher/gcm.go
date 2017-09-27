@@ -38,7 +38,6 @@ import (
 
 // GCMPusher struct for GCM pusher
 type GCMPusher struct {
-	apiKey                  string
 	Config                  *viper.Viper
 	feedbackReporters       []interfaces.FeedbackReporter
 	GracefulShutdownTimeout int
@@ -48,15 +47,12 @@ type GCMPusher struct {
 	MessageHandler          map[string]interfaces.MessageHandler
 	Queue                   interfaces.Queue
 	run                     bool
-	senderID                string
 	StatsReporters          []interfaces.StatsReporter
 	stopChannel             chan struct{}
 }
 
 // NewGCMPusher for getting a new GCMPusher instance
 func NewGCMPusher(
-	senderID,
-	apiKey string,
 	isProduction bool,
 	config *viper.Viper,
 	logger *logrus.Logger,
@@ -65,11 +61,9 @@ func NewGCMPusher(
 	clientOrNil ...interfaces.GCMClient,
 ) (*GCMPusher, error) {
 	g := &GCMPusher{
-		apiKey:       apiKey,
 		Config:       config,
 		IsProduction: isProduction,
 		Logger:       logger,
-		senderID:     senderID,
 		stopChannel:  make(chan struct{}),
 	}
 	var client interfaces.GCMClient
@@ -191,8 +185,7 @@ func (g *GCMPusher) routeMessages(msgChan *chan interfaces.KafkaMessage) {
 func (g *GCMPusher) Start() {
 	g.run = true
 	l := g.Logger.WithFields(logrus.Fields{
-		"method":   "start",
-		"senderID": g.senderID,
+		"method": "start",
 	})
 	l.Info("starting pusher in gcm mode...")
 	for _, v := range g.MessageHandler {

@@ -36,8 +36,6 @@ import (
 var _ = Describe("GCM Pusher", func() {
 	var config *viper.Viper
 	configFile := "../config/test.yaml"
-	senderID := "sender-id"
-	apiKey := "api-key"
 	isProduction := false
 	logger, hook := test.NewNullLogger()
 
@@ -62,8 +60,6 @@ var _ = Describe("GCM Pusher", func() {
 			It("should return configured pusher", func() {
 				client := mocks.NewGCMClientMock()
 				pusher, err := NewGCMPusher(
-					senderID,
-					apiKey,
 					isProduction,
 					config,
 					logger,
@@ -73,13 +69,11 @@ var _ = Describe("GCM Pusher", func() {
 				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
-				Expect(pusher.apiKey).To(Equal(apiKey))
 				Expect(pusher.Config).NotTo(BeNil())
 				Expect(pusher.IsProduction).To(Equal(isProduction))
 				Expect(pusher.MessageHandler).NotTo(BeNil())
 				Expect(pusher.Queue).NotTo(BeNil())
 				Expect(pusher.run).To(BeFalse())
-				Expect(pusher.senderID).To(Equal(senderID))
 				Expect(pusher.StatsReporters).To(HaveLen(1))
 				Expect(pusher.MessageHandler).To(HaveLen(1))
 			})
@@ -89,8 +83,6 @@ var _ = Describe("GCM Pusher", func() {
 			It("should launch go routines and run forever", func() {
 				client := mocks.NewGCMClientMock()
 				pusher, err := NewGCMPusher(
-					senderID,
-					apiKey,
 					isProduction,
 					config,
 					logger,

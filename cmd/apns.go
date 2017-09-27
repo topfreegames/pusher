@@ -82,6 +82,5 @@ var apnsCmd = &cobra.Command{
 }
 
 func init() {
-	apnsCmd.Flags()
 	RootCmd.AddCommand(apnsCmd)
 }

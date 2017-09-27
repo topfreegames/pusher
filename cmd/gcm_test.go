@@ -25,9 +25,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/util"
@@ -82,20 +82,6 @@ var _ = Describe("GCM", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(gcmPusher.IsProduction).To(BeTrue())
-		})
-
-		It("Should return error if senderId is not provided", func() {
-			gcmPusher, err := startGcm(false, false, false, "", apiKey, config, mockStatsDClient, mockDb, mockClient)
-			Expect(gcmPusher).To(BeNil())
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("senderId must be set"))
-		})
-
-		It("Should return error if apiKey is not provided", func() {
-			gcmPusher, err := startGcm(false, false, false, senderID, "", config, mockStatsDClient, mockDb, mockClient)
-			Expect(gcmPusher).To(BeNil())
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("apiKey must be set"))
 		})
 	})
 })
