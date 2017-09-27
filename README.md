@@ -28,13 +28,13 @@ make build
 #### APNS
 
 ```bash
-./bin/pusher apns --certificate <path-to-unified-certificate>/unified.pem --app <app-name> -d -p
+./bin/pusher apns -d -p
 ```
 
 #### GCM
 
 ```bash
-./bin/pusher gcm --apiKey <api-key> --senderId <sender-id> --app <app-name> -d -p
+./bin/pusher gcm -d -p
 ```
 
 ### Automated tests
@@ -118,19 +118,27 @@ Note: If you want to actually send the pushes you need to set `dry_run: false` (
 To send the push using the fake data you need to start `pusher` in the correct mode (apns or gcm) and then produce to the Kafka topic and broker it will be listening to:
 
 ```bash
-cat test.txt | kafka-console-producer --topic com.games.test --broker-list localhost:9941
+cat test.txt | kafka-console-producer --topic push-game_gcm --broker-list localhost:9941
 ```
 
 ### Available Environment variables
 
 Pusher reads from Kafka the push notifications that should be sent. The container takes environment variables to specify this connection:
 
-* `PUSHER_QUEUE_TOPICS` - List of Kafka topics;
+* `PUSHER_QUEUE_TOPICS` - List of Kafka topics, ex: `^push-[^-_]+_(apns|gcm)`
 * `PUSHER_QUEUE_BROKERS` - List of Kafka brokers;
 * `PUSHER_QUEUE_GROUP` - Kafka consumer group;
 * `PUSHER_QUEUE_SESSIONTIMEOUT` - Kafka session timeout;
 * `PUSHER_QUEUE_OFFSETRESETSTRATEGY` - Kafka offset reset strategy;
 * `PUSHER_QUEUE_HANDLEALLMESSAGESBEFOREEXITING` - Boolean indicating if shutdown should wait for all messages to be handled;
+
+Pusher gets the GCM or APNS keys info from environment variables:
+
+* `PUSHER_GCM_APPS` - Comma separated APNS app names, ex: appname1,appname2;
+* `PUSHER_APNS_APPS` - Comma separated GCM app names, ex: appname1,appname2;
+* `PUSHER_APNS_CERTS_APPNAME` - App APNS certificate path
+* `PUSHER_GCM_CERTS_APPNAME_APIKEY` - GCM App Api Key
+* `PUSHER_GCM_CERTS_APPNAME_SENDERID` - GCM App SenderID
 
 For feedbacks you must specify a list of reporters:
 
