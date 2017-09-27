@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -113,7 +114,7 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 	}
 	g.Queue = q
 	g.MessageHandler = make(map[string]interfaces.MessageHandler)
-	for k := range g.Config.GetStringMap("gcm.games") {
+	for _, k := range strings.Split(g.Config.GetString("gcm.apps"), ",") {
 		senderID := g.Config.GetString("gcm.certs." + k + ".senderID")
 		apiKey := g.Config.GetString("gcm.certs." + k + ".apiKey")
 		l.Infof(

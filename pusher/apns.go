@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -107,14 +108,15 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	}
 	a.MessageHandler = make(map[string]interfaces.MessageHandler)
 	a.Queue = q
-
-	for k, v := range a.Config.GetStringMap("apns.games") {
+	l.Info("Configuring messageHandler")
+	for _, k := range strings.Split(a.Config.GetString("apns.apps"), ",") {
+		cert := a.Config.GetString("apns.certs." + k)
 		l.Infof(
 			"Configuring messageHandler for game %s with certificate: %s",
-			k, v,
+			k, cert,
 		)
 		handler, err := extensions.NewAPNSMessageHandler(
-			v.(string),
+			cert,
 			a.IsProduction,
 			a.Config,
 			a.Logger,
