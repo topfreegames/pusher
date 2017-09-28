@@ -188,6 +188,7 @@ func (g *GCMPusher) Start() {
 		"method": "start",
 	})
 	l.Info("starting pusher in gcm mode...")
+	go g.routeMessages(g.Queue.MessagesChannel())
 	for _, v := range g.MessageHandler {
 		go v.HandleResponses()
 		go v.LogStats()
