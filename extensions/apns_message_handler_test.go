@@ -28,19 +28,20 @@ import (
 	"os"
 	"time"
 
-	"github.com/RobotsAndPencils/buford/push"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/sideshow/apns2"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
+	"github.com/topfreegames/pusher/structs"
 	. "github.com/topfreegames/pusher/testing"
 	"github.com/topfreegames/pusher/util"
 )
 
-var _ = Describe("APNS Message Handler", func() {
+var _ = FDescribe("APNS Message Handler", func() {
 	var db interfaces.DB
 	var feedbackClients []interfaces.FeedbackReporter
 	var handler *APNSMessageHandler
@@ -53,7 +54,10 @@ var _ = Describe("APNS Message Handler", func() {
 
 	configFile := "../config/test.yaml"
 	config, _ := util.NewViperWithConfigFile(configFile)
-	certificatePath := "../tls/self_signed_cert.pem"
+	authKeyPath := "../tls/authkey.p8"
+	keyID := "ABC123DEFG"
+	teamID := "DEF123GHIJ"
+	topic := "com.game.test"
 	isProduction := false
 	logger, hook := test.NewNullLogger()
 	logger.Level = logrus.DebugLevel
@@ -80,7 +84,10 @@ var _ = Describe("APNS Message Handler", func() {
 
 			mockPushQueue = mocks.NewAPNSPushQueueMock()
 			handler, err = NewAPNSMessageHandler(
-				certificatePath,
+				authKeyPath,
+				keyID,
+				teamID,
+				topic,
 				isProduction,
 				config,
 				logger,
@@ -106,51 +113,11 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 		})
 
-		Describe("Configuring Handler", func() {
-			It("should fail if invalid pem file", func() {
-				handler.CertificatePath = "./invalid-certficate.pem"
-				err := handler.configure(nil)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("open ./invalid-certficate.pem: no such file or directory"))
-			})
-		})
-
-		Describe("Configuring Certificate", func() {
-			It("should configure from pem file", func() {
-				err := handler.configureCertificate()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(handler.certificate).NotTo(BeNil())
-				Expect(handler.Topic).To(Equal(""))
-			})
-
-			It("should fail if invalid pem file", func() {
-				handler.CertificatePath = "./invalid-certficate.pem"
-				err := handler.configureCertificate()
-				Expect(err).To(HaveOccurred())
-				Expect(handler.Topic).To(Equal(""))
-			})
-		})
-
-		Describe("Configuring APNS Push Queue", func() {
-			It("should configure APNS Push Queue", func() {
-				err := handler.configureAPNSPushQueue()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(handler.PushQueue).NotTo(BeNil())
-				Expect(handler.Topic).To(Equal(""))
-			})
-
-			XIt("should fail if invalid push queue - how to test this?", func() {
-				err := handler.configureAPNSPushQueue()
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("qwe"))
-			})
-		})
-
 		Describe("Handle APNS response", func() {
 			It("if reponse has nil error", func() {
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 200,
+					ApnsID:     uuid.NewV4().String(),
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -158,13 +125,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrMissingDeviceToken", func() {
-				pushError := &push.Error{
-					Reason: push.ErrMissingDeviceToken,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 400,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonMissingDeviceToken,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -174,13 +138,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrBadDeviceToken", func() {
-				pushError := &push.Error{
-					Reason: push.ErrBadDeviceToken,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 400,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonBadDeviceToken,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -190,13 +151,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrBadCertificate", func() {
-				pushError := &push.Error{
-					Reason: push.ErrBadCertificate,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 403,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonBadCertificate,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -205,13 +163,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrBadCertificateEnvironment", func() {
-				pushError := &push.Error{
-					Reason: push.ErrBadCertificateEnvironment,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 403,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonBadCertificateEnvironment,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -220,13 +175,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrForbidden", func() {
-				pushError := &push.Error{
-					Reason: push.ErrForbidden,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 403,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonForbidden,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -235,13 +187,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrMissingTopic", func() {
-				pushError := &push.Error{
-					Reason: push.ErrMissingTopic,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 400,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonMissingTopic,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -250,13 +199,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrTopicDisallowed", func() {
-				pushError := &push.Error{
-					Reason: push.ErrTopicDisallowed,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 400,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonTopicDisallowed,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -265,13 +211,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrDeviceTokenNotForTopic", func() {
-				pushError := &push.Error{
-					Reason: push.ErrDeviceTokenNotForTopic,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 400,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonDeviceTokenNotForTopic,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -280,13 +223,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrIdleTimeout", func() {
-				pushError := &push.Error{
-					Reason: push.ErrIdleTimeout,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 400,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonIdleTimeout,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -295,13 +235,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrShutdown", func() {
-				pushError := &push.Error{
-					Reason: push.ErrShutdown,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 503,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonShutdown,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -310,13 +247,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrInternalServerError", func() {
-				pushError := &push.Error{
-					Reason: push.ErrInternalServerError,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 500,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonInternalServerError,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -325,13 +259,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has error push.ErrServiceUnavailable", func() {
-				pushError := &push.Error{
-					Reason: push.ErrServiceUnavailable,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 503,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonServiceUnavailable,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -340,13 +271,10 @@ var _ = Describe("APNS Message Handler", func() {
 			})
 
 			It("if reponse has untracked error", func() {
-				pushError := &push.Error{
-					Reason: push.ErrMethodNotAllowed,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 405,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonMethodNotAllowed,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -383,9 +311,9 @@ var _ = Describe("APNS Message Handler", func() {
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
 				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 200,
+					ApnsID:     uuid.NewV4().String(),
 				}
 
 				handler.handleAPNSResponse(res)
@@ -407,9 +335,9 @@ var _ = Describe("APNS Message Handler", func() {
 
 				handleResponses := func() {
 					for i := 0; i < n/2; i++ {
-						res := push.Response{
-							DeviceToken: uuid.NewV4().String(),
-							ID:          uuid.NewV4().String(),
+						res := &structs.ResponseWithMetadata{
+							StatusCode: 200,
+							ApnsID:     uuid.NewV4().String(),
 						}
 
 						handler.handleAPNSResponse(res)
@@ -461,13 +389,13 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(handler).NotTo(BeNil())
 				Expect(handler.StatsReporters).To(Equal(statsClients))
 
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 200,
+					ApnsID:     uuid.NewV4().String(),
 				}
-				handler.handleAPNSResponse(res)
-				handler.handleAPNSResponse(res)
 
+				handler.handleAPNSResponse(res)
+				handler.handleAPNSResponse(res)
 				Expect(mockStatsDClient.Count["apns..ack"]).To(Equal(2))
 			})
 
@@ -475,13 +403,10 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(handler).NotTo(BeNil())
 				Expect(handler.StatsReporters).To(Equal(statsClients))
 
-				pushError := &push.Error{
-					Reason: push.ErrMissingDeviceToken,
-				}
-				res := push.Response{
-					DeviceToken: uuid.NewV4().String(),
-					ID:          uuid.NewV4().String(),
-					Err:         pushError,
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 400,
+					ApnsID:     uuid.NewV4().String(),
+					Reason:     apns2.ReasonMissingDeviceToken,
 				}
 				handler.handleAPNSResponse(res)
 				handler.handleAPNSResponse(res)
@@ -505,7 +430,10 @@ var _ = Describe("APNS Message Handler", func() {
 				Expect(err).NotTo(HaveOccurred())
 				invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 				handler, err = NewAPNSMessageHandler(
-					certificatePath,
+					authKeyPath,
+					keyID,
+					teamID,
+					topic,
 					isProduction,
 					config,
 					logger,
@@ -532,14 +460,14 @@ var _ = Describe("APNS Message Handler", func() {
 					"platform":  "apns",
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
-				res := push.Response{
-					DeviceToken: "testToken1",
-					ID:          "idTest1",
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 200,
+					ApnsID:     "idTest1",
 				}
 
 				go handler.handleAPNSResponse(res)
 
-				fromKafka := &ResponseWithMetadata{}
+				fromKafka := &structs.ResponseWithMetadata{}
 				msg := <-mockKafkaProducerClient.ProduceChannel()
 				json.Unmarshal(msg.Value, fromKafka)
 				Expect(fromKafka.Timestamp).To(Equal(timestampNow))
@@ -555,32 +483,31 @@ var _ = Describe("APNS Message Handler", func() {
 					"platform":  "apns",
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
-				res := push.Response{
-					DeviceToken: "testToken1",
-					ID:          "idTest1",
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 200,
+					ApnsID:     "idTest1",
 				}
 				go handler.handleAPNSResponse(res)
 
-				fromKafka := &ResponseWithMetadata{}
+				fromKafka := &structs.ResponseWithMetadata{}
 				msg := <-mockKafkaProducerClient.ProduceChannel()
 				json.Unmarshal(msg.Value, fromKafka)
-				Expect(fromKafka.DeviceToken).To(Equal(res.DeviceToken))
-				Expect(fromKafka.ID).To(Equal(res.ID))
+				Expect(fromKafka.ApnsID).To(Equal(res.ApnsID))
 				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
 			})
 
 			It("should send feedback if success and metadata is not present", func() {
-				res := push.Response{
-					DeviceToken: "testToken1",
-					ID:          "idTest1",
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 200,
+					ApnsID:     "idTest1",
 				}
+
 				go handler.handleAPNSResponse(res)
 
-				fromKafka := &ResponseWithMetadata{}
+				fromKafka := &structs.ResponseWithMetadata{}
 				msg := <-mockKafkaProducerClient.ProduceChannel()
 				json.Unmarshal(msg.Value, fromKafka)
-				Expect(fromKafka.DeviceToken).To(Equal(res.DeviceToken))
-				Expect(fromKafka.ID).To(Equal(res.ID))
+				Expect(fromKafka.ApnsID).To(Equal(res.ApnsID))
 				Expect(fromKafka.Metadata["some"]).To(BeNil())
 			})
 
@@ -592,23 +519,20 @@ var _ = Describe("APNS Message Handler", func() {
 					"platform":  "apns",
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
-				res := push.Response{
-					DeviceToken: "testToken1",
-					ID:          "idTest1",
-					Err: &push.Error{
-						Reason: push.ErrBadDeviceToken,
-					},
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 400,
+					ApnsID:     "idTest1",
+					Reason:     apns2.ReasonBadDeviceToken,
 				}
 				go handler.handleAPNSResponse(res)
 
-				fromKafka := &ResponseWithMetadata{}
+				fromKafka := &structs.ResponseWithMetadata{}
 				msg := <-mockKafkaProducerClient.ProduceChannel()
 				json.Unmarshal(msg.Value, fromKafka)
-				Expect(fromKafka.DeviceToken).To(Equal(res.DeviceToken))
-				Expect(fromKafka.ID).To(Equal(res.ID))
+				Expect(fromKafka.ApnsID).To(Equal(res.ApnsID))
 				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
 				Expect(fromKafka.Metadata["deleteToken"]).To(BeTrue())
-				Expect(string(msg.Value)).To(ContainSubstring("bad device token"))
+				Expect(string(msg.Value)).To(ContainSubstring("BadDeviceToken"))
 			})
 
 			It("should send feedback if error and metadata is present and token should not be deleted", func() {
@@ -619,42 +543,37 @@ var _ = Describe("APNS Message Handler", func() {
 					"platform":  "apns",
 				}
 				handler.InflightMessagesMetadata["idTest1"] = metadata
-				res := push.Response{
-					DeviceToken: "testToken1",
-					ID:          "idTest1",
-					Err: &push.Error{
-						Reason: push.ErrBadMessageID,
-					},
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 400,
+					ApnsID:     "idTest1",
+					Reason:     apns2.ReasonBadMessageID,
 				}
 				go handler.handleAPNSResponse(res)
 
-				fromKafka := &ResponseWithMetadata{}
+				fromKafka := &structs.ResponseWithMetadata{}
 				msg := <-mockKafkaProducerClient.ProduceChannel()
 				json.Unmarshal(msg.Value, fromKafka)
-				Expect(fromKafka.DeviceToken).To(Equal(res.DeviceToken))
-				Expect(fromKafka.ID).To(Equal(res.ID))
+				Expect(fromKafka.ApnsID).To(Equal(res.ApnsID))
 				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
 				Expect(fromKafka.Metadata["deleteToken"]).To(BeNil())
-				Expect(string(msg.Value)).To(ContainSubstring("ID header value is bad"))
+				Expect(string(msg.Value)).To(ContainSubstring("BadMessageId"))
 			})
 
 			It("should send feedback if error and metadata is not present", func() {
-				res := push.Response{
-					DeviceToken: "testToken1",
-					ID:          "idTest1",
-					Err: &push.Error{
-						Reason: push.ErrBadDeviceToken,
-					},
+				res := &structs.ResponseWithMetadata{
+					DeviceToken: uuid.NewV4().String(),
+					StatusCode:  400,
+					ApnsID:      "idTest1",
+					Reason:      apns2.ReasonBadDeviceToken,
 				}
 				go handler.handleAPNSResponse(res)
 
-				fromKafka := &ResponseWithMetadata{}
+				fromKafka := &structs.ResponseWithMetadata{}
 				msg := <-mockKafkaProducerClient.ProduceChannel()
 				json.Unmarshal(msg.Value, fromKafka)
-				Expect(fromKafka.DeviceToken).To(Equal(res.DeviceToken))
-				Expect(fromKafka.ID).To(Equal(res.ID))
+				Expect(fromKafka.ApnsID).To(Equal(res.ApnsID))
 				Expect(fromKafka.Metadata).To(BeNil())
-				Expect(string(msg.Value)).To(ContainSubstring("bad device token"))
+				Expect(string(msg.Value)).To(ContainSubstring("BadDeviceToken"))
 			})
 		})
 
@@ -670,7 +589,10 @@ var _ = Describe("APNS Message Handler", func() {
 		BeforeEach(func() {
 			var err error
 			handler, err = NewAPNSMessageHandler(
-				certificatePath,
+				authKeyPath,
+				keyID,
+				teamID,
+				topic,
 				isProduction,
 				config,
 				logger,
@@ -686,11 +608,12 @@ var _ = Describe("APNS Message Handler", func() {
 
 		Describe("Send message", func() {
 			It("should add message to push queue and increment sentMessages", func() {
-				handler.sendMessage(interfaces.KafkaMessage{
+				err := handler.sendMessage(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
-				Eventually(handler.PushQueue.(*push.Queue).Responses, 5*time.Second).Should(Receive())
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).Should(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 			})
 		})
@@ -701,7 +624,7 @@ var _ = Describe("APNS Message Handler", func() {
 					Topic: "push-game_apns",
 					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d }`, time.Now().Unix()-int64(100))),
 				})
-				Eventually(handler.PushQueue.(*push.Queue).Responses, 5*time.Second).Should(Receive())
+				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).ShouldNot(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(0)))
 				Expect(handler.ignoredMessages).To(Equal(int64(1)))
 			})
@@ -710,7 +633,7 @@ var _ = Describe("APNS Message Handler", func() {
 					Topic: "push-game_apns",
 					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d}`, time.Now().Unix()+int64(100))),
 				})
-				Eventually(handler.PushQueue.(*push.Queue).Responses, 5*time.Second).Should(Receive())
+				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).ShouldNot(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 			})
 		})
@@ -718,7 +641,7 @@ var _ = Describe("APNS Message Handler", func() {
 		Describe("Handle Responses", func() {
 			It("should be called without panicking", func() {
 				Expect(func() { go handler.HandleResponses() }).ShouldNot(Panic())
-				handler.PushQueue.(*push.Queue).Responses <- push.Response{}
+				handler.PushQueue.ResponseChannel() <- &structs.ResponseWithMetadata{}
 				time.Sleep(50 * time.Millisecond)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 			})

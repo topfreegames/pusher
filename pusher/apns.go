@@ -110,13 +110,19 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	a.Queue = q
 	l.Info("Configuring messageHandler")
 	for _, k := range strings.Split(a.Config.GetString("apns.apps"), ",") {
-		cert := a.Config.GetString("apns.certs." + k)
+		authKeyPath := a.Config.GetString("apns.certs." + k + ".authKeyPath")
+		keyID := a.Config.GetString("apns.certs." + k + ".keyID")
+		teamID := a.Config.GetString("apns.certs." + k + ".teamID")
+		topic := a.Config.GetString("apns.certs." + k + ".topic")
 		l.Infof(
-			"Configuring messageHandler for game %s with certificate: %s",
-			k, cert,
+			"Configuring messageHandler for game %s with key: %s",
+			k, authKeyPath,
 		)
 		handler, err := extensions.NewAPNSMessageHandler(
-			cert,
+			authKeyPath,
+			keyID,
+			teamID,
+			topic,
 			a.IsProduction,
 			a.Config,
 			a.Logger,
@@ -124,7 +130,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			a.StatsReporters,
 			a.feedbackReporters,
 			a.InvalidTokenHandlers,
-			queue,
+			nil,
 		)
 		if err != nil {
 			return err

@@ -2,12 +2,6 @@
 
 
 [[projects]]
-  name = "github.com/RobotsAndPencils/buford"
-  packages = ["certificate","push"]
-  revision = "1589c179b764ddceb204a439d9bf366f04c55f9b"
-  version = "v0.12.0"
-
-[[projects]]
   name = "github.com/alexcesaro/statsd"
   packages = ["."]
   revision = "7fea3f0d2fab1ad973e641e51dba45443a311a90"
@@ -30,6 +24,12 @@
   packages = ["spew"]
   revision = "346938d642f2ec3594ed81d874461961cd0faa76"
   version = "v1.1.0"
+
+[[projects]]
+  name = "github.com/dgrijalva/jwt-go"
+  packages = ["."]
+  revision = "d2709f9f1f31ebcda9651b03077758c1f3a0018c"
+  version = "v3.0.0"
 
 [[projects]]
   name = "github.com/fsnotify/fsnotify"
@@ -128,6 +128,12 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/sideshow/apns2"
+  packages = [".","token"]
+  revision = "a3ce9c6f95f63dab4ead29da86534dd7af95271a"
+  version = "v0.13"
+
+[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = [".","hooks/test"]
   revision = "a3f95b5c423586578a4e099b11a46c2479628cac"
@@ -196,7 +202,7 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["html","html/atom","html/charset","http2","http2/hpack","idna","lex/httplex"]
+  packages = ["context","context/ctxhttp","html","html/atom","html/charset","http2","http2/hpack","idna","lex/httplex"]
   revision = "ab5485076ff3407ad2d02db054635913f017b0ed"
 
 [[projects]]
@@ -226,6 +232,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a2bbc5b1f71669dad92c6e0f017299aa132390f982cc7c84a98efae1d04cc00b"
+  inputs-digest = "558da59624e3539016af2336e57a20d4af7ebe93c3bbb6247e76585c8de5fcd2"
   solver-name = "gps-cdcl"
   solver-version = 1

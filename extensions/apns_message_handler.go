@@ -23,20 +23,19 @@
 package extensions
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"os"
 	"sync"
 	"time"
 
-	cert "github.com/RobotsAndPencils/buford/certificate"
-	"github.com/RobotsAndPencils/buford/push"
 	uuid "github.com/satori/go.uuid"
+	"github.com/sideshow/apns2"
+	token "github.com/sideshow/apns2/token"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/topfreegames/pusher/certificate"
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
+	"github.com/topfreegames/pusher/structs"
 )
 
 var apnsResMutex sync.Mutex
@@ -49,18 +48,14 @@ type Notification struct {
 	PushExpiry  int64                  `json:"push_expiry,omitempty"`
 }
 
-// ResponseWithMetadata is a enriched Response with a Metadata field
-type ResponseWithMetadata struct {
-	push.Response
-	Timestamp int64                  `json:"timestamp"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
-}
-
 // APNSMessageHandler implements the messagehandler interface
 type APNSMessageHandler struct {
-	certificate                  tls.Certificate
-	CertificatePath              string
+	authKeyPath                  string
+	keyID                        string
+	teamID                       string
+	token                        *token.Token
 	Config                       *viper.Viper
+	clients                      chan *apns2.Client
 	failuresReceived             int64
 	feedbackReporters            []interfaces.FeedbackReporter
 	InflightMessagesMetadata     map[string]interface{}
@@ -84,7 +79,7 @@ type APNSMessageHandler struct {
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
 func NewAPNSMessageHandler(
-	certificatePath string,
+	authKeyPath, keyID, teamID, topic string,
 	isProduction bool,
 	config *viper.Viper,
 	logger *log.Logger,
@@ -92,10 +87,13 @@ func NewAPNSMessageHandler(
 	statsReporters []interfaces.StatsReporter,
 	feedbackReporters []interfaces.FeedbackReporter,
 	invalidTokenHandlers []interfaces.InvalidTokenHandler,
-	queue interfaces.APNSPushQueue,
+	pushQueue interfaces.APNSPushQueue,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
-		CertificatePath:              certificatePath,
+		authKeyPath:                  authKeyPath,
+		keyID:                        keyID,
+		teamID:                       teamID,
+		Topic:                        topic,
 		Config:                       config,
 		failuresReceived:             0,
 		feedbackReporters:            feedbackReporters,
@@ -111,31 +109,35 @@ func NewAPNSMessageHandler(
 		StatsReporters:               statsReporters,
 		successesReceived:            0,
 		requestsHeap:                 NewTimeoutHeap(config),
+		PushQueue:                    pushQueue,
 	}
-	if err := a.configure(queue); err != nil {
+	if err := a.configure(); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
-func (a *APNSMessageHandler) configure(queue interfaces.APNSPushQueue) error {
+func (a *APNSMessageHandler) configure() error {
 	a.loadConfigurationDefaults()
 	interval := a.Config.GetInt("apns.logStatsInterval")
 	a.LogStatsInterval = time.Duration(interval) * time.Millisecond
 	a.CacheCleaningInterval = a.Config.GetInt("feedback.cache.cleaningInterval")
-	err := a.configureCertificate()
-	if err != nil {
-		return err
+
+	if a.PushQueue == nil {
+		a.PushQueue = NewAPNSPushQueue(
+			a.authKeyPath,
+			a.keyID,
+			a.teamID,
+			a.IsProduction,
+			a.Logger,
+			a.Config,
+		)
+		err := a.PushQueue.Configure()
+		if err != nil {
+			return err
+		}
 	}
-	if queue != nil {
-		err = nil
-		a.PushQueue = queue
-	} else {
-		err = a.configureAPNSPushQueue()
-	}
-	if err != nil {
-		return err
-	}
+
 	return nil
 }
 
@@ -145,49 +147,10 @@ func (a *APNSMessageHandler) loadConfigurationDefaults() {
 	a.Config.SetDefault("feedback.cache.cleaningInterval", 300000)
 }
 
-func (a *APNSMessageHandler) configureCertificate() error {
-	l := a.Logger.WithField("method", "configureCertificate")
-	c, err := certificate.FromPemFile(a.CertificatePath, "")
-	if err != nil {
-		l.WithError(err).Error("error loading pem certificate")
-		return err
-	}
-	a.certificate = c
-	a.Topic = cert.TopicFromCert(c)
-	l.WithField("topic", a.Topic).Debug("loaded apns certificate")
-	return nil
-}
-
-func (a *APNSMessageHandler) configureAPNSPushQueue() error {
-	l := a.Logger.WithField("method", "configureAPNSPushQueue")
-	client, err := push.NewClient(a.certificate)
-	if err != nil {
-		l.WithError(err).Error("could not create apns client")
-		return err
-	}
-	var svc *push.Service
-	if a.IsProduction {
-		svc = push.NewService(client, push.Production)
-	} else {
-		svc = push.NewService(client, push.Development)
-	}
-
-	concurrentWorkers := a.Config.GetInt("apns.concurrentWorkers")
-	l.WithField("concurrentWorkers", concurrentWorkers).Debug("creating apns queue")
-	workers := uint(concurrentWorkers)
-	queue := push.NewQueue(svc, workers)
-	a.PushQueue = queue
-	return nil
-}
-
 func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 	deviceIdentifier := uuid.NewV4().String()
 	l := a.Logger.WithField("method", "sendMessage")
 	l.WithField("message", message).Debug("sending message to apns")
-	h := &push.Headers{
-		Topic: a.Topic,
-		ID:    deviceIdentifier,
-	}
 	n := &Notification{}
 	json.Unmarshal(message.Value, n)
 	payload, err := json.Marshal(n.Payload)
@@ -204,7 +167,12 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 		return nil
 	}
 	statsReporterHandleNotificationSent(a.StatsReporters, message.Game, "apns")
-	a.PushQueue.Push(n.DeviceToken, h, payload)
+	a.PushQueue.Push(&apns2.Notification{
+		Topic:       a.Topic,
+		DeviceToken: n.DeviceToken,
+		Payload:     payload,
+		ApnsID:      deviceIdentifier,
+	})
 	if n.Metadata == nil {
 		n.Metadata = map[string]interface{}{}
 	}
@@ -213,6 +181,7 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 	n.Metadata["timestamp"] = time.Now().Unix()
 	n.Metadata["game"] = message.Game
 	n.Metadata["platform"] = "apns"
+	n.Metadata["deviceToken"] = n.DeviceToken
 	hostname, err := os.Hostname()
 	if err != nil {
 		l.WithError(err).Error("error retrieving hostname")
@@ -230,11 +199,8 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 
 // HandleResponses from apns
 func (a *APNSMessageHandler) HandleResponses() {
-	q, ok := a.PushQueue.(*push.Queue)
-	if ok {
-		for resp := range q.Responses {
-			a.handleAPNSResponse(resp)
-		}
+	for response := range a.PushQueue.ResponseChannel() {
+		a.handleAPNSResponse(response)
 	}
 }
 
@@ -260,7 +226,7 @@ func (a *APNSMessageHandler) HandleMessages(message interfaces.KafkaMessage) {
 	a.sendMessage(message)
 }
 
-func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
+func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.ResponseWithMetadata) error {
 	defer func() {
 		if a.pendingMessagesWG != nil {
 			a.pendingMessagesWG.Done()
@@ -269,7 +235,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 
 	l := a.Logger.WithFields(log.Fields{
 		"method": "handleAPNSResponse",
-		"res":    res,
+		"res":    responseWithMetadata,
 	})
 	l.Debug("got response from apns")
 	apnsResMutex.Lock()
@@ -277,17 +243,14 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 	apnsResMutex.Unlock()
 	parsedTopic := ParsedTopic{}
 	var err error
-	responseWithMetadata := &ResponseWithMetadata{
-		Response: res,
-	}
 	a.inflightMessagesMetadataLock.Lock()
-	if val, ok := a.InflightMessagesMetadata[res.ID]; ok {
+	if val, ok := a.InflightMessagesMetadata[responseWithMetadata.ApnsID]; ok {
 		responseWithMetadata.Metadata = val.(map[string]interface{})
 		responseWithMetadata.Timestamp = responseWithMetadata.Metadata["timestamp"].(int64)
 		parsedTopic.Game = responseWithMetadata.Metadata["game"].(string)
 		parsedTopic.Platform = responseWithMetadata.Metadata["platform"].(string)
 		delete(responseWithMetadata.Metadata, "timestamp")
-		delete(a.InflightMessagesMetadata, res.ID)
+		delete(a.InflightMessagesMetadata, responseWithMetadata.ApnsID)
 	}
 	a.inflightMessagesMetadataLock.Unlock()
 
@@ -295,58 +258,49 @@ func (a *APNSMessageHandler) handleAPNSResponse(res push.Response) error {
 		l.WithError(err).Error("error sending feedback to reporter")
 	}
 
-	if res.Err != nil {
+	if responseWithMetadata.Reason != "" {
 		apnsResMutex.Lock()
 		a.failuresReceived++
 		apnsResMutex.Unlock()
-		pushError, ok := res.Err.(*push.Error)
-		if !ok {
-			l.WithFields(log.Fields{
-				"category":   "UnexpectedError",
-				log.ErrorKey: res.Err,
-			}).Error("received an error")
-			return res.Err
-		}
-		reason := pushError.Reason
-		pErr := errors.NewPushError(a.mapErrorReason(reason), pushError.Error())
+		reason := responseWithMetadata.Reason
+		pErr := errors.NewPushError(a.mapErrorReason(reason), reason)
 		statsReporterHandleNotificationFailure(a.StatsReporters, parsedTopic.Game, "apns", pErr)
 
 		err = pErr
 		switch reason {
-		case push.ErrMissingDeviceToken, push.ErrBadDeviceToken:
+		case apns2.ReasonMissingDeviceToken, apns2.ReasonBadDeviceToken:
 			l.WithFields(log.Fields{
 				"category":   "TokenError",
-				log.ErrorKey: res.Err,
+				log.ErrorKey: responseWithMetadata.Reason,
 			}).Debug("received an error")
 			if responseWithMetadata.Metadata != nil {
 				responseWithMetadata.Metadata["deleteToken"] = true
 			}
 			handleInvalidToken(
-				a.InvalidTokenHandlers, res.DeviceToken,
+				a.InvalidTokenHandlers, responseWithMetadata.DeviceToken,
 				parsedTopic.Game, parsedTopic.Platform,
 			)
-		case push.ErrBadCertificate, push.ErrBadCertificateEnvironment, push.ErrForbidden:
+		case apns2.ReasonBadCertificate, apns2.ReasonBadCertificateEnvironment, apns2.ReasonForbidden:
 			l.WithFields(log.Fields{
 				"category":   "CertificateError",
-				log.ErrorKey: res.Err,
+				log.ErrorKey: responseWithMetadata.Reason,
 			}).Debug("received an error")
-		case push.ErrMissingTopic, push.ErrTopicDisallowed, push.ErrDeviceTokenNotForTopic:
+		case apns2.ReasonMissingTopic, apns2.ReasonTopicDisallowed, apns2.ReasonDeviceTokenNotForTopic:
 			l.WithFields(log.Fields{
 				"category":   "TopicError",
-				log.ErrorKey: res.Err,
+				log.ErrorKey: responseWithMetadata.Reason,
 			}).Debug("received an error")
-		case push.ErrIdleTimeout, push.ErrShutdown, push.ErrInternalServerError, push.ErrServiceUnavailable:
+		case apns2.ReasonIdleTimeout, apns2.ReasonShutdown, apns2.ReasonInternalServerError, apns2.ReasonServiceUnavailable:
 			l.WithFields(log.Fields{
 				"category":   "AppleError",
-				log.ErrorKey: res.Err,
+				log.ErrorKey: responseWithMetadata.Reason,
 			}).Debug("received an error")
 		default:
 			l.WithFields(log.Fields{
 				"category":   "DefaultError",
-				log.ErrorKey: res.Err,
+				log.ErrorKey: responseWithMetadata.Reason,
 			}).Debug("received an error")
 		}
-		responseWithMetadata.Err = pErr
 		sendFeedbackErr := sendToFeedbackReporters(a.feedbackReporters, responseWithMetadata, parsedTopic)
 		if sendFeedbackErr != nil {
 			l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
@@ -391,53 +345,53 @@ func (a *APNSMessageHandler) LogStats() {
 	}
 }
 
-func (a *APNSMessageHandler) mapErrorReason(reason error) string {
+func (a *APNSMessageHandler) mapErrorReason(reason string) string {
 	switch reason {
-	case push.ErrPayloadEmpty:
+	case apns2.ReasonPayloadEmpty:
 		return "payload-empty"
-	case push.ErrPayloadTooLarge:
+	case apns2.ReasonPayloadTooLarge:
 		return "payload-too-large"
-	case push.ErrMissingDeviceToken:
+	case apns2.ReasonMissingDeviceToken:
 		return "missing-device-token"
-	case push.ErrBadDeviceToken:
+	case apns2.ReasonBadDeviceToken:
 		return "bad-device-token"
-	case push.ErrTooManyRequests:
+	case apns2.ReasonTooManyRequests:
 		return "too-many-requests"
-	case push.ErrBadMessageID:
+	case apns2.ReasonBadMessageID:
 		return "bad-message-id"
-	case push.ErrBadExpirationDate:
+	case apns2.ReasonBadExpirationDate:
 		return "bad-expiration-date"
-	case push.ErrBadPriority:
+	case apns2.ReasonBadPriority:
 		return "bad-priority"
-	case push.ErrBadTopic:
+	case apns2.ReasonBadTopic:
 		return "bad-topic"
-	case push.ErrBadCertificate:
+	case apns2.ReasonBadCertificate:
 		return "bad-certificate"
-	case push.ErrBadCertificateEnvironment:
+	case apns2.ReasonBadCertificateEnvironment:
 		return "bad-certificate-environment"
-	case push.ErrForbidden:
+	case apns2.ReasonForbidden:
 		return "forbidden"
-	case push.ErrMissingTopic:
+	case apns2.ReasonMissingTopic:
 		return "missing-topic"
-	case push.ErrTopicDisallowed:
+	case apns2.ReasonTopicDisallowed:
 		return "topic-disallowed"
-	case push.ErrUnregistered:
+	case apns2.ReasonUnregistered:
 		return "unregistered"
-	case push.ErrDeviceTokenNotForTopic:
+	case apns2.ReasonDeviceTokenNotForTopic:
 		return "device-token-not-for-topic"
-	case push.ErrDuplicateHeaders:
+	case apns2.ReasonDuplicateHeaders:
 		return "duplicate-headers"
-	case push.ErrBadPath:
+	case apns2.ReasonBadPath:
 		return "bad-path"
-	case push.ErrMethodNotAllowed:
+	case apns2.ReasonMethodNotAllowed:
 		return "method-not-allowed"
-	case push.ErrIdleTimeout:
+	case apns2.ReasonIdleTimeout:
 		return "idle-timeout"
-	case push.ErrShutdown:
+	case apns2.ReasonShutdown:
 		return "shutdown"
-	case push.ErrInternalServerError:
+	case apns2.ReasonInternalServerError:
 		return "internal-server-error"
-	case push.ErrServiceUnavailable:
+	case apns2.ReasonServiceUnavailable:
 		return "service-unavailable"
 	default:
 		return "unexpected"

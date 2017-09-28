@@ -2,10 +2,15 @@
 gracefulShutdownTimeout: 10
 apns:
   concurrentWorkers: 100
+  connectionPoolSize: 10
   logStatsInterval: 750
   apps: "game"
   certs:
-    game: ../tls/self_signed_cert.pem
+    game:
+      authKeyPath: ../tls/authkey.p8
+      keyID: "ABC123DEFG"
+      teamID: "ABC123DEFG"
+      topic: "com.game.test"
 gcm:
   pingInterval: 30
   pingTimeout: 10
