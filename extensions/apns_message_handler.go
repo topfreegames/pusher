@@ -54,6 +54,7 @@ type APNSMessageHandler struct {
 	keyID                        string
 	teamID                       string
 	token                        *token.Token
+	appName                      string
 	Config                       *viper.Viper
 	clients                      chan *apns2.Client
 	failuresReceived             int64
@@ -79,7 +80,7 @@ type APNSMessageHandler struct {
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
 func NewAPNSMessageHandler(
-	authKeyPath, keyID, teamID, topic string,
+	authKeyPath, keyID, teamID, topic, appName string,
 	isProduction bool,
 	config *viper.Viper,
 	logger *log.Logger,
@@ -94,6 +95,7 @@ func NewAPNSMessageHandler(
 		keyID:                        keyID,
 		teamID:                       teamID,
 		Topic:                        topic,
+		appName:                      appName,
 		Config:                       config,
 		failuresReceived:             0,
 		feedbackReporters:            feedbackReporters,
@@ -166,7 +168,7 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 		}
 		return nil
 	}
-	statsReporterHandleNotificationSent(a.StatsReporters, message.Game, "apns")
+	statsReporterHandleNotificationSent(a.StatsReporters, a.appName, "apns")
 	a.PushQueue.Push(&apns2.Notification{
 		Topic:       a.Topic,
 		DeviceToken: n.DeviceToken,
@@ -179,7 +181,7 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 	a.inflightMessagesMetadataLock.Lock()
 
 	n.Metadata["timestamp"] = time.Now().Unix()
-	n.Metadata["game"] = message.Game
+	n.Metadata["game"] = a.appName
 	n.Metadata["platform"] = "apns"
 	n.Metadata["deviceToken"] = n.DeviceToken
 	hostname, err := os.Hostname()
@@ -241,14 +243,15 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 	apnsResMutex.Lock()
 	a.responsesReceived++
 	apnsResMutex.Unlock()
-	parsedTopic := ParsedTopic{}
+	parsedTopic := ParsedTopic{
+		Game:     a.appName,
+		Platform: "apns",
+	}
 	var err error
 	a.inflightMessagesMetadataLock.Lock()
 	if val, ok := a.InflightMessagesMetadata[responseWithMetadata.ApnsID]; ok {
 		responseWithMetadata.Metadata = val.(map[string]interface{})
 		responseWithMetadata.Timestamp = responseWithMetadata.Metadata["timestamp"].(int64)
-		parsedTopic.Game = responseWithMetadata.Metadata["game"].(string)
-		parsedTopic.Platform = responseWithMetadata.Metadata["platform"].(string)
 		delete(responseWithMetadata.Metadata, "timestamp")
 		delete(a.InflightMessagesMetadata, responseWithMetadata.ApnsID)
 	}
@@ -264,7 +267,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		apnsResMutex.Unlock()
 		reason := responseWithMetadata.Reason
 		pErr := errors.NewPushError(a.mapErrorReason(reason), reason)
-		statsReporterHandleNotificationFailure(a.StatsReporters, parsedTopic.Game, "apns", pErr)
+		statsReporterHandleNotificationFailure(a.StatsReporters, a.appName, "apns", pErr)
 
 		err = pErr
 		switch reason {
@@ -278,7 +281,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 			}
 			handleInvalidToken(
 				a.InvalidTokenHandlers, responseWithMetadata.DeviceToken,
-				parsedTopic.Game, parsedTopic.Platform,
+				a.appName, "apns",
 			)
 		case apns2.ReasonBadCertificate, apns2.ReasonBadCertificateEnvironment, apns2.ReasonForbidden:
 			l.WithFields(log.Fields{
@@ -315,7 +318,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 	apnsResMutex.Lock()
 	a.successesReceived++
 	apnsResMutex.Unlock()
-	statsReporterHandleNotificationSuccess(a.StatsReporters, parsedTopic.Game, "apns")
+	statsReporterHandleNotificationSuccess(a.StatsReporters, a.appName, "apns")
 	return nil
 }
 

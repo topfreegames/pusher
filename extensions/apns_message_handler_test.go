@@ -58,6 +58,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 	keyID := "ABC123DEFG"
 	teamID := "DEF123GHIJ"
 	topic := "com.game.test"
+	appName := "game"
 	isProduction := false
 	logger, hook := test.NewNullLogger()
 	logger.Level = logrus.DebugLevel
@@ -88,6 +89,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				keyID,
 				teamID,
 				topic,
+				appName,
 				isProduction,
 				config,
 				logger,
@@ -396,7 +398,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 
 				handler.handleAPNSResponse(res)
 				handler.handleAPNSResponse(res)
-				Expect(mockStatsDClient.Count["apns..ack"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["apns.game.ack"]).To(Equal(2))
 			})
 
 			It("should call HandleNotificationFailure upon message response received", func() {
@@ -411,8 +413,8 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				handler.handleAPNSResponse(res)
 
-				Expect(mockStatsDClient.Count["apns..failed"]).To(Equal(2))
-				Expect(mockStatsDClient.Count["apns..missing-device-token"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["apns.game.failed"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["apns.game.missing-device-token"]).To(Equal(2))
 			})
 		})
 
@@ -434,6 +436,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 					keyID,
 					teamID,
 					topic,
+					appName,
 					isProduction,
 					config,
 					logger,
@@ -593,6 +596,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				keyID,
 				teamID,
 				topic,
+				appName,
 				isProduction,
 				config,
 				logger,
