@@ -20,41 +20,15 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package mocks
+package structs
 
-import (
-	"github.com/sideshow/apns2"
-	"github.com/topfreegames/pusher/structs"
-)
-
-//APNSPushQueueMock should be used for tests that need to send pushs to APNS
-type APNSPushQueueMock struct {
-	responseChannel chan *structs.ResponseWithMetadata
-	Closed          bool
-}
-
-//NewAPNSPushQueueMock creates a new instance
-func NewAPNSPushQueueMock() *APNSPushQueueMock {
-	return &APNSPushQueueMock{
-		responseChannel: make(chan *structs.ResponseWithMetadata),
-	}
-}
-
-//Push records the sent message in the MessagesSent collection
-func (m *APNSPushQueueMock) Push(*apns2.Notification) {
-}
-
-func (m *APNSPushQueueMock) Configure() error {
-	return nil
-}
-
-//ResponseChannel returns responseChannel
-func (m *APNSPushQueueMock) ResponseChannel() chan *structs.ResponseWithMetadata {
-	return m.ResponseChannel()
-}
-
-//Close records that it is closed
-func (m *APNSPushQueueMock) Close() {
-	close(m.responseChannel)
-	m.Closed = true
+// ResponseWithMetadata is a enriched Response with a Metadata field
+type ResponseWithMetadata struct {
+	Sent        bool
+	StatusCode  int
+	Reason      string
+	ApnsID      string
+	DeviceToken string                 `json:"DeviceToken"`
+	Timestamp   int64                  `json:"timestamp"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }

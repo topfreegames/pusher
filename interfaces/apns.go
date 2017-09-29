@@ -22,11 +22,15 @@
 
 package interfaces
 
-import "github.com/RobotsAndPencils/buford/push"
+import (
+	"github.com/sideshow/apns2"
+	"github.com/topfreegames/pusher/structs"
+)
 
 //APNSPushQueue represents the contract for a APNS Push Queue
 type APNSPushQueue interface {
-	// Responses chan *push.Response
-	Push(string, *push.Headers, []byte)
+	ResponseChannel() chan *structs.ResponseWithMetadata
+	Configure() error
+	Push(*apns2.Notification)
 	Close()
 }
