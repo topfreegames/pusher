@@ -267,6 +267,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		apnsResMutex.Unlock()
 		reason := responseWithMetadata.Reason
 		pErr := errors.NewPushError(a.mapErrorReason(reason), reason)
+		responseWithMetadata.Err = pErr
 		statsReporterHandleNotificationFailure(a.StatsReporters, a.appName, "apns", pErr)
 
 		err = pErr

@@ -22,12 +22,15 @@
 
 package structs
 
+import "github.com/topfreegames/pusher/errors"
+
 // ResponseWithMetadata is a enriched Response with a Metadata field
 type ResponseWithMetadata struct {
 	Sent        bool
 	StatusCode  int
 	Reason      string
 	ApnsID      string
+	Err         *errors.PushError
 	DeviceToken string                 `json:"DeviceToken"`
 	Timestamp   int64                  `json:"timestamp"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
