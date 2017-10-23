@@ -221,7 +221,7 @@ var _ = Describe("GCM Message Handler", func() {
 						Data:   map[string]interface{}{},
 					},
 					metadata,
-					time.Now().Unix() + int64(1000000),
+					makeTimestamp() + int64(1000000),
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
@@ -252,7 +252,7 @@ var _ = Describe("GCM Message Handler", func() {
 						Data:   map[string]interface{}{},
 					},
 					metadata,
-					time.Now().Unix() - int64(100),
+					makeTimestamp() - int64(100),
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
@@ -322,7 +322,7 @@ var _ = Describe("GCM Message Handler", func() {
 						Data:   map[string]interface{}{},
 					},
 					metadata,
-					time.Now().Unix() + int64(1000000),
+					makeTimestamp() + int64(1000000),
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())

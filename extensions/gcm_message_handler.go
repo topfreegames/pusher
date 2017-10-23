@@ -295,7 +295,7 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 		l.WithError(err).Error("Error unmarshaling message.")
 		return err
 	}
-	if km.PushExpiry > 0 && km.PushExpiry < time.Now().Unix() {
+	if km.PushExpiry > 0 && km.PushExpiry < makeTimestamp() {
 		l.Warnf("ignoring push message because it has expired: %s", km.Data)
 		g.ignoredMessages++
 		if g.pendingMessagesWG != nil {

@@ -160,7 +160,7 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 		l.WithError(err).Error("error marshaling message payload")
 		return err
 	}
-	if n.PushExpiry > 0 && n.PushExpiry < time.Now().Unix() {
+	if n.PushExpiry > 0 && n.PushExpiry < makeTimestamp() {
 		l.Warnf("ignoring push message because it has expired: %s", n.Payload)
 		a.ignoredMessages++
 		if a.pendingMessagesWG != nil {

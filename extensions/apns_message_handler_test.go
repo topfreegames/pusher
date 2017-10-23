@@ -626,7 +626,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 			It("should not send message if PushExpiry is in the past", func() {
 				handler.sendMessage(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
-					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d }`, time.Now().Unix()-int64(100))),
+					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d }`, makeTimestamp()-int64(100))),
 				})
 				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).ShouldNot(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(0)))
@@ -635,7 +635,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 			It("should send message if PushExpiry is in the future", func() {
 				handler.sendMessage(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
-					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d}`, time.Now().Unix()+int64(100))),
+					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d}`, makeTimestamp()+int64(100))),
 				})
 				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).ShouldNot(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
