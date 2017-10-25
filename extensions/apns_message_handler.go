@@ -190,7 +190,6 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 	} else {
 		n.Metadata["hostname"] = hostname
 	}
-	n.Metadata["msgid"] = uuid.NewV4().String()
 	a.InflightMessagesMetadata[deviceIdentifier] = n.Metadata
 	a.requestsHeap.AddRequest(deviceIdentifier)
 

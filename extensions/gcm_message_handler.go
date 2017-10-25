@@ -30,7 +30,6 @@ import (
 	"sync"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	gcm "github.com/topfreegames/go-gcm"
@@ -330,7 +329,6 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 			km.Metadata["hostname"] = hostname
 		}
 
-		km.Metadata["msgid"] = uuid.NewV4().String()
 		km.Metadata["game"] = message.Game
 		km.Metadata["platform"] = "gcm"
 
