@@ -271,7 +271,8 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 
 		err = pErr
 		switch reason {
-		case apns2.ReasonMissingDeviceToken, apns2.ReasonBadDeviceToken:
+		case apns2.ReasonBadDeviceToken, apns2.ReasonUnregistered:
+			// https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html
 			l.WithFields(log.Fields{
 				"category":   "TokenError",
 				log.ErrorKey: responseWithMetadata.Reason,

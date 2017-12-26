@@ -116,7 +116,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 		})
 
 		Describe("Handle APNS response", func() {
-			It("if reponse has nil error", func() {
+			It("if response has nil error", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 200,
 					ApnsID:     uuid.NewV4().String(),
@@ -126,11 +126,11 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Expect(handler.successesReceived).To(Equal(int64(1)))
 			})
 
-			It("if reponse has error push.ErrMissingDeviceToken", func() {
+			It("if response has error push.ReasonUnregistered", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
 					ApnsID:     uuid.NewV4().String(),
-					Reason:     apns2.ReasonMissingDeviceToken,
+					Reason:     apns2.ReasonUnregistered,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -139,7 +139,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 
-			It("if reponse has error push.ErrBadDeviceToken", func() {
+			It("if response has error push.ErrBadDeviceToken", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
 					ApnsID:     uuid.NewV4().String(),
@@ -152,7 +152,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 
-			It("if reponse has error push.ErrBadCertificate", func() {
+			It("if response has error push.ErrBadCertificate", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 403,
 					ApnsID:     uuid.NewV4().String(),
@@ -164,7 +164,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 			})
 
-			It("if reponse has error push.ErrBadCertificateEnvironment", func() {
+			It("if response has error push.ErrBadCertificateEnvironment", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 403,
 					ApnsID:     uuid.NewV4().String(),
@@ -176,7 +176,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 			})
 
-			It("if reponse has error push.ErrForbidden", func() {
+			It("if response has error push.ErrForbidden", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 403,
 					ApnsID:     uuid.NewV4().String(),
@@ -188,7 +188,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 			})
 
-			It("if reponse has error push.ErrMissingTopic", func() {
+			It("if response has error push.ErrMissingTopic", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
 					ApnsID:     uuid.NewV4().String(),
@@ -200,7 +200,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 			})
 
-			It("if reponse has error push.ErrTopicDisallowed", func() {
+			It("if response has error push.ErrTopicDisallowed", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
 					ApnsID:     uuid.NewV4().String(),
@@ -212,7 +212,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 			})
 
-			It("if reponse has error push.ErrDeviceTokenNotForTopic", func() {
+			It("if response has error push.ErrDeviceTokenNotForTopic", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
 					ApnsID:     uuid.NewV4().String(),
@@ -224,7 +224,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 			})
 
-			It("if reponse has error push.ErrIdleTimeout", func() {
+			It("if response has error push.ErrIdleTimeout", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
 					ApnsID:     uuid.NewV4().String(),
@@ -236,7 +236,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
-			It("if reponse has error push.ErrShutdown", func() {
+			It("if response has error push.ErrShutdown", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 503,
 					ApnsID:     uuid.NewV4().String(),
@@ -248,7 +248,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
-			It("if reponse has error push.ErrInternalServerError", func() {
+			It("if response has error push.ErrInternalServerError", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 500,
 					ApnsID:     uuid.NewV4().String(),
@@ -260,7 +260,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
-			It("if reponse has error push.ErrServiceUnavailable", func() {
+			It("if response has error push.ErrServiceUnavailable", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 503,
 					ApnsID:     uuid.NewV4().String(),
@@ -272,7 +272,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
-			It("if reponse has untracked error", func() {
+			It("if response has untracked error", func() {
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 405,
 					ApnsID:     uuid.NewV4().String(),
