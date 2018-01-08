@@ -257,6 +257,11 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 				"category":   "RateExceededError",
 				log.ErrorKey: cm.Error,
 			}).Debug("received an error")
+		case "CONNECTION_DRAINING":
+			l.WithFields(log.Fields{
+				"category":   "ConnectionDrainingError",
+				log.ErrorKey: cm.Error,
+			}).Debug("received an error")
 		default:
 			l.WithFields(log.Fields{
 				"category":   "DefaultError",

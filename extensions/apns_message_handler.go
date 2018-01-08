@@ -256,10 +256,6 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 	}
 	a.inflightMessagesMetadataLock.Unlock()
 
-	if err != nil {
-		l.WithError(err).Error("error sending feedback to reporter")
-	}
-
 	if responseWithMetadata.Reason != "" {
 		apnsResMutex.Lock()
 		a.failuresReceived++
@@ -287,6 +283,11 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		case apns2.ReasonBadCertificate, apns2.ReasonBadCertificateEnvironment, apns2.ReasonForbidden:
 			l.WithFields(log.Fields{
 				"category":   "CertificateError",
+				log.ErrorKey: responseWithMetadata.Reason,
+			}).Debug("received an error")
+		case apns2.ReasonExpiredProviderToken, apns2.ReasonInvalidProviderToken, apns2.ReasonMissingProviderToken:
+			l.WithFields(log.Fields{
+				"category":   "ProviderTokenError",
 				log.ErrorKey: responseWithMetadata.Reason,
 			}).Debug("received an error")
 		case apns2.ReasonMissingTopic, apns2.ReasonTopicDisallowed, apns2.ReasonDeviceTokenNotForTopic:
@@ -397,6 +398,12 @@ func (a *APNSMessageHandler) mapErrorReason(reason string) string {
 		return "internal-server-error"
 	case apns2.ReasonServiceUnavailable:
 		return "service-unavailable"
+	case apns2.ReasonExpiredProviderToken:
+		return "expired-provider-token"
+	case apns2.ReasonInvalidProviderToken:
+		return "invalid-provider-token"
+	case apns2.ReasonMissingProviderToken:
+		return "missing-provider-token"
 	default:
 		return "unexpected"
 	}
