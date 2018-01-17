@@ -97,7 +97,6 @@ var _ = Describe("StatsD Extension", func() {
 				statsd.HandleNotificationFailure("game", "apns", pErr)
 
 				Expect(mockClient.Count["failed"]).To(Equal(2))
-				Expect(mockClient.Count["some-key"]).To(Equal(2))
 			})
 		})
 	})

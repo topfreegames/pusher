@@ -496,7 +496,6 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.handleGCMResponse(res)
 
 				Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
-				Expect(mockStatsDClient.Count["device_unregistered"]).To(Equal(2))
 			})
 		})
 

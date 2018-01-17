@@ -100,8 +100,7 @@ func (s *StatsD) HandleNotificationSuccess(game string, platform string) {
 
 //HandleNotificationFailure stores each type of failure
 func (s *StatsD) HandleNotificationFailure(game string, platform string, err *errors.PushError) {
-	s.Client.Incr("failed", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
-	s.Client.Incr(err.Key, []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
+	s.Client.Incr("failed", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game), fmt.Sprintf("reason:%s", err.Key)}, 1)
 }
 
 //ReportGoStats reports go stats in statsd

@@ -414,7 +414,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 
 				Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
-				Expect(mockStatsDClient.Count["missing-device-token"]).To(Equal(2))
 			})
 		})
 
