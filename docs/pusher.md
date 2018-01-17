@@ -5,13 +5,9 @@ To start the pusher service you should use one of the commands available in the 
 
 ## CLI
 
-For both APNS and GCM modes a few flags are required:
+The configuration file contains the information about which apps will be enabled, as well as the required informations to actually send the pushes either to GCM or APNS. All variables in the configuration file can be overwritten by environment variables, for example, to overwrite the GCM apps the environment variable is: `PUSHER_GCM_APPS`.
 
-```
---app: the app name for the table in the push PostgreSQL database
-```
-
-And some other are optional:
+There are some optional flags for both APNS and GCM:
 
 ```
 --config: path to the config file (default "./config/default.yaml")
@@ -22,31 +18,18 @@ And some other are optional:
 
 ### APNS
 
-To start the pusher in APNS mode the following flags are required:
-
-```
---certificate: path to the pem certificate that will be used for establishing a secure connection
-```
-
 Example for running in production with default configuration and in debug mode:
 
 ```bash
-❯ pusher apns --certificate <path-to-certificate>/certificate.pem --app <app-name> -d -p
+❯ pusher apns -d -p
 ```
 
 ### GCM
 
-To start the pusher in GCM mode the following flags are required:
-
-```
---apiKey: GCM api key
---senderId: GCM sender id
-```
-
 Example for running in production with default configuration and in debug mode:
 
 ```bash
-❯ pusher gcm --apiKey <api-key> --senderId <sender-id> --app <app-name> -d -p
+❯ pusher gcm -d -p
 ```
 
 ### Version
@@ -54,7 +37,7 @@ Example for running in production with default configuration and in debug mode:
 To print the current version of the lib simply run `pusher version`.
 
 ```bash
-❯ pusher version                                       
+❯ pusher version
 0.1.0
 ```
 
