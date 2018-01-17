@@ -478,14 +478,14 @@ var _ = Describe("GCM Message Handler", func() {
 
 				err = handler.sendMessage(kafkaMessage)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(mockStatsDClient.Count["gcm.game.sent"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["sent"]).To(Equal(2))
 			})
 
 			It("should call HandleNotificationSuccess upon message response received", func() {
 				res := gcm.CCSMessage{}
 				handler.handleGCMResponse(res)
 				handler.handleGCMResponse(res)
-				Expect(mockStatsDClient.Count["gcm..ack"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["ack"]).To(Equal(2))
 			})
 
 			It("should call HandleNotificationFailure upon message response received", func() {
@@ -495,8 +495,8 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.handleGCMResponse(res)
 				handler.handleGCMResponse(res)
 
-				Expect(mockStatsDClient.Count["gcm..failed"]).To(Equal(2))
-				Expect(mockStatsDClient.Count["gcm..device_unregistered"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["device_unregistered"]).To(Equal(2))
 			})
 		})
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 TFG Co <backend@tfgco.com>
+ * Copyright (c) 2018 TFG Co <backend@tfgco.com>
  * Author: TFG Co <backend@tfgco.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -22,10 +22,14 @@
 
 package interfaces
 
+import (
+	"time"
+)
+
 // StatsDClient interface
 type StatsDClient interface {
-	Increment(string)
-	Gauge(string, interface{})
-	Timing(string, interface{})
-	Close()
+	Incr(string, []string, float64) error
+	Gauge(string, float64, []string, float64) error
+	Timing(string, time.Duration, []string, float64) error
+	Close() error
 }

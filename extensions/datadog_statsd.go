@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 TFG Co <backend@tfgco.com>
+ * Copyright (c) 2018 TFG Co <backend@tfgco.com>
  * Author: TFG Co <backend@tfgco.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -23,9 +23,9 @@
 package extensions
 
 import (
-	"time"
+	"fmt"
 
-	"github.com/alexcesaro/statsd"
+	"github.com/DataDog/datadog-go/statsd"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/errors"
@@ -56,7 +56,7 @@ func NewStatsD(config *viper.Viper, logger *logrus.Logger, clientOrNil ...interf
 func (s *StatsD) loadConfigurationDefaults() {
 	s.Config.SetDefault("stats.statsd.host", "localhost:8125")
 	s.Config.SetDefault("stats.statsd.prefix", "test")
-	s.Config.SetDefault("stats.statsd.flushIntervalMs", 5000)
+	s.Config.SetDefault("stats.statsd.buflen", 1)
 }
 
 func (s *StatsD) configure(client interfaces.StatsDClient) error {
@@ -64,18 +64,18 @@ func (s *StatsD) configure(client interfaces.StatsDClient) error {
 
 	host := s.Config.GetString("stats.statsd.host")
 	prefix := s.Config.GetString("stats.statsd.prefix")
-	flushIntervalMs := s.Config.GetInt("stats.statsd.flushIntervalMs")
-	flushPeriod := time.Duration(flushIntervalMs) * time.Millisecond
+	buflen := s.Config.GetInt("stats.statsd.buflen")
 
 	l := s.Logger.WithFields(logrus.Fields{
-		"host":            host,
-		"prefix":          prefix,
-		"flushIntervalMs": flushIntervalMs,
+		"host":   host,
+		"prefix": prefix,
+		"buflen": buflen,
 	})
 
 	if client == nil {
-		var err error
-		client, err = statsd.New(statsd.Address(host), statsd.FlushPeriod(flushPeriod), statsd.Prefix(prefix))
+		ddClient, err := statsd.NewBuffered(host, buflen)
+		ddClient.Namespace = prefix
+		client = ddClient
 
 		if err != nil {
 			l.WithError(err).Error("Error configuring statsd client.")
@@ -90,18 +90,18 @@ func (s *StatsD) configure(client interfaces.StatsDClient) error {
 
 //HandleNotificationSent stores notification count in StatsD
 func (s *StatsD) HandleNotificationSent(game string, platform string) {
-	s.Client.Increment(platform + "." + game + "." + "sent")
+	s.Client.Incr("sent", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
 }
 
 //HandleNotificationSuccess stores notifications success in StatsD
 func (s *StatsD) HandleNotificationSuccess(game string, platform string) {
-	s.Client.Increment(platform + "." + game + "." + "ack")
+	s.Client.Incr("ack", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
 }
 
 //HandleNotificationFailure stores each type of failure
 func (s *StatsD) HandleNotificationFailure(game string, platform string, err *errors.PushError) {
-	s.Client.Increment(platform + "." + game + "." + "failed")
-	s.Client.Increment(platform + "." + game + "." + err.Key)
+	s.Client.Incr("failed", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
+	s.Client.Incr(err.Key, []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
 }
 
 //ReportGoStats reports go stats in statsd
@@ -109,11 +109,10 @@ func (s *StatsD) ReportGoStats(
 	numGoRoutines int,
 	allocatedAndNotFreed, heapObjects, nextGCBytes, pauseGCNano uint64,
 ) {
-	s.Client.Gauge("num_goroutine", numGoRoutines)
-	s.Client.Gauge("allocated_not_freed", allocatedAndNotFreed)
-	s.Client.Gauge("heap_objects", heapObjects)
-	s.Client.Gauge("next_gc_bytes", nextGCBytes)
-	s.Client.Timing("gc_pause_duration_ms", pauseGCNano/1000000)
+	s.Client.Gauge("num_goroutine", float64(numGoRoutines), nil, 1)
+	s.Client.Gauge("allocated_not_freed", float64(allocatedAndNotFreed), nil, 1)
+	s.Client.Gauge("heap_objects", float64(heapObjects), nil, 1)
+	s.Client.Gauge("next_gc_bytes", float64(nextGCBytes), nil, 1)
 }
 
 //Cleanup closes statsd connection

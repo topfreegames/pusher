@@ -45,7 +45,7 @@ stats:
   statsd:
     host: "localhost:8125"
     prefix: "push"
-    flushIntervalMs: 5000
+    buflen: 1
 invalidToken:
   handlers:
     - pg

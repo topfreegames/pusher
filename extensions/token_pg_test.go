@@ -69,7 +69,7 @@ var _ = Describe("TokenPG Extension", func() {
 				t, err := NewTokenPG(config, logger, mockClient)
 				Expect(t).NotTo(BeNil())
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Timed out waiting for PostgreSQL to connect."))
+				Expect(err.Error()).To(Equal("Timed out waiting for PostgreSQL to connect"))
 			})
 		})
 

@@ -2,10 +2,10 @@
 
 
 [[projects]]
-  name = "github.com/alexcesaro/statsd"
-  packages = ["."]
-  revision = "7fea3f0d2fab1ad973e641e51dba45443a311a90"
-  version = "v2.0.0"
+  name = "github.com/DataDog/datadog-go"
+  packages = ["statsd"]
+  revision = "0ddda6bee21174ef6c4873647cb0d6ec9cba996f"
+  version = "1.1.0"
 
 [[projects]]
   name = "github.com/certifi/gocertifi"
@@ -46,7 +46,17 @@
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/hcl"
-  packages = [".","hcl/ast","hcl/parser","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
+  packages = [
+    ".",
+    "hcl/ast",
+    "hcl/parser",
+    "hcl/scanner",
+    "hcl/strconv",
+    "hcl/token",
+    "json/parser",
+    "json/scanner",
+    "json/token"
+  ]
   revision = "392dba7d905ed5d04a5794ba89f558b27e2ba1ca"
 
 [[projects]]
@@ -87,13 +97,45 @@
 
 [[projects]]
   name = "github.com/onsi/ginkgo"
-  packages = [".","config","internal/codelocation","internal/containernode","internal/failer","internal/leafnodes","internal/remote","internal/spec","internal/spec_iterator","internal/specrunner","internal/suite","internal/testingtproxy","internal/writer","reporters","reporters/stenographer","reporters/stenographer/support/go-colorable","reporters/stenographer/support/go-isatty","types"]
+  packages = [
+    ".",
+    "config",
+    "internal/codelocation",
+    "internal/containernode",
+    "internal/failer",
+    "internal/leafnodes",
+    "internal/remote",
+    "internal/spec",
+    "internal/spec_iterator",
+    "internal/specrunner",
+    "internal/suite",
+    "internal/testingtproxy",
+    "internal/writer",
+    "reporters",
+    "reporters/stenographer",
+    "reporters/stenographer/support/go-colorable",
+    "reporters/stenographer/support/go-isatty",
+    "types"
+  ]
   revision = "9eda700730cba42af70d53180f9dcce9266bc2bc"
   version = "v1.4.0"
 
 [[projects]]
   name = "github.com/onsi/gomega"
-  packages = [".","format","internal/assertion","internal/asyncassertion","internal/oraclematcher","internal/testingtsupport","matchers","matchers/support/goraph/bipartitegraph","matchers/support/goraph/edge","matchers/support/goraph/node","matchers/support/goraph/util","types"]
+  packages = [
+    ".",
+    "format",
+    "internal/assertion",
+    "internal/asyncassertion",
+    "internal/oraclematcher",
+    "internal/testingtsupport",
+    "matchers",
+    "matchers/support/goraph/bipartitegraph",
+    "matchers/support/goraph/edge",
+    "matchers/support/goraph/node",
+    "matchers/support/goraph/util",
+    "types"
+  ]
   revision = "c893efa28eb45626cdaa76c9f653b62488858837"
   version = "v1.2.0"
 
@@ -129,20 +171,29 @@
 
 [[projects]]
   name = "github.com/sideshow/apns2"
-  packages = [".","token"]
+  packages = [
+    ".",
+    "token"
+  ]
   revision = "a3ce9c6f95f63dab4ead29da86534dd7af95271a"
   version = "v0.13"
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
-  packages = [".","hooks/test"]
+  packages = [
+    ".",
+    "hooks/test"
+  ]
   revision = "a3f95b5c423586578a4e099b11a46c2479628cac"
   version = "1.0.2"
 
 [[projects]]
   branch = "master"
   name = "github.com/spf13/afero"
-  packages = [".","mem"]
+  packages = [
+    ".",
+    "mem"
+  ]
   revision = "9be650865eab0c12963d8753212f4f9c66cdcf12"
 
 [[projects]]
@@ -183,7 +234,10 @@
 
 [[projects]]
   name = "github.com/stretchr/testify"
-  packages = ["assert","mock"]
+  packages = [
+    "assert",
+    "mock"
+  ]
   revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
   version = "v1.1.4"
 
@@ -196,13 +250,26 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["pkcs12","pkcs12/internal/rc2"]
+  packages = [
+    "pkcs12",
+    "pkcs12/internal/rc2"
+  ]
   revision = "6914964337150723782436d56b3f21610a74ce7b"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["context","context/ctxhttp","html","html/atom","html/charset","http2","http2/hpack","idna","lex/httplex"]
+  packages = [
+    "context",
+    "context/ctxhttp",
+    "html",
+    "html/atom",
+    "html/charset",
+    "http2",
+    "http2/hpack",
+    "idna",
+    "lex/httplex"
+  ]
   revision = "ab5485076ff3407ad2d02db054635913f017b0ed"
 
 [[projects]]
@@ -214,12 +281,43 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = ["encoding","encoding/charmap","encoding/htmlindex","encoding/internal","encoding/internal/identifier","encoding/japanese","encoding/korean","encoding/simplifiedchinese","encoding/traditionalchinese","encoding/unicode","internal/gen","internal/tag","internal/triegen","internal/ucd","internal/utf8internal","language","runes","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
+  packages = [
+    "encoding",
+    "encoding/charmap",
+    "encoding/htmlindex",
+    "encoding/internal",
+    "encoding/internal/identifier",
+    "encoding/japanese",
+    "encoding/korean",
+    "encoding/simplifiedchinese",
+    "encoding/traditionalchinese",
+    "encoding/unicode",
+    "internal/gen",
+    "internal/tag",
+    "internal/triegen",
+    "internal/ucd",
+    "internal/utf8internal",
+    "language",
+    "runes",
+    "secure/bidirule",
+    "transform",
+    "unicode/bidi",
+    "unicode/cldr",
+    "unicode/norm",
+    "unicode/rangetable"
+  ]
   revision = "836efe42bb4aa16aaa17b9c155d8813d336ed720"
 
 [[projects]]
   name = "gopkg.in/pg.v5"
-  packages = [".","internal","internal/parser","internal/pool","orm","types"]
+  packages = [
+    ".",
+    "internal",
+    "internal/parser",
+    "internal/pool",
+    "orm",
+    "types"
+  ]
   revision = "2246060a2a43f8282ad53295d56d780dbc930b7f"
   version = "v5.3.3"
 
@@ -232,6 +330,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "558da59624e3539016af2336e57a20d4af7ebe93c3bbb6247e76585c8de5fcd2"
+  inputs-digest = "c0fcac949df8a913c9a6a13b6f9b5d87ec5f480f86b1d5c8311150499694df9e"
   solver-name = "gps-cdcl"
   solver-version = 1

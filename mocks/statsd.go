@@ -22,7 +22,10 @@
 
 package mocks
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 //StatsDClientMock should be used for tests that need to send xmpp messages to StatsD
 type StatsDClientMock struct {
@@ -44,28 +47,32 @@ func NewStatsDClientMock() *StatsDClientMock {
 
 var mutexCount, mutexGauges, mutexTimings sync.Mutex
 
-//Increment stores the new count in a map
-func (m *StatsDClientMock) Increment(bucket string) {
+//Incr stores the new count in a map
+func (m *StatsDClientMock) Incr(bucket string, tags []string, rate float64) error {
 	mutexCount.Lock()
 	m.Count[bucket]++
 	mutexCount.Unlock()
+	return nil
 }
 
 //Gauge stores the count in a map
-func (m *StatsDClientMock) Gauge(bucket string, value interface{}) {
+func (m *StatsDClientMock) Gauge(bucket string, value float64, tags []string, rate float64) error {
 	mutexGauges.Lock()
 	m.Gauges[bucket] = value
 	mutexGauges.Unlock()
+	return nil
 }
 
 //Timing stores the count in a map
-func (m *StatsDClientMock) Timing(bucket string, value interface{}) {
+func (m *StatsDClientMock) Timing(bucket string, value time.Duration, tags []string, rate float64) error {
 	mutexTimings.Lock()
 	m.Timings[bucket] = value
 	mutexTimings.Unlock()
+	return nil
 }
 
 //Close records that it is closed
-func (m *StatsDClientMock) Close() {
+func (m *StatsDClientMock) Close() error {
 	m.Closed = true
+	return nil
 }

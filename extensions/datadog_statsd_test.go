@@ -53,7 +53,7 @@ var _ = Describe("StatsD Extension", func() {
 
 				statsd.HandleNotificationSent("game", "apns")
 				statsd.HandleNotificationSent("game", "apns")
-				Expect(mockClient.Count["apns.game.sent"]).To(Equal(2))
+				Expect(mockClient.Count["sent"]).To(Equal(2))
 			})
 		})
 
@@ -65,7 +65,7 @@ var _ = Describe("StatsD Extension", func() {
 
 				statsd.HandleNotificationSuccess("game", "apns")
 				statsd.HandleNotificationSuccess("game", "apns")
-				Expect(mockClient.Count["apns.game.ack"]).To(Equal(2))
+				Expect(mockClient.Count["ack"]).To(Equal(2))
 			})
 		})
 
@@ -82,7 +82,6 @@ var _ = Describe("StatsD Extension", func() {
 				Expect(mockClient.Gauges["allocated_not_freed"]).To(BeEquivalentTo(3))
 				Expect(mockClient.Gauges["heap_objects"]).To(BeEquivalentTo(4))
 				Expect(mockClient.Gauges["next_gc_bytes"]).To(BeEquivalentTo(5))
-				Expect(mockClient.Timings["gc_pause_duration_ms"]).To(BeEquivalentTo(6))
 			})
 		})
 
@@ -97,8 +96,8 @@ var _ = Describe("StatsD Extension", func() {
 				statsd.HandleNotificationFailure("game", "apns", pErr)
 				statsd.HandleNotificationFailure("game", "apns", pErr)
 
-				Expect(mockClient.Count["apns.game.failed"]).To(Equal(2))
-				Expect(mockClient.Count["apns.game.some-key"]).To(Equal(2))
+				Expect(mockClient.Count["failed"]).To(Equal(2))
+				Expect(mockClient.Count["some-key"]).To(Equal(2))
 			})
 		})
 	})

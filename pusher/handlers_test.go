@@ -65,7 +65,7 @@ var _ = Describe("Handlers", func() {
 				mockClient.RowsReturned = 0
 				handlers, err := configureInvalidTokenHandlers(config, logger, mockClient)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Failed to initialize pg. Timed out waiting for PostgreSQL to connect."))
+				Expect(err.Error()).To(Equal("Failed to initialize pg. Timed out waiting for PostgreSQL to connect"))
 				Expect(handlers).To(BeNil())
 			})
 		})

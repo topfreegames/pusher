@@ -384,7 +384,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.sendMessage(kafkaMessage)
 				handler.sendMessage(kafkaMessage)
 
-				Expect(mockStatsDClient.Count["apns.game.sent"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["sent"]).To(Equal(2))
 			})
 
 			It("should call HandleNotificationSuccess upon message response received", func() {
@@ -398,7 +398,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 
 				handler.handleAPNSResponse(res)
 				handler.handleAPNSResponse(res)
-				Expect(mockStatsDClient.Count["apns.game.ack"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["ack"]).To(Equal(2))
 			})
 
 			It("should call HandleNotificationFailure upon message response received", func() {
@@ -413,8 +413,8 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				handler.handleAPNSResponse(res)
 
-				Expect(mockStatsDClient.Count["apns.game.failed"]).To(Equal(2))
-				Expect(mockStatsDClient.Count["apns.game.missing-device-token"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
+				Expect(mockStatsDClient.Count["missing-device-token"]).To(Equal(2))
 			})
 		})
 
