@@ -132,9 +132,6 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 		}
 		g.MessageHandler[k] = handler
 	}
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
