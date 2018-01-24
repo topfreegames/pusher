@@ -1,4 +1,4 @@
-# Copyright (c) 2016 TFG Co <backend@tfgco.com>
+# Copyright (c) 2018 TFG Co <backend@tfgco.com>
 # Author: TFG Co <backend@tfgco.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -21,10 +21,121 @@
 OS=`uname -s`
 MY_IP=`ifconfig | grep --color=none -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep --color=none -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | head -n 1`
 
-include ./make/build.mk
-include ./make/ci.mk
-include ./make/deps.mk
-include ./make/rtfd.mk
-include ./make/run.mk
-include ./make/setup.mk
-include ./make/test.mk
+build:
+	@mkdir -p bin
+	@go build -o bin/pusher main.go
+
+dep:
+	@go get -u github.com/golang/dep/cmd/dep
+
+setup-ci-deps:
+	@go get github.com/mattn/goveralls
+	@go get github.com/onsi/ginkgo/ginkgo
+	@dep ensure
+
+setup-ci: dep setup-ci-deps
+
+wait-for-pg:
+	@until docker exec pusher_postgres_1 pg_isready; do echo 'Waiting for Postgres...' && sleep 1; done
+	@sleep 2
+
+deps: start-deps wait-for-pg
+
+start-deps:
+	@echo "Starting dependencies using HOST IP of ${MY_IP}..."
+	@env MY_IP=${MY_IP} docker-compose --project-name pusher up -d
+	@while [ "`echo "health" | nc 127.0.0.1 40002`" != "health: up" ]; do echo "Waiting for StatsD to come up..." && sleep 1; done
+	@echo "Dependencies started successfully."
+
+stop-deps:
+	@env MY_IP=${MY_IP} docker-compose --project-name pusher down
+
+rtfd:
+	@rm -rf docs/_build
+	@sphinx-build -b html -d ./docs/_build/doctrees ./docs/ docs/_build/html
+	@open docs/_build/html/index.html
+
+run:
+	@go run main.go
+
+gcm:
+	@go run main.go gcm --senderId=test --apiKey=123
+
+apns:
+	@go run main.go apns --certificate=./tls/_fixtures/certificate-valid.pem
+
+local-deps:
+	@env MY_IP=${MY_IP} docker-compose --project-name pusher up -d
+
+setup:
+	# Ensuring librdkafka is installed in Mac OS
+	@/bin/bash -c '[ "`uname -s`" == "Darwin" ] && [ "`which brew`" != "" ] && [ ! -d "/usr/local/Cellar/librdkafka" ] && echo "librdkafka was not found. Installing with brew..." && brew install librdkafka; exit 0'
+	# Ensuring librdkafka is installed in Debian and Ubuntu
+	@/bin/bash -c '[ "`uname -s`" == "Linux" ] && [ "`which apt-get`" != "" ] && echo "Ensuring librdkafka is installed..." && ./debian-install-librdkafka.sh; exit 0'
+	@go get -u github.com/golang/dep/cmd/dep
+	@go get -u github.com/onsi/ginkgo/ginkgo
+	@go get github.com/gordonklaus/ineffassign
+	@dep ensure
+
+test: test-unit test-integration
+
+test-coverage-func:
+	@mkdir -p _build
+	@-rm -rf _build/test-coverage-all.out
+	@echo "mode: count" > _build/test-coverage-all.out
+	@bash -c 'for f in $$(find . -name "*.coverprofile"); do tail -n +2 $$f >> _build/test-coverage-all.out; done'
+	@echo
+	@echo "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-"
+	@echo "Functions NOT COVERED by Tests"
+	@echo "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-"
+	@go tool cover -func=_build/test-coverage-all.out | egrep -v "100.0[%]"
+
+test-coverage: test test-coverage-run
+
+test-coverage-run:
+	@mkdir -p _build
+	@-rm -rf _build/test-coverage-all.out
+	@echo "mode: count" > _build/test-coverage-all.out
+	@bash -c 'for f in $$(find . -name "*.coverprofile"); do tail -n +2 $$f >> _build/test-coverage-all.out; done'
+
+test-coverage-html cover:
+	@go tool cover -html=_build/test-coverage-all.out
+
+test-coverage-write-html:
+	@go tool cover -html=_build/test-coverage-all.out -o _build/test-coverage.html
+
+test-services: stop-deps deps test-db-drop test-db-create
+	@echo "Required test services are up."
+
+test-db-drop:
+	@psql -U postgres -h localhost -p 8585 -f db/drop-test.sql > /dev/null
+
+test-db-create:
+	@psql -U postgres -h localhost -p 8585 -f db/create-test.sql > /dev/null
+
+test-unit unit: stop-deps
+	@echo
+	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+	@echo "=                  Running unit tests...                 ="
+	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+	@echo
+	@env MY_IP=${MY_IP} ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
+	@$(MAKE) test-coverage-func
+	@echo
+	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+	@echo "=                  Unit tests finished.                  ="
+	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+	@echo
+
+test-integration integration func: deps test-db-drop test-db-create
+	@echo
+	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+	@echo "=               Running integration tests...             ="
+	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+	@echo
+	@env MY_IP=${MY_IP} ginkgo -r --randomizeAllSpecs --randomizeSuites --skip="\[Integration\].*" .
+	@echo
+	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+	@echo "=               Integration tests finished.              ="
+	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+	@echo
