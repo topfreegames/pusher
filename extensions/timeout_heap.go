@@ -41,9 +41,7 @@ var mutex sync.Mutex
 // TimeoutHeap is a array of timeoutNode, which has request ID and expiration time
 type TimeoutHeap []*timeoutNode
 
-func (th *TimeoutHeap) newTimeoutNode(
-	deviceToken string,
-) *timeoutNode {
+func (th *TimeoutHeap) newTimeoutNode(deviceToken string) *timeoutNode {
 	now := getNowInUnixMilliseconds()
 	node := &timeoutNode{
 		UnixTimeStamp: now + timeoutCte,
@@ -117,9 +115,7 @@ func (th *TimeoutHeap) completeHasExpiredRequest() (string, int64, bool) {
 // For thread safe guarantee, use only the methods below from this api
 
 // NewTimeoutHeap creates and returns a new TimeoutHeap
-func NewTimeoutHeap(
-	config *viper.Viper,
-) *TimeoutHeap {
+func NewTimeoutHeap(config *viper.Viper) *TimeoutHeap {
 	th := make(TimeoutHeap, 0)
 	heap.Init(&th)
 	timeoutCte = int64(config.GetInt("feedback.cache.requestTimeout"))

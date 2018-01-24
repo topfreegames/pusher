@@ -121,8 +121,8 @@ func (p *APNSPushQueue) pushWorker() {
 
 	for notification := range p.pushChannel {
 		client := <-p.clients
-		p.clients <- client
 		res, err := client.Push(notification)
+		p.clients <- client
 		if err != nil {
 			l.WithError(err).Error("push error")
 		}

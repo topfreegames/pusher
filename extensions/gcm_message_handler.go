@@ -289,13 +289,11 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 }
 
 func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
-	g.pendingMessages <- true
 	l := g.Logger.WithField("method", "sendMessage")
 	//ttl := uint(0)
 	km := KafkaGCMMessage{}
 	err := json.Unmarshal(message.Value, &km)
 	if err != nil {
-		<-g.pendingMessages
 		l.WithError(err).Error("Error unmarshaling message.")
 		return err
 	}
@@ -311,6 +309,7 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 	var messageID string
 	var bytes int
 
+	g.pendingMessages <- true
 	messageID, bytes, err = g.GCMClient.SendXMPP(km.XMPPMessage)
 
 	if err != nil {
@@ -324,8 +323,6 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 			km.Metadata = map[string]interface{}{}
 		}
 
-		g.inflightMessagesMetadataLock.Lock()
-
 		km.Metadata["timestamp"] = time.Now().Unix()
 		hostname, err := os.Hostname()
 		if err != nil {
@@ -337,9 +334,9 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 		km.Metadata["game"] = message.Game
 		km.Metadata["platform"] = "gcm"
 
+		g.inflightMessagesMetadataLock.Lock()
 		g.InflightMessagesMetadata[messageID] = km.Metadata
 		g.requestsHeap.AddRequest(messageID)
-
 		g.inflightMessagesMetadataLock.Unlock()
 	}
 

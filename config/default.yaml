@@ -37,7 +37,7 @@ feedback:
     topics: "push-test_apns-feedbacks"
     brokers: "localhost:9941"
   cache:
-    requestTimeout: 86400000
+    requestTimeout: 1800000
     cleaningInterval: 300000
 stats:
   reporters:

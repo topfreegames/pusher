@@ -24,6 +24,7 @@ package extensions
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/sirupsen/logrus"
@@ -108,10 +109,12 @@ func (s *StatsD) ReportGoStats(
 	numGoRoutines int,
 	allocatedAndNotFreed, heapObjects, nextGCBytes, pauseGCNano uint64,
 ) {
-	s.Client.Gauge("num_goroutine", float64(numGoRoutines), nil, 1)
-	s.Client.Gauge("allocated_not_freed", float64(allocatedAndNotFreed), nil, 1)
-	s.Client.Gauge("heap_objects", float64(heapObjects), nil, 1)
-	s.Client.Gauge("next_gc_bytes", float64(nextGCBytes), nil, 1)
+	hostname, _ := os.Hostname()
+	tags := []string{fmt.Sprintf("hostname:%s", hostname)}
+	s.Client.Gauge("num_goroutine", float64(numGoRoutines), tags, 1)
+	s.Client.Gauge("allocated_not_freed", float64(allocatedAndNotFreed), tags, 1)
+	s.Client.Gauge("heap_objects", float64(heapObjects), tags, 1)
+	s.Client.Gauge("next_gc_bytes", float64(nextGCBytes), tags, 1)
 }
 
 //Cleanup closes statsd connection

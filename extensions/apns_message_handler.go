@@ -158,6 +158,10 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 	payload, err := json.Marshal(n.Payload)
 	if err != nil {
 		l.WithError(err).Error("error marshaling message payload")
+		a.ignoredMessages++
+		if a.pendingMessagesWG != nil {
+			a.pendingMessagesWG.Done()
+		}
 		return err
 	}
 	if n.PushExpiry > 0 && n.PushExpiry < makeTimestamp() {
@@ -178,9 +182,7 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 	if n.Metadata == nil {
 		n.Metadata = map[string]interface{}{}
 	}
-	a.inflightMessagesMetadataLock.Lock()
 
-	n.Metadata["timestamp"] = time.Now().Unix()
 	n.Metadata["game"] = a.appName
 	n.Metadata["platform"] = "apns"
 	n.Metadata["deviceToken"] = n.DeviceToken
@@ -190,10 +192,13 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 	} else {
 		n.Metadata["hostname"] = hostname
 	}
+	n.Metadata["timestamp"] = time.Now().Unix()
+
+	a.inflightMessagesMetadataLock.Lock()
 	a.InflightMessagesMetadata[deviceIdentifier] = n.Metadata
 	a.requestsHeap.AddRequest(deviceIdentifier)
-
 	a.inflightMessagesMetadataLock.Unlock()
+
 	a.sentMessages++
 	return nil
 }
@@ -212,6 +217,12 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 	for {
 		a.inflightMessagesMetadataLock.Lock()
 		for deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest(); hasIndeed; {
+			if _, ok := a.InflightMessagesMetadata[deviceToken]; ok {
+				a.ignoredMessages++
+				if a.pendingMessagesWG != nil {
+					a.pendingMessagesWG.Done()
+				}
+			}
 			delete(a.InflightMessagesMetadata, deviceToken)
 			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
 		}
@@ -234,6 +245,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		}
 	}()
 
+	// TODO: Remove from timeout heap (will need a different heap implementation for this)
 	l := a.Logger.WithFields(log.Fields{
 		"method": "handleAPNSResponse",
 		"res":    responseWithMetadata,
