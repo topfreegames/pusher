@@ -385,18 +385,20 @@ func (g *GCMMessageHandler) LogStats() {
 	ticker := time.NewTicker(g.LogStatsInterval)
 	for range ticker.C {
 		apnsResMutex.Lock()
-		l.WithFields(log.Fields{
-			"sentMessages":      g.sentMessages,
-			"responsesReceived": g.responsesReceived,
-			"ignoredMessages":   g.ignoredMessages,
-			"successesReceived": g.successesReceived,
-			"failuresReceived":  g.failuresReceived,
-		}).Info("flushing stats")
-		g.sentMessages = 0
-		g.responsesReceived = 0
-		g.successesReceived = 0
-		g.ignoredMessages = 0
-		g.failuresReceived = 0
+		if g.sentMessages > 0 || g.responsesReceived > 0 || g.ignoredMessages > 0 || g.successesReceived > 0 || g.failuresReceived > 0 {
+			l.WithFields(log.Fields{
+				"sentMessages":      g.sentMessages,
+				"responsesReceived": g.responsesReceived,
+				"ignoredMessages":   g.ignoredMessages,
+				"successesReceived": g.successesReceived,
+				"failuresReceived":  g.failuresReceived,
+			}).Info("flushing stats")
+			g.sentMessages = 0
+			g.responsesReceived = 0
+			g.successesReceived = 0
+			g.ignoredMessages = 0
+			g.failuresReceived = 0
+		}
 		apnsResMutex.Unlock()
 	}
 }
