@@ -126,6 +126,9 @@ func (p *APNSPushQueue) pushWorker() {
 		if err != nil {
 			l.WithError(err).Error("push error")
 		}
+		if res == nil {
+			continue
+		}
 		newRes := &structs.ResponseWithMetadata{
 			StatusCode:  res.StatusCode,
 			Reason:      res.Reason,
