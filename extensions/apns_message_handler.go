@@ -239,12 +239,6 @@ func (a *APNSMessageHandler) HandleMessages(message interfaces.KafkaMessage) {
 }
 
 func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.ResponseWithMetadata) error {
-	defer func() {
-		if a.pendingMessagesWG != nil {
-			a.pendingMessagesWG.Done()
-		}
-	}()
-
 	// TODO: Remove from timeout heap (will need a different heap implementation for this)
 	l := a.Logger.WithFields(log.Fields{
 		"method": "handleAPNSResponse",
@@ -265,6 +259,10 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		responseWithMetadata.Timestamp = responseWithMetadata.Metadata["timestamp"].(int64)
 		delete(responseWithMetadata.Metadata, "timestamp")
 		delete(a.InflightMessagesMetadata, responseWithMetadata.ApnsID)
+
+		if a.pendingMessagesWG != nil {
+			a.pendingMessagesWG.Done()
+		}
 	}
 	a.inflightMessagesMetadataLock.Unlock()
 

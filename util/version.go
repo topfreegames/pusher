@@ -23,4 +23,4 @@
 package util
 
 //Version is the current version of pusher
-var Version = "3.2.1"
+var Version = "3.2.2"
