@@ -42,6 +42,8 @@ type KafkaConsumer struct {
 	ConsumerGroup                  string
 	ChannelSize                    int
 	Logger                         *logrus.Logger
+	FetchMinBytes                  int
+	FetchWaitMaxMs                 int
 	messagesReceived               int64
 	msgChan                        chan interfaces.KafkaMessage
 	OffsetResetStrategy            string
@@ -82,6 +84,8 @@ func (q *KafkaConsumer) loadConfigurationDefaults() {
 	q.Config.SetDefault("queue.topics", []string{"com.games.test"})
 	q.Config.SetDefault("queue.brokers", "localhost:9092")
 	q.Config.SetDefault("queue.channelSize", 100)
+	q.Config.SetDefault("queue.fetch.min.bytes", 1)
+	q.Config.SetDefault("queue.fetch.wait.max.ms", 100)
 	q.Config.SetDefault("queue.group", "test")
 	q.Config.SetDefault("queue.sessionTimeout", 6000)
 	q.Config.SetDefault("queue.offsetResetStrategy", "latest")
@@ -93,6 +97,8 @@ func (q *KafkaConsumer) configure(client interfaces.KafkaConsumerClient) error {
 	q.Brokers = q.Config.GetString("queue.brokers")
 	q.ConsumerGroup = q.Config.GetString("queue.group")
 	q.SessionTimeout = q.Config.GetInt("queue.sessionTimeout")
+	q.FetchMinBytes = q.Config.GetInt("queue.fetch.min.bytes")
+	q.FetchWaitMaxMs = q.Config.GetInt("queue.fetch.wait.max.ms")
 	q.Topics = q.Config.GetStringSlice("queue.topics")
 	q.ChannelSize = q.Config.GetInt("queue.channelSize")
 	q.HandleAllMessagesBeforeExiting = q.Config.GetBool("queue.handleAllMessagesBeforeExiting")
@@ -117,6 +123,8 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 		"bootstrap.servers":               q.Brokers,
 		"group.id":                        q.ConsumerGroup,
 		"session.timeout.ms":              q.SessionTimeout,
+		"fetch.min.bytes":                 q.FetchMinBytes,
+		"fetch.wait.max.ms":               q.FetchWaitMaxMs,
 		"go.events.channel.enable":        true,
 		"go.application.rebalance.enable": true,
 		"enable.auto.commit":              true,
@@ -132,6 +140,8 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 		c, err := kafka.NewConsumer(&kafka.ConfigMap{
 			"bootstrap.servers":               q.Brokers,
 			"group.id":                        q.ConsumerGroup,
+			"fetch.min.bytes":                 q.FetchMinBytes,
+			"fetch.wait.max.ms":               q.FetchWaitMaxMs,
 			"session.timeout.ms":              q.SessionTimeout,
 			"go.events.channel.enable":        true,
 			"go.application.rebalance.enable": true,

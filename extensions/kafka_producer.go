@@ -33,11 +33,13 @@ import (
 
 // KafkaProducer for producing push feedbacks to a kafka queue
 type KafkaProducer struct {
-	Brokers  string
-	Config   *viper.Viper
-	Producer interfaces.KafkaProducerClient
-	Logger   *log.Logger
-	Topic    string
+	Brokers   string
+	Config    *viper.Viper
+	Producer  interfaces.KafkaProducerClient
+	BatchSize int
+	LingerMs  int
+	Logger    *log.Logger
+	Topic     string
 }
 
 // NewKafkaProducer for creating a new KafkaProducer instance
@@ -57,14 +59,20 @@ func NewKafkaProducer(config *viper.Viper, logger *log.Logger, clientOrNil ...in
 func (q *KafkaProducer) loadConfigurationDefaults() {
 	q.Config.SetDefault("feedback.kafka.topic", "com.games.test.feedbacks")
 	q.Config.SetDefault("feedback.kafka.brokers", "localhost:9941")
+	q.Config.SetDefault("feedback.kafka.linger.ms", 0)
+	q.Config.SetDefault("feedback.kafka.batch.size", 1048576)
 }
 
 func (q *KafkaProducer) configure(producer interfaces.KafkaProducerClient) error {
 	q.loadConfigurationDefaults()
 	q.Brokers = q.Config.GetString("feedback.kafka.brokers")
 	q.Topic = q.Config.GetString("feedback.kafka.topics")
+	q.BatchSize = q.Config.GetInt("feedback.kafka.batch.size")
+	q.LingerMs = q.Config.GetInt("feedback.kafka.linger.ms")
 	c := &kafka.ConfigMap{
-		"bootstrap.servers": q.Brokers,
+		"queue.buffering.max.kbytes": q.BatchSize,
+		"linger.ms":                  q.LingerMs,
+		"bootstrap.servers":          q.Brokers,
 	}
 	l := q.Logger.WithFields(log.Fields{
 		"brokers": q.Brokers,
