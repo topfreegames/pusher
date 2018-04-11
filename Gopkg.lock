@@ -16,8 +16,8 @@
 [[projects]]
   name = "github.com/confluentinc/confluent-kafka-go"
   packages = ["kafka"]
-  revision = "a9b5c269c66e9a2eb5f195563b2f01e65a84c527"
-  version = "v0.11.0"
+  revision = "5e4d04e05fc319ce5996a867aafef29059f26862"
+  version = "v0.11.4"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
