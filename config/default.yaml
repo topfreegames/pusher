@@ -47,8 +47,6 @@ stats:
     prefix: "push"
     buflen: 1
 invalidToken:
-  handlers:
-    - pg
   pg:
     table: "test_apns"
     host: localhost
