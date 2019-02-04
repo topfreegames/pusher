@@ -45,7 +45,6 @@ var _ = Describe("GCM Message Handler", func() {
 	var invalidTokenHandlers []interfaces.InvalidTokenHandler
 	var mockClient *mocks.GCMClientMock
 	var mockDb *mocks.PGMock
-	var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var mockStatsDClient *mocks.StatsDClientMock
 	var statsClients []interfaces.StatsReporter
@@ -65,7 +64,6 @@ var _ = Describe("GCM Message Handler", func() {
 			mockStatsDClient = mocks.NewStatsDClientMock()
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
-			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
 			c, err := NewStatsD(config, logger, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
 

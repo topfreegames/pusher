@@ -46,7 +46,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 	var feedbackClients []interfaces.FeedbackReporter
 	var handler *APNSMessageHandler
 	var invalidTokenHandlers []interfaces.InvalidTokenHandler
-	var mockKafkaConsumerClient *mocks.KafkaConsumerClientMock
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var mockPushQueue *mocks.APNSPushQueueMock
 	var mockStatsDClient *mocks.StatsDClientMock
@@ -67,7 +66,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 		BeforeEach(func() {
 			mockStatsDClient = mocks.NewStatsDClientMock()
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
-			mockKafkaConsumerClient = mocks.NewKafkaConsumerClientMock()
 			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
 			c, err := NewStatsD(config, logger, mockStatsDClient)
 			Expect(err).NotTo(HaveOccurred())
