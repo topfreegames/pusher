@@ -57,3 +57,4 @@ invalidToken:
     maxRetries: 3
     database: push
     connectionTimeout: 100
+    chanSize: 1000

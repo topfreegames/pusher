@@ -25,7 +25,9 @@ package extensions
 import (
 	"encoding/json"
 	"regexp"
+	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
 )
@@ -41,6 +43,39 @@ type ParsedTopic struct {
 func handleInvalidToken(invalidTokenHandlers []interfaces.InvalidTokenHandler, token string, game string, platform string) {
 	for _, invalidTokenHandler := range invalidTokenHandlers {
 		invalidTokenHandler.HandleToken(token, game, platform)
+	}
+}
+
+func StopInvalidTokenHandlers(
+	logger *log.Logger,
+	invalidTokenHandlers []interfaces.InvalidTokenHandler,
+	timeout time.Duration,
+) {
+	l := logger.WithField(
+		"method", "stopInvalidTokenHandlers",
+	)
+
+	for _, invalidTokenHandler := range invalidTokenHandlers {
+		done := make(chan struct{})
+		stopCheck := false
+		go func() {
+			defer close(done)
+			for invalidTokenHandler.HasJob() && !stopCheck {
+				time.Sleep(10 * time.Millisecond)
+			}
+		}()
+
+		select {
+		case <-done:
+			invalidTokenHandler.Stop()
+			return
+
+		case <-time.After(timeout):
+			invalidTokenHandler.Stop()
+			stopCheck = true
+			l.Error("timeout reached - invalidTokenHandler was closed with jobs in queue")
+			return
+		}
 	}
 }
 

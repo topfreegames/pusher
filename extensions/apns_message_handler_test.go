@@ -133,7 +133,8 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
+				Eventually(func() []*logrus.Entry { return hook.Entries }).
+					Should(ContainLogMessage("deleting token"))
 				//Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 
@@ -146,7 +147,8 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
+				Eventually(func() []*logrus.Entry { return hook.Entries }).
+					Should(ContainLogMessage("deleting token"))
 				//Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 

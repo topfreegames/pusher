@@ -211,6 +211,7 @@ func (g *GCMPusher) Start() {
 	}
 	g.Queue.StopConsuming()
 	GracefulShutdown(g.Queue.PendingMessagesWaitGroup(), time.Duration(g.GracefulShutdownTimeout)*time.Second)
+	extensions.StopInvalidTokenHandlers(g.Logger, g.InvalidTokenHandlers, time.Duration(g.GracefulShutdownTimeout)*time.Second)
 }
 
 func (g *GCMPusher) reportGoStats() {

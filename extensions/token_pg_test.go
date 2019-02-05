@@ -24,13 +24,16 @@ package extensions
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/mocks"
+	testing "github.com/topfreegames/pusher/testing"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -74,32 +77,99 @@ var _ = Describe("TokenPG Extension", func() {
 		})
 
 		Describe("Handle invalid token", func() {
+			deletionError := "error deleting token"
 			It("should delete apns token", func() {
-				err := tokenPG.HandleToken(token, "test", "apns")
-				Expect(err).NotTo(HaveOccurred())
+				tokenPG.HandleToken(token, "test", "apns")
+				Consistently(func() []*logrus.Entry { return hook.Entries }).
+					ShouldNot(testing.ContainLogMessage(deletionError))
 
 				query := "DELETE FROM test_apns WHERE token = ?0;"
-				Expect(mockClient.Execs).To(HaveLen(2))
-				Expect(mockClient.Execs[1][0]).To(BeEquivalentTo(query))
-				Expect(mockClient.Execs[1][1]).To(BeEquivalentTo([]interface{}{token}))
+				Eventually(func() [][]interface{} { return mockClient.Execs }).
+					Should(HaveLen(2))
+				Eventually(func() interface{} { return mockClient.Execs[1][0] }).
+					Should(BeEquivalentTo(query))
+				Eventually(func() interface{} { return mockClient.Execs[1][1] }).
+					Should(BeEquivalentTo([]interface{}{token}))
 			})
 
 			It("should not break if token does not exist in db", func() {
 				mockClient.Error = fmt.Errorf("pg: no rows in result set")
-				err := tokenPG.HandleToken(token, "test", "apns")
-				Expect(err).NotTo(HaveOccurred())
+				tokenPG.HandleToken(token, "test", "apns")
+				Consistently(func() []*logrus.Entry { return hook.Entries }).
+					ShouldNot(testing.ContainLogMessage(deletionError))
 
 				query := "DELETE FROM test_apns WHERE token = ?0;"
-				Expect(mockClient.Execs).To(HaveLen(2))
-				Expect(mockClient.Execs[1][0]).To(BeEquivalentTo(query))
-				Expect(mockClient.Execs[1][1]).To(BeEquivalentTo([]interface{}{token}))
+				Eventually(func() [][]interface{} { return mockClient.Execs }).
+					Should(HaveLen(2))
+				Eventually(func() interface{} { return mockClient.Execs[1][0] }).
+					Should(BeEquivalentTo(query))
+				Eventually(func() interface{} { return mockClient.Execs[1][1] }).
+					Should(BeEquivalentTo([]interface{}{token}))
 			})
 
 			It("should return an error if pg error occurred", func() {
 				mockClient.Error = fmt.Errorf("pg: error")
+				tokenPG.HandleToken(token, "test", "apns")
+
+				Eventually(func() []*logrus.Entry { return hook.Entries }).
+					Should(testing.ContainLogMessage(deletionError))
+			})
+		})
+
+		Describe("Stopping a tokenPG client", func() {
+			It("without waiting", func() {
+				tokenPG.Stop()
+
+				Expect(hook.Entries).
+					To(testing.ContainLogMessage("waiting the worker to finish"))
+				Expect(hook.Entries).
+					To(testing.ContainLogMessage("tokenPG closed"))
+			})
+
+			It("lefting job undone", func() {
+				size := 1000
+				tokens := make([]string, size)
+				for i := 0; i < len(tokens); i++ {
+					tokens[i] = uuid.NewV4().String()
+					tokenPG.HandleToken(tokens[i], "test", "apns")
+				}
+
+				tokenPG.Stop()
+				Expect(hook.Entries).
+					To(testing.ContainLogMessage("waiting the worker to finish"))
+				Expect(hook.Entries).
+					To(testing.ContainLogMessage("tokenPG closed"))
+
 				err := tokenPG.HandleToken(token, "test", "apns")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("pg: error"))
+				Expect(err.Error()).To(Equal("can't handle more tokens. The TokenPG has been stopped"))
+				Consistently(tokenPG.HasJob).Should(BeTrue())
+			})
+
+			It("waiting finish jobs to stop", func() {
+				size := 1000
+				tokens := make([]string, size)
+				for i := 0; i < len(tokens); i++ {
+					tokens[i] = uuid.NewV4().String()
+					tokenPG.HandleToken(tokens[i], "test", "apns")
+				}
+
+				for tokenPG.HasJob() == true {
+					time.Sleep(10 * time.Millisecond)
+				}
+				tokenPG.Stop()
+
+				Expect(hook.Entries).
+					To(testing.ContainLogMessage("waiting the worker to finish"))
+				Expect(hook.Entries).
+					To(testing.ContainLogMessage("tokenPG closed"))
+
+				Expect(mockClient.Execs).To(HaveLen(size + 1))
+				query := "DELETE FROM test_apns WHERE token = ?0;"
+				for i := 0; i < len(tokens); i++ {
+					Expect(mockClient.Execs[i+1][0]).To(BeIdenticalTo(query))
+					Expect(mockClient.Execs[i+1][1]).To(BeEquivalentTo([]interface{}{tokens[i]}))
+				}
 			})
 		})
 	})

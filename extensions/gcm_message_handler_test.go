@@ -32,7 +32,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
-	"github.com/topfreegames/go-gcm"
+	gcm "github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	. "github.com/topfreegames/pusher/testing"
@@ -133,7 +133,8 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
+				Eventually(func() []*logrus.Entry { return hook.Entries }).
+					Should(ContainLogMessage("deleting token"))
 			})
 
 			It("if response has error BAD_REGISTRATION", func() {
@@ -143,7 +144,8 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
+				Eventually(func() []*logrus.Entry { return hook.Entries }).
+					Should(ContainLogMessage("deleting token"))
 			})
 
 			It("if response has error INVALID_JSON", func() {
@@ -214,9 +216,9 @@ var _ = Describe("GCM Message Handler", func() {
 					gcm.XMPPMessage{
 						TimeToLive:               &ttl,
 						DeliveryReceiptRequested: false,
-						DryRun: true,
-						To:     uuid.NewV4().String(),
-						Data:   map[string]interface{}{},
+						DryRun:                   true,
+						To:                       uuid.NewV4().String(),
+						Data:                     map[string]interface{}{},
 					},
 					metadata,
 					makeTimestamp() + int64(1000000),
@@ -245,9 +247,9 @@ var _ = Describe("GCM Message Handler", func() {
 					gcm.XMPPMessage{
 						TimeToLive:               &ttl,
 						DeliveryReceiptRequested: false,
-						DryRun: true,
-						To:     uuid.NewV4().String(),
-						Data:   map[string]interface{}{},
+						DryRun:                   true,
+						To:                       uuid.NewV4().String(),
+						Data:                     map[string]interface{}{},
 					},
 					metadata,
 					makeTimestamp() - int64(100),
@@ -285,9 +287,9 @@ var _ = Describe("GCM Message Handler", func() {
 				msg := &gcm.XMPPMessage{
 					TimeToLive:               &ttl,
 					DeliveryReceiptRequested: false,
-					DryRun: true,
-					To:     uuid.NewV4().String(),
-					Data:   map[string]interface{}{},
+					DryRun:                   true,
+					To:                       uuid.NewV4().String(),
+					Data:                     map[string]interface{}{},
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
@@ -315,9 +317,9 @@ var _ = Describe("GCM Message Handler", func() {
 					gcm.XMPPMessage{
 						TimeToLive:               &ttl,
 						DeliveryReceiptRequested: false,
-						DryRun: true,
-						To:     uuid.NewV4().String(),
-						Data:   map[string]interface{}{},
+						DryRun:                   true,
+						To:                       uuid.NewV4().String(),
+						Data:                     map[string]interface{}{},
 					},
 					metadata,
 					makeTimestamp() + int64(1000000),
@@ -341,9 +343,9 @@ var _ = Describe("GCM Message Handler", func() {
 				msg := &gcm.XMPPMessage{
 					TimeToLive:               &ttl,
 					DeliveryReceiptRequested: false,
-					DryRun: true,
-					To:     uuid.NewV4().String(),
-					Data:   map[string]interface{}{},
+					DryRun:                   true,
+					To:                       uuid.NewV4().String(),
+					Data:                     map[string]interface{}{},
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
@@ -460,9 +462,9 @@ var _ = Describe("GCM Message Handler", func() {
 				msg := &gcm.XMPPMessage{
 					TimeToLive:               &ttl,
 					DeliveryReceiptRequested: false,
-					DryRun: true,
-					To:     uuid.NewV4().String(),
-					Data:   map[string]interface{}{},
+					DryRun:                   true,
+					To:                       uuid.NewV4().String(),
+					Data:                     map[string]interface{}{},
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())

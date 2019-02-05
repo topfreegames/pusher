@@ -24,6 +24,7 @@ package extensions
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -34,6 +35,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
+	testing "github.com/topfreegames/pusher/testing"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -71,19 +73,60 @@ var _ = Describe("Common", func() {
 				token := uuid.NewV4().String()
 				handleInvalidToken(invalidTokenHandlers, token, "test", "apns")
 				query := "DELETE FROM test_apns WHERE token = ?0;"
-				Expect(db.Execs).To(HaveLen(2))
-				Expect(db.Execs[1][0]).To(BeEquivalentTo(query))
-				Expect(db.Execs[1][1]).To(BeEquivalentTo([]interface{}{token}))
+
+				Eventually(func() [][]interface{} { return db.Execs }).
+					Should(HaveLen(2))
+				Eventually(func() interface{} { return db.Execs[1][0] }).
+					Should(BeEquivalentTo(query))
+				Eventually(func() interface{} { return db.Execs[1][1] }).
+					Should(BeEquivalentTo([]interface{}{token}))
 			})
 
 			It("should fail silently", func() {
 				token := uuid.NewV4().String()
 				db.Error = fmt.Errorf("pg: error")
 				handleInvalidToken(invalidTokenHandlers, token, "test", "apns")
-				Expect(db.Execs).To(HaveLen(2))
+
+				Eventually(func() [][]interface{} { return db.Execs }).
+					Should(HaveLen(2))
 				query := "DELETE FROM test_apns WHERE token = ?0;"
-				Expect(db.Execs[1][0]).To(BeEquivalentTo(query))
-				Expect(db.Execs[1][1]).To(BeEquivalentTo([]interface{}{token}))
+				Eventually(func() interface{} { return db.Execs[1][0] }).
+					Should(BeEquivalentTo(query))
+				Eventually(func() interface{} { return db.Execs[1][1] }).
+					Should(BeEquivalentTo([]interface{}{token}))
+			})
+
+			Describe("should stop handler gracefully", func() {
+				It("if there's no more job to do", func() {
+					token := uuid.NewV4().String()
+					handleInvalidToken(invalidTokenHandlers, token, "test", "apns")
+
+					timeout := 1 * time.Second
+					StopInvalidTokenHandlers(logger, invalidTokenHandlers, timeout)
+					Consistently(func() []*logrus.Entry { return hook.Entries }, 2*timeout).
+						ShouldNot(testing.ContainLogMessage("timeout reached - invalidTokenHandler was closed with jobs in queue"))
+
+					Eventually(func() [][]interface{} { return db.Execs }).
+						Should(HaveLen(2))
+					query := "DELETE FROM test_apns WHERE token = ?0;"
+					Eventually(func() interface{} { return db.Execs[1][0] }).
+						Should(BeEquivalentTo(query))
+					Eventually(func() interface{} { return db.Execs[1][1] }).
+						Should(BeEquivalentTo([]interface{}{token}))
+				})
+
+				It("timeout reached", func() {
+					size := 1000
+					for i := 0; i < size; i++ {
+						token := uuid.NewV4().String()
+						handleInvalidToken(invalidTokenHandlers, token, "test", "apns")
+					}
+
+					timeout := 1 * time.Nanosecond
+					StopInvalidTokenHandlers(logger, invalidTokenHandlers, timeout)
+					Eventually(func() []*logrus.Entry { return hook.Entries }).
+						Should(testing.ContainLogMessage("timeout reached - invalidTokenHandler was closed with jobs in queue"))
+				})
 			})
 		})
 

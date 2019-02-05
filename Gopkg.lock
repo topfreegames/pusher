@@ -312,24 +312,6 @@
   version = "v1.3"
 
 [[projects]]
-  digest = "1:1aa50e504ff54351992a2324a4aba36f8eaa9ff34308ffa6a610a8dc188332b5"
-  name = "github.com/topfreegames/pusher"
-  packages = [
-    "cmd",
-    "errors",
-    "extensions",
-    "interfaces",
-    "mocks",
-    "pusher",
-    "structs",
-    "testing",
-    "util",
-  ]
-  pruneopts = ""
-  revision = "7239579ceed0c5d4ae13af66a5e1ece9e8ccf5bd"
-  version = "3.4.2"
-
-[[projects]]
   branch = "master"
   digest = "1:1710f8497e287491a719f21eb51b1068b224c63d31084b3d7121c6d65bc3bebf"
   name = "golang.org/x/crypto"
@@ -439,15 +421,6 @@
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "github.com/topfreegames/go-gcm",
-    "github.com/topfreegames/pusher/cmd",
-    "github.com/topfreegames/pusher/errors",
-    "github.com/topfreegames/pusher/extensions",
-    "github.com/topfreegames/pusher/interfaces",
-    "github.com/topfreegames/pusher/mocks",
-    "github.com/topfreegames/pusher/pusher",
-    "github.com/topfreegames/pusher/structs",
-    "github.com/topfreegames/pusher/testing",
-    "github.com/topfreegames/pusher/util",
     "golang.org/x/crypto/pkcs12",
     "gopkg.in/pg.v5",
     "gopkg.in/pg.v5/types",

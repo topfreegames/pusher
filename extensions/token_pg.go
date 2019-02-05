@@ -23,7 +23,9 @@
 package extensions
 
 import (
+	"errors"
 	"fmt"
+	"sync"
 
 	raven "github.com/getsentry/raven-go"
 	"github.com/sirupsen/logrus"
@@ -32,11 +34,23 @@ import (
 	"github.com/topfreegames/pusher/util"
 )
 
-// TokenPG for sending metrics
+// TokenPG for deleting invalid tokens from the database
 type TokenPG struct {
 	Client *PGClient
 	Config *viper.Viper
 	Logger *logrus.Logger
+
+	tokensToDelete chan *TokenMsg
+	done           chan struct{}
+	closed         bool
+	wg             sync.WaitGroup
+}
+
+// TokenMsg represents a token to be deleted in the db
+type TokenMsg struct {
+	Token    string
+	Game     string
+	Platform string
 }
 
 // NewTokenPG for creating a new TokenPG instance
@@ -50,6 +64,14 @@ func NewTokenPG(config *viper.Viper, logger *logrus.Logger, dbOrNil ...interface
 		db = dbOrNil[0]
 	}
 	err := q.configure(db)
+
+	q.tokensToDelete = make(chan *TokenMsg, config.GetInt("invalidToken.pg.chanSize"))
+	q.done = make(chan struct{})
+	q.closed = false
+
+	go q.tokenPGWorker()
+	q.wg.Add(1)
+
 	return q, err
 }
 
@@ -70,21 +92,67 @@ func (t *TokenPG) configure(db interfaces.DB) error {
 	return nil
 }
 
-// HandleToken handles an invalid token
+// tokenPGWorker picks TokenMsgs from the queue to delete them from the database
+func (t *TokenPG) tokenPGWorker() {
+	defer t.wg.Done()
+
+	l := t.Logger.WithField("method", "listenToTokenMsgQueue")
+
+	for {
+		select {
+		case tkMsg := <-t.tokensToDelete:
+			err := t.deleteToken(tkMsg)
+			if err != nil {
+				l.WithError(err).Error("error deleting token")
+			}
+
+		case <-t.done:
+			l.Warn("stopping tokenPGWorker")
+			return
+		}
+	}
+}
+
+// HandleToken handles an invalid token. It sends it to a channel to be process by
+// the PGToken worker. If the TokenPG was stopped, an error is returned
 func (t *TokenPG) HandleToken(token string, game string, platform string) error {
 	l := t.Logger.WithFields(logrus.Fields{
 		"method": "HandleToken",
 		"token":  token,
 	})
+
+	tkMsg := &TokenMsg{
+		Token:    token,
+		Game:     game,
+		Platform: platform,
+	}
+
+	if t.closed {
+		e := errors.New("can't handle more tokens. The TokenPG has been stopped")
+		l.Error(e)
+		return e
+	}
+
+	t.tokensToDelete <- tkMsg
+	return nil
+}
+
+// deleteToken deletes the given token in the database
+func (t *TokenPG) deleteToken(tkMsg *TokenMsg) error {
+	l := t.Logger.WithFields(logrus.Fields{
+		"method": "DeleteToken",
+		"token":  tkMsg.Token,
+	})
+
 	l.Debug("deleting token")
-	query := fmt.Sprintf("DELETE FROM %s WHERE token = ?0;", game+"_"+platform)
-	_, err := t.Client.DB.Exec(query, token)
+	query := fmt.Sprintf("DELETE FROM %s WHERE token = ?0;", tkMsg.Game+"_"+tkMsg.Platform)
+	_, err := t.Client.DB.Exec(query, tkMsg.Token)
 	if err != nil && err.Error() != "pg: no rows in result set" {
 		raven.CaptureError(err, map[string]string{
 			"version":   util.Version,
 			"extension": "token-pg",
 		})
-		l.WithError(err).Error("error deleting token")
+
 		return err
 	}
 	return nil
@@ -94,4 +162,28 @@ func (t *TokenPG) HandleToken(token string, game string, platform string) error 
 func (t *TokenPG) Cleanup() error {
 	t.Client.Close()
 	return nil
+}
+
+// Stop stops the TokenPG's worker
+func (t *TokenPG) Stop() error {
+	l := t.Logger.WithFields(logrus.Fields{
+		"method": "Stop",
+	})
+
+	close(t.done)
+	l.Info("waiting the worker to finish")
+	t.wg.Wait()
+	l.Info("tokenPG closed")
+	t.closed = true
+
+	return nil
+}
+
+// HasJob returns if the TokenPG still has tokens to be processed
+func (t *TokenPG) HasJob() bool {
+	if len(t.tokensToDelete) > 0 {
+		return true
+	}
+
+	return false
 }

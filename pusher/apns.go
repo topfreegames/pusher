@@ -217,6 +217,7 @@ func (a *APNSPusher) Start() {
 	}
 	a.Queue.StopConsuming()
 	GracefulShutdown(a.Queue.PendingMessagesWaitGroup(), time.Duration(a.GracefulShutdownTimeout)*time.Second)
+	extensions.StopInvalidTokenHandlers(a.Logger, a.InvalidTokenHandlers, time.Duration(a.GracefulShutdownTimeout)*time.Second)
 }
 
 func (a *APNSPusher) reportGoStats() {
