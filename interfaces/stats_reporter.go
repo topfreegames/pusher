@@ -30,4 +30,5 @@ type StatsReporter interface {
 	HandleNotificationSuccess(game string, platform string)
 	HandleNotificationFailure(game string, platform string, err *errors.PushError)
 	ReportGoStats(numGoRoutines int, allocatedAndNotFreed, heapObjects, nextGCBytes, pauseGCNano uint64)
+	ReportMetricIncrement(metric string, game, platform string)
 }

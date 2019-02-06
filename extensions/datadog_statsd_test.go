@@ -99,6 +99,27 @@ var _ = Describe("StatsD Extension", func() {
 				Expect(mockClient.Count["failed"]).To(Equal(2))
 			})
 		})
+
+		Describe("Reporting metric increment", func() {
+			It("should report metric increment in statsd", func() {
+				statsd, err := NewStatsD(config, logger, mockClient)
+				Expect(err).NotTo(HaveOccurred())
+				defer statsd.Cleanup()
+
+				statsd.ReportMetricIncrement("tokens_to_delete", "game", "apns")
+				statsd.ReportMetricIncrement("tokens_to_delete", "game", "apns")
+				statsd.ReportMetricIncrement("tokens_to_delete", "game", "apns")
+
+				statsd.ReportMetricIncrement("tokens_deleted", "game", "apns")
+				statsd.ReportMetricIncrement("tokens_deleted", "game", "apns")
+
+				statsd.ReportMetricIncrement("tokens_deletion_failed", "game", "apns")
+
+				Expect(mockClient.Count["tokens_to_delete"]).To(Equal(3))
+				Expect(mockClient.Count["tokens_deleted"]).To(Equal(2))
+				Expect(mockClient.Count["tokens_deletion_failed"]).To(Equal(1))
+			})
+		})
 	})
 
 	Describe("[Integration]", func() {

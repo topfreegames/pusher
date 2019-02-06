@@ -117,6 +117,20 @@ func (s *StatsD) ReportGoStats(
 	s.Client.Gauge("next_gc_bytes", float64(nextGCBytes), tags, 1)
 }
 
+// ReportMetricIncrement reports a custom metric increment in statsd
+func (s *StatsD) ReportMetricIncrement(
+	metric string,
+	game, platform string,
+) {
+	hostname, _ := os.Hostname()
+	tags := []string{
+		fmt.Sprintf("hostname:%s", hostname),
+		fmt.Sprintf("game:%s", game),
+		fmt.Sprintf("platform:%s", platform),
+	}
+	s.Client.Incr(metric, tags, 1)
+}
+
 //Cleanup closes statsd connection
 func (s *StatsD) Cleanup() error {
 	s.Client.Close()
