@@ -47,6 +47,7 @@ If Pusher needs to connect to a PostgreSQL database in order to delete invalid t
 * `PUSHER_INVALIDTOKEN_PG_POOLSIZE` - PostgreSQL connection pool size;
 * `PUSHER_INVALIDTOKEN_PG_MAXRETRIES` - PostgreSQL connection max retries;
 * `PUSHER_INVALIDTOKEN_PG_CONNECTIONTIMEOUT` - Timeout for trying to establish connection;
+* `PUSHER_INVALIDTOKEN_PG_CHANSIZE` - Size of the channel to buffer the tokens to be deleted;
 
 Other than that, there are a couple more configurations you can pass using environment variables:
 

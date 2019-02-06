@@ -46,6 +46,9 @@ func handleInvalidToken(invalidTokenHandlers []interfaces.InvalidTokenHandler, t
 	}
 }
 
+// StopInvalidTokenHandlers stops the invalid token handlers
+// For each handler, it waits its buffered queue to be completely empty and forces
+// the termination after the given timeout
 func StopInvalidTokenHandlers(
 	logger *log.Logger,
 	invalidTokenHandlers []interfaces.InvalidTokenHandler,
