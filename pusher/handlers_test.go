@@ -27,6 +27,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/extensions"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/util"
 )
@@ -34,6 +36,8 @@ import (
 var _ = Describe("Handlers", func() {
 	var config *viper.Viper
 	var mockClient *mocks.PGMock
+	var mockStatsDClient *mocks.StatsDClientMock
+	var statsClients []interfaces.StatsReporter
 	logger, hook := test.NewNullLogger()
 
 	BeforeEach(func() {
@@ -41,13 +45,20 @@ var _ = Describe("Handlers", func() {
 		config, err = util.NewViperWithConfigFile("../config/test.yaml")
 		Expect(err).NotTo(HaveOccurred())
 		mockClient = mocks.NewPGMock(0, 1)
+
+		mockStatsDClient = mocks.NewStatsDClientMock()
+		c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
+		Expect(err).NotTo(HaveOccurred())
+
+		statsClients = []interfaces.StatsReporter{c}
+
 		hook.Reset()
 	})
 
 	Describe("[Unit]", func() {
 		Describe("Configuring invalid token handlers", func() {
 			It("should return invalid token handler list", func() {
-				handlers, err := configureInvalidTokenHandlers(config, logger, mockClient)
+				handlers, err := configureInvalidTokenHandlers(config, logger, statsClients, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handlers).To(HaveLen(1))
 				Expect(handlers[0]).NotTo(BeNil())
@@ -55,7 +66,7 @@ var _ = Describe("Handlers", func() {
 
 			It("should return an error if token handler is not available", func() {
 				config.Set("invalidToken.handlers", []string{"notAvailable"})
-				handlers, err := configureInvalidTokenHandlers(config, logger, mockClient)
+				handlers, err := configureInvalidTokenHandlers(config, logger, statsClients, mockClient)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Failed to initialize notAvailable. Invalid Token Handler not available."))
 				Expect(handlers).To(BeNil())
@@ -63,7 +74,7 @@ var _ = Describe("Handlers", func() {
 
 			It("should return an error if failed to create invalid token handler", func() {
 				mockClient.RowsReturned = 0
-				handlers, err := configureInvalidTokenHandlers(config, logger, mockClient)
+				handlers, err := configureInvalidTokenHandlers(config, logger, statsClients, mockClient)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Failed to initialize pg. Timed out waiting for PostgreSQL to connect"))
 				Expect(handlers).To(BeNil())

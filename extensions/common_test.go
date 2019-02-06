@@ -45,6 +45,8 @@ var _ = Describe("Common", func() {
 	var feedbackClients []interfaces.FeedbackReporter
 	var invalidTokenHandlers []interfaces.InvalidTokenHandler
 	var db *mocks.PGMock
+	var mockStatsDClient *mocks.StatsDClientMock
+	var statsClients []interfaces.StatsReporter
 
 	configFile := "../config/test.yaml"
 	logger, hook := test.NewNullLogger()
@@ -58,10 +60,16 @@ var _ = Describe("Common", func() {
 			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
 			kc, err := NewKafkaProducer(config, logger, mockKafkaProducerClient)
 			Expect(err).NotTo(HaveOccurred())
+
+			mockStatsDClient = mocks.NewStatsDClientMock()
+			c, err := NewStatsD(config, logger, mockStatsDClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			statsClients = []interfaces.StatsReporter{c}
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
 			db = mocks.NewPGMock(0, 1)
-			it, err := NewTokenPG(config, logger, db)
+			it, err := NewTokenPG(config, logger, statsClients, db)
 			Expect(err).NotTo(HaveOccurred())
 			invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 
@@ -80,6 +88,10 @@ var _ = Describe("Common", func() {
 					Should(BeEquivalentTo(query))
 				Eventually(func() interface{} { return db.Execs[1][1] }).
 					Should(BeEquivalentTo([]interface{}{token}))
+
+				Expect(mockStatsDClient.Count[MetricsTokensToDelete]).To(Equal(1))
+				Eventually(func() int { return mockStatsDClient.Count[MetricsTokensDeleted] }).
+					Should(Equal(1))
 			})
 
 			It("should fail silently", func() {
@@ -94,6 +106,10 @@ var _ = Describe("Common", func() {
 					Should(BeEquivalentTo(query))
 				Eventually(func() interface{} { return db.Execs[1][1] }).
 					Should(BeEquivalentTo([]interface{}{token}))
+
+				Expect(mockStatsDClient.Count[MetricsTokensToDelete]).To(Equal(1))
+				Eventually(func() int { return mockStatsDClient.Count[MetricsTokensDeletionError] }).
+					Should(Equal(1))
 			})
 
 			Describe("should stop handler gracefully", func() {

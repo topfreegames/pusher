@@ -31,16 +31,16 @@ import (
 	"github.com/topfreegames/pusher/interfaces"
 )
 
-type invalidTokenHandlerInitializer func(*viper.Viper, *logrus.Logger, interfaces.DB) (interfaces.InvalidTokenHandler, error)
+type invalidTokenHandlerInitializer func(*viper.Viper, *logrus.Logger, []interfaces.StatsReporter, interfaces.DB) (interfaces.InvalidTokenHandler, error)
 
 // AvailableInvalidTokenHandlers contains functions to initialize all invalid token handlers
 var AvailableInvalidTokenHandlers = map[string]invalidTokenHandlerInitializer{
-	"pg": func(config *viper.Viper, logger *logrus.Logger, dbOrNil interfaces.DB) (interfaces.InvalidTokenHandler, error) {
-		return extensions.NewTokenPG(config, logger, dbOrNil)
+	"pg": func(config *viper.Viper, logger *logrus.Logger, statsReporter []interfaces.StatsReporter, dbOrNil interfaces.DB) (interfaces.InvalidTokenHandler, error) {
+		return extensions.NewTokenPG(config, logger, statsReporter, dbOrNil)
 	},
 }
 
-func configureInvalidTokenHandlers(config *viper.Viper, logger *logrus.Logger, dbOrNil interfaces.DB) ([]interfaces.InvalidTokenHandler, error) {
+func configureInvalidTokenHandlers(config *viper.Viper, logger *logrus.Logger, statsReporter []interfaces.StatsReporter, dbOrNil interfaces.DB) ([]interfaces.InvalidTokenHandler, error) {
 	invalidTokenHandlers := []interfaces.InvalidTokenHandler{}
 	invalidTokenHandlerNames := config.GetStringSlice("invalidToken.handlers")
 	for _, invalidTokenHandlerName := range invalidTokenHandlerNames {
@@ -49,7 +49,7 @@ func configureInvalidTokenHandlers(config *viper.Viper, logger *logrus.Logger, d
 			return nil, fmt.Errorf("Failed to initialize %s. Invalid Token Handler not available.", invalidTokenHandlerName)
 		}
 
-		r, err := invalidTokenHandlerFunc(config, logger, dbOrNil)
+		r, err := invalidTokenHandlerFunc(config, logger, statsReporter, dbOrNil)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to initialize %s. %s", invalidTokenHandlerName, err.Error())
 		}

@@ -34,6 +34,14 @@ import (
 	"github.com/topfreegames/pusher/util"
 )
 
+// Metrics name sent by TokenPG
+const (
+	MetricsTokensToDelete           = "tokens_to_delete"
+	MetricsTokensDeleted            = "tokens_deleted"
+	MetricsTokensDeletionError      = "tokens_deletion_error"
+	MetricsTokensHandleAfterClosing = "tokens_handle_after_closing"
+)
+
 // TokenPG for deleting invalid tokens from the database
 type TokenPG struct {
 	Client *PGClient
@@ -44,6 +52,8 @@ type TokenPG struct {
 	done           chan struct{}
 	closed         bool
 	wg             sync.WaitGroup
+
+	StatsReporters []interfaces.StatsReporter
 }
 
 // TokenMsg represents a token to be deleted in the db
@@ -54,10 +64,15 @@ type TokenMsg struct {
 }
 
 // NewTokenPG for creating a new TokenPG instance
-func NewTokenPG(config *viper.Viper, logger *logrus.Logger, dbOrNil ...interfaces.DB) (*TokenPG, error) {
+func NewTokenPG(config *viper.Viper,
+	logger *logrus.Logger,
+	statsReporters []interfaces.StatsReporter,
+	dbOrNil ...interfaces.DB,
+) (*TokenPG, error) {
 	q := &TokenPG{
-		Config: config,
-		Logger: logger,
+		Config:         config,
+		Logger:         logger,
+		StatsReporters: statsReporters,
 	}
 	var db interfaces.DB
 	if len(dbOrNil) == 1 {
@@ -104,6 +119,13 @@ func (t *TokenPG) tokenPGWorker() {
 			err := t.deleteToken(tkMsg)
 			if err != nil {
 				l.WithError(err).Error("error deleting token")
+				statsReporterReportMetricIncrement(t.StatsReporters,
+					MetricsTokensDeletionError, tkMsg.Game, tkMsg.Platform,
+				)
+			} else {
+				statsReporterReportMetricIncrement(t.StatsReporters,
+					MetricsTokensDeleted, tkMsg.Game, tkMsg.Platform,
+				)
 			}
 
 		case <-t.done:
@@ -113,7 +135,7 @@ func (t *TokenPG) tokenPGWorker() {
 	}
 }
 
-// HandleToken handles an invalid token. It sends it to a channel to be process by
+// HandleToken handles an invalid token. It sends it to a channel to be processed by
 // the PGToken worker. If the TokenPG was stopped, an error is returned
 func (t *TokenPG) HandleToken(token string, game string, platform string) error {
 	l := t.Logger.WithFields(logrus.Fields{
@@ -130,10 +152,16 @@ func (t *TokenPG) HandleToken(token string, game string, platform string) error 
 	if t.closed {
 		e := errors.New("can't handle more tokens. The TokenPG has been stopped")
 		l.Error(e)
+		statsReporterReportMetricIncrement(t.StatsReporters,
+			MetricsTokensHandleAfterClosing, tkMsg.Game, tkMsg.Platform,
+		)
 		return e
 	}
 
 	t.tokensToDelete <- tkMsg
+	statsReporterReportMetricIncrement(t.StatsReporters,
+		MetricsTokensToDelete, tkMsg.Game, tkMsg.Platform,
+	)
 	return nil
 }
 
@@ -174,6 +202,10 @@ func (t *TokenPG) Stop() error {
 	l.Info("waiting the worker to finish")
 	t.wg.Wait()
 	l.Info("tokenPG closed")
+	if ut := len(t.tokensToDelete); ut > 0 {
+		l.Warnf("%d tokens haven't been processed", ut)
+	}
+
 	t.closed = true
 
 	return nil

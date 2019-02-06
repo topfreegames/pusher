@@ -73,7 +73,7 @@ var _ = Describe("GCM Message Handler", func() {
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
 			mockDb = mocks.NewPGMock(0, 1)
-			it, err := NewTokenPG(config, logger, mockDb)
+			it, err := NewTokenPG(config, logger, statsClients, mockDb)
 			Expect(err).NotTo(HaveOccurred())
 			invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 
@@ -135,6 +135,10 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				Eventually(func() []*logrus.Entry { return hook.Entries }).
 					Should(ContainLogMessage("deleting token"))
+
+				Expect(mockStatsDClient.Count[MetricsTokensToDelete]).To(Equal(1))
+				Eventually(func() int { return mockStatsDClient.Count[MetricsTokensDeleted] }).
+					Should(Equal(1))
 			})
 
 			It("if response has error BAD_REGISTRATION", func() {
@@ -146,6 +150,10 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				Eventually(func() []*logrus.Entry { return hook.Entries }).
 					Should(ContainLogMessage("deleting token"))
+
+				Expect(mockStatsDClient.Count[MetricsTokensToDelete]).To(Equal(1))
+				Eventually(func() int { return mockStatsDClient.Count[MetricsTokensDeleted] }).
+					Should(Equal(1))
 			})
 
 			It("if response has error INVALID_JSON", func() {
@@ -509,7 +517,7 @@ var _ = Describe("GCM Message Handler", func() {
 				feedbackClients = []interfaces.FeedbackReporter{kc}
 
 				mockClient = mocks.NewGCMClientMock()
-				it, err := NewTokenPG(config, logger, mockDb)
+				it, err := NewTokenPG(config, logger, statsClients, mockDb)
 				Expect(err).NotTo(HaveOccurred())
 				invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 

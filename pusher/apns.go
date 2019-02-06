@@ -160,7 +160,7 @@ func (a *APNSPusher) configureStatsReporters(clientOrNil interfaces.StatsDClient
 }
 
 func (a *APNSPusher) configureInvalidTokenHandlers(dbOrNil interfaces.DB) error {
-	invalidTokenHandlers, err := configureInvalidTokenHandlers(a.Config, a.Logger, dbOrNil)
+	invalidTokenHandlers, err := configureInvalidTokenHandlers(a.Config, a.Logger, a.StatsReporters, dbOrNil)
 	if err != nil {
 		return err
 	}

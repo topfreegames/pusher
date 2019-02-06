@@ -120,3 +120,9 @@ func statsReporterHandleNotificationFailure(statsReporters []interfaces.StatsRep
 		statsReporter.HandleNotificationFailure(game, platform, err)
 	}
 }
+
+func statsReporterReportMetricIncrement(statsReporters []interfaces.StatsReporter, metric string, game string, platform string) {
+	for _, statsReporter := range statsReporters {
+		statsReporter.ReportMetricIncrement(metric, game, platform)
+	}
+}

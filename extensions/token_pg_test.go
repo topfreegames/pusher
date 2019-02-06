@@ -32,6 +32,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	testing "github.com/topfreegames/pusher/testing"
 	"github.com/topfreegames/pusher/util"
@@ -41,6 +42,8 @@ var _ = Describe("TokenPG Extension", func() {
 	var config *viper.Viper
 	var mockClient *mocks.PGMock
 	var tokenPG *TokenPG
+	var mockStatsDClient *mocks.StatsDClientMock
+	var statsClients []interfaces.StatsReporter
 	logger, hook := test.NewNullLogger()
 	token := uuid.NewV4().String()
 
@@ -48,8 +51,15 @@ var _ = Describe("TokenPG Extension", func() {
 		var err error
 		config, err = util.NewViperWithConfigFile("../config/test.yaml")
 		Expect(err).NotTo(HaveOccurred())
+
+		mockStatsDClient = mocks.NewStatsDClientMock()
+		c, err := NewStatsD(config, logger, mockStatsDClient)
+		Expect(err).NotTo(HaveOccurred())
+
+		statsClients = []interfaces.StatsReporter{c}
+
 		mockClient = mocks.NewPGMock(0, 1)
-		tokenPG, err = NewTokenPG(config, logger, mockClient)
+		tokenPG, err = NewTokenPG(config, logger, statsClients, mockClient)
 		Expect(err).NotTo(HaveOccurred())
 		hook.Reset()
 	})
@@ -57,7 +67,7 @@ var _ = Describe("TokenPG Extension", func() {
 	Describe("[Unit]", func() {
 		Describe("Creating new client", func() {
 			It("should return connected client", func() {
-				t, err := NewTokenPG(config, logger, mockClient)
+				t, err := NewTokenPG(config, logger, statsClients, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(t).NotTo(BeNil())
 				Expect(t.Client).NotTo(BeNil())
@@ -69,7 +79,7 @@ var _ = Describe("TokenPG Extension", func() {
 
 			It("should return an error if failed to connect to postgres", func() {
 				mockClient.RowsReturned = 0
-				t, err := NewTokenPG(config, logger, mockClient)
+				t, err := NewTokenPG(config, logger, statsClients, mockClient)
 				Expect(t).NotTo(BeNil())
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Timed out waiting for PostgreSQL to connect"))
@@ -90,6 +100,10 @@ var _ = Describe("TokenPG Extension", func() {
 					Should(BeEquivalentTo(query))
 				Eventually(func() interface{} { return mockClient.Execs[1][1] }).
 					Should(BeEquivalentTo([]interface{}{token}))
+
+				Expect(mockStatsDClient.Count[MetricsTokensToDelete]).To(Equal(1))
+				Eventually(func() int { return mockStatsDClient.Count[MetricsTokensDeleted] }).
+					Should(Equal(1))
 			})
 
 			It("should not break if token does not exist in db", func() {
@@ -105,6 +119,10 @@ var _ = Describe("TokenPG Extension", func() {
 					Should(BeEquivalentTo(query))
 				Eventually(func() interface{} { return mockClient.Execs[1][1] }).
 					Should(BeEquivalentTo([]interface{}{token}))
+
+				Expect(mockStatsDClient.Count[MetricsTokensToDelete]).To(Equal(1))
+				Eventually(func() int { return mockStatsDClient.Count[MetricsTokensDeleted] }).
+					Should(Equal(1))
 			})
 
 			It("should return an error if pg error occurred", func() {
@@ -113,6 +131,10 @@ var _ = Describe("TokenPG Extension", func() {
 
 				Eventually(func() []*logrus.Entry { return hook.Entries }).
 					Should(testing.ContainLogMessage(deletionError))
+
+				Expect(mockStatsDClient.Count[MetricsTokensToDelete]).To(Equal(1))
+				Eventually(func() int { return mockStatsDClient.Count[MetricsTokensDeletionError] }).
+					Should(Equal(1))
 			})
 		})
 
@@ -139,11 +161,15 @@ var _ = Describe("TokenPG Extension", func() {
 					To(testing.ContainLogMessage("waiting the worker to finish"))
 				Expect(hook.Entries).
 					To(testing.ContainLogMessage("tokenPG closed"))
+				Expect(hook.Entries).
+					To(testing.ContainLogMessage(fmt.Sprintf("%d tokens haven't been processed", len(tokenPG.tokensToDelete))))
 
 				err := tokenPG.HandleToken(token, "test", "apns")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("can't handle more tokens. The TokenPG has been stopped"))
 				Consistently(tokenPG.HasJob).Should(BeTrue())
+
+				Expect(mockStatsDClient.Count[MetricsTokensHandleAfterClosing]).To(Equal(1))
 			})
 
 			It("waiting finish jobs to stop", func() {
@@ -170,6 +196,9 @@ var _ = Describe("TokenPG Extension", func() {
 					Expect(mockClient.Execs[i+1][0]).To(BeIdenticalTo(query))
 					Expect(mockClient.Execs[i+1][1]).To(BeEquivalentTo([]interface{}{tokens[i]}))
 				}
+
+				Expect(mockStatsDClient.Count[MetricsTokensToDelete]).To(Equal(size))
+				Expect(mockStatsDClient.Count[MetricsTokensDeleted]).To(Equal(size))
 			})
 		})
 	})

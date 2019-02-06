@@ -154,7 +154,7 @@ func (g *GCMPusher) configureFeedbackReporters() error {
 }
 
 func (g *GCMPusher) configureInvalidTokenHandlers(dbOrNil interfaces.DB) error {
-	invalidTokenHandlers, err := configureInvalidTokenHandlers(g.Config, g.Logger, dbOrNil)
+	invalidTokenHandlers, err := configureInvalidTokenHandlers(g.Config, g.Logger, g.StatsReporters, dbOrNil)
 	if err != nil {
 		return err
 	}

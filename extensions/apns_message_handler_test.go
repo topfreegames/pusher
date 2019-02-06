@@ -77,7 +77,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
 			db = mocks.NewPGMock(0, 1)
-			it, err := NewTokenPG(config, logger, db)
+			it, err := NewTokenPG(config, logger, statsClients, db)
 			Expect(err).NotTo(HaveOccurred())
 			invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 
@@ -135,6 +135,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				Eventually(func() []*logrus.Entry { return hook.Entries }).
 					Should(ContainLogMessage("deleting token"))
+
+				Expect(mockStatsDClient.Count[MetricsTokensToDelete]).To(Equal(1))
+				Eventually(func() int { return mockStatsDClient.Count[MetricsTokensDeleted] }).
+					Should(Equal(1))
 				//Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 
@@ -149,6 +153,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
 				Eventually(func() []*logrus.Entry { return hook.Entries }).
 					Should(ContainLogMessage("deleting token"))
+
+				Expect(mockStatsDClient.Count[MetricsTokensToDelete]).To(Equal(1))
+				Eventually(func() int { return mockStatsDClient.Count[MetricsTokensDeleted] }).
+					Should(Equal(1))
 				//Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 
@@ -427,7 +435,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				feedbackClients = []interfaces.FeedbackReporter{kc}
 
 				db = mocks.NewPGMock(0, 1)
-				it, err := NewTokenPG(config, logger, db)
+				it, err := NewTokenPG(config, logger, statsClients, db)
 				Expect(err).NotTo(HaveOccurred())
 				invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 				handler, err = NewAPNSMessageHandler(
