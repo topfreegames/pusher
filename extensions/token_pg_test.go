@@ -145,10 +145,11 @@ var _ = Describe("TokenPG Extension", func() {
 				Expect(hook.Entries).
 					To(testing.ContainLogMessage("waiting the worker to finish"))
 				Expect(hook.Entries).
-					To(testing.ContainLogMessage("tokenPG closed"))
+					To(testing.ContainLogMessage("tokenPG stopped"))
 			})
 
 			It("lefting job undone", func() {
+				close(tokenPG.done)
 				size := 1000
 				tokens := make([]string, size)
 				for i := 0; i < len(tokens); i++ {
@@ -158,11 +159,7 @@ var _ = Describe("TokenPG Extension", func() {
 
 				tokenPG.Stop()
 				Expect(hook.Entries).
-					To(testing.ContainLogMessage("waiting the worker to finish"))
-				Expect(hook.Entries).
-					To(testing.ContainLogMessage("tokenPG closed"))
-				Expect(hook.Entries).
-					To(testing.ContainLogMessage(fmt.Sprintf("%d tokens haven't been processed", len(tokenPG.tokensToDelete))))
+					To(testing.ContainLogMessage(fmt.Sprintf("%d tokens haven't been processed", size)))
 
 				err := tokenPG.HandleToken(token, "test", "apns")
 				Expect(err).To(HaveOccurred())
@@ -188,7 +185,7 @@ var _ = Describe("TokenPG Extension", func() {
 				Expect(hook.Entries).
 					To(testing.ContainLogMessage("waiting the worker to finish"))
 				Expect(hook.Entries).
-					To(testing.ContainLogMessage("tokenPG closed"))
+					To(testing.ContainLogMessage("tokenPG stopped"))
 
 				Expect(mockClient.Execs).To(HaveLen(size + 1))
 				query := "DELETE FROM test_apns WHERE token = ?0;"
@@ -199,6 +196,19 @@ var _ = Describe("TokenPG Extension", func() {
 
 				Expect(mockStatsDClient.Count[MetricsTokensToDelete]).To(Equal(size))
 				Expect(mockStatsDClient.Count[MetricsTokensDeleted]).To(Equal(size))
+			})
+
+			It("close tokenPG twice", func() {
+				err := tokenPG.Stop()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(hook.Entries).
+					To(testing.ContainLogMessage("waiting the worker to finish"))
+				Expect(hook.Entries).
+					To(testing.ContainLogMessage("tokenPG stopped"))
+
+				err = tokenPG.Stop()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("tokenPG has already been stopped"))
 			})
 		})
 	})

@@ -193,21 +193,37 @@ func (t *TokenPG) Cleanup() error {
 }
 
 // Stop stops the TokenPG's worker
-func (t *TokenPG) Stop() error {
+func (t *TokenPG) Stop() (err error) {
 	l := t.Logger.WithFields(logrus.Fields{
 		"method": "Stop",
 	})
 
-	close(t.done)
-	l.Info("waiting the worker to finish")
-	t.wg.Wait()
-	l.Info("tokenPG closed")
+	err = t.closeChannel()
+
 	if ut := len(t.tokensToDelete); ut > 0 {
 		l.Warnf("%d tokens haven't been processed", ut)
 	}
 
 	t.closed = true
 
+	return err
+}
+
+func (t *TokenPG) closeChannel() (err error) {
+	defer func() {
+		if recover() != nil {
+			err = errors.New("tokenPG has already been stopped")
+		}
+	}()
+
+	l := t.Logger.WithFields(logrus.Fields{
+		"method": "closeChannel",
+	})
+
+	close(t.done)
+	l.Info("waiting the worker to finish")
+	t.wg.Wait()
+	l.Info("tokenPG stopped")
 	return nil
 }
 
