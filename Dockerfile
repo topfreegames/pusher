@@ -29,7 +29,7 @@ ENV LD_LIBRARY_PATH /usr/local/lib
 
 WORKDIR /go/src/github.com/topfreegames/pusher
 
-RUN apk add --no-cache make git g++ bash python wget && \
+RUN apk add --no-cache make git g++ bash python wget pkgconfig && \
     wget -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
     tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
     cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
