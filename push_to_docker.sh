@@ -32,12 +32,24 @@ if [ "$LIBRDKAFKA_VERSION" != "master" ]; then
 
   echo "sending image to dockerhub"
   docker build -t pusher .
+  if [ $? -ne 0 ]; then
+      exit 1
+  fi
   docker tag pusher:latest tfgco/pusher:$VERSION.$TRAVIS_BUILD_NUMBER
   docker tag pusher:latest tfgco/pusher:$VERSION
   docker tag pusher:latest tfgco/pusher:latest
   docker push tfgco/pusher:$VERSION.$TRAVIS_BUILD_NUMBER
+  if [ $? -ne 0 ]; then
+      exit 1
+  fi
   docker push tfgco/pusher:$VERSION
+  if [ $? -ne 0 ]; then
+      exit 1
+  fi
   docker push tfgco/pusher:latest
+  if [ $? -ne 0 ]; then
+      exit 1
+  fi
 
   DOCKERHUB_LATEST=$(python get_latest_tag.py)
 
