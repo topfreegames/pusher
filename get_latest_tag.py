@@ -43,6 +43,9 @@ def main():
 def get_tag_value(tag):
     if "latest" in tag:
         return 0
+    for t in tag:
+        if "rc" in t:
+            return 0
 
     while len(tag) < 4:
         tag.append('0')
