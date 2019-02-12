@@ -69,7 +69,7 @@ func (l *Listener) loadConfigurationDefaults() {
 func (l *Listener) configure() error {
 	l.Config = viper.New()
 	l.Config.SetConfigFile(l.ConfigFile)
-	l.Config.SetEnvPrefix("pusher.feedback.listener")
+	l.Config.SetEnvPrefix("pusher")
 	l.Config.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	l.Config.AutomaticEnv()
 	err := l.Config.ReadInConfig()
