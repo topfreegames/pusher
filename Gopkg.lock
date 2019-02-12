@@ -10,6 +10,50 @@
   version = "1.1.0"
 
 [[projects]]
+  digest = "1:b4dd9ed9eabe3c73796010798cab7632f73ee46695f1bdb71a07a8dce71a1ac3"
+  name = "github.com/aws/aws-sdk-go"
+  packages = [
+    "aws",
+    "aws/awserr",
+    "aws/awsutil",
+    "aws/client",
+    "aws/client/metadata",
+    "aws/corehandlers",
+    "aws/credentials",
+    "aws/credentials/ec2rolecreds",
+    "aws/credentials/endpointcreds",
+    "aws/credentials/processcreds",
+    "aws/credentials/stscreds",
+    "aws/csm",
+    "aws/defaults",
+    "aws/ec2metadata",
+    "aws/endpoints",
+    "aws/request",
+    "aws/session",
+    "aws/signer/v4",
+    "internal/ini",
+    "internal/s3err",
+    "internal/sdkio",
+    "internal/sdkrand",
+    "internal/sdkuri",
+    "internal/shareddefaults",
+    "private/protocol",
+    "private/protocol/eventstream",
+    "private/protocol/eventstream/eventstreamapi",
+    "private/protocol/query",
+    "private/protocol/query/queryutil",
+    "private/protocol/rest",
+    "private/protocol/restxml",
+    "private/protocol/xml/xmlutil",
+    "service/s3",
+    "service/s3/s3iface",
+    "service/sts",
+  ]
+  pruneopts = ""
+  revision = "503020bbd95ec9f25b061a83aa62567bc43e6d96"
+  version = "v1.16.32"
+
+[[projects]]
   digest = "1:73ec5e4a5b52be94cf0efee29713e78e229696eb733063f85bebdd8fce337b8b"
   name = "github.com/certifi/gocertifi"
   packages = ["."]
@@ -90,6 +134,13 @@
   packages = ["."]
   pruneopts = ""
   revision = "1c35d901db3da928c72a72d8458480cc9ade058f"
+
+[[projects]]
+  digest = "1:13fe471d0ed891e8544eddfeeb0471fd3c9f2015609a1c000aefdedf52a19d40"
+  name = "github.com/jmespath/go-jmespath"
+  packages = ["."]
+  pruneopts = ""
+  revision = "c2b33e84"
 
 [[projects]]
   branch = "master"
@@ -212,6 +263,25 @@
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:f66a8bd3128df79a2648daea552403c5c66d841c7ae844d5d22b445afbdf0878"
+  name = "github.com/sendgrid/rest"
+  packages = ["."]
+  pruneopts = ""
+  revision = "306b9bef57dc36f3435ccfcc08fe6ae2c6920344"
+  version = "v2.4.1"
+
+[[projects]]
+  digest = "1:f03d623f2a89d6a506655dc152c24f4d1eee449a8c335bfe229972bba4047fa5"
+  name = "github.com/sendgrid/sendgrid-go"
+  packages = [
+    ".",
+    "helpers/mail",
+  ]
+  pruneopts = ""
+  revision = "8caf17aa96b4a98bae8bd216878dd50ff12897b5"
+  version = "v3.4.1"
+
+[[projects]]
   digest = "1:67fcd8b88910b57e8824a00a862b569526381e25c22352b715e04315531fe6da"
   name = "github.com/sideshow/apns2"
   packages = [
@@ -312,6 +382,49 @@
   version = "v1.3"
 
 [[projects]]
+  digest = "1:952b9b8af8e57c89ebe4185e600cfd0cf21c6a9b2b7020371c12d62f610bc504"
+  name = "github.com/topfreegames/marathon"
+  packages = [
+    "extensions",
+    "interfaces",
+    "log",
+    "messages",
+  ]
+  pruneopts = ""
+  revision = "1c6ca02909191cab6da687e72168ca95805af6b0"
+  version = "v3.0.1"
+
+[[projects]]
+  digest = "1:d15eea6585546add6adb6ab9473fa7864eb52db897b6a710bb40ea1e936e362a"
+  name = "github.com/uber-go/zap"
+  packages = ["."]
+  pruneopts = ""
+  revision = "72313cde80537dd4dc9b7b80eda6d7ed796c4232"
+  version = "v1.0.0-rc.1"
+
+[[projects]]
+  digest = "1:74f86c458e82e1c4efbab95233e0cf51b7cc02dc03193be9f62cd81224e10401"
+  name = "go.uber.org/atomic"
+  packages = ["."]
+  pruneopts = ""
+  revision = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289"
+  version = "v1.3.2"
+
+[[projects]]
+  digest = "1:d15eea6585546add6adb6ab9473fa7864eb52db897b6a710bb40ea1e936e362a"
+  name = "go.uber.org/zap"
+  packages = [
+    "buffer",
+    "internal/bufferpool",
+    "internal/exit",
+    "internal/multierror",
+    "zapcore",
+  ]
+  pruneopts = ""
+  revision = "72313cde80537dd4dc9b7b80eda6d7ed796c4232"
+  version = "v1.0.0-rc.1"
+
+[[projects]]
   branch = "master"
   digest = "1:1710f8497e287491a719f21eb51b1068b224c63d31084b3d7121c6d65bc3bebf"
   name = "golang.org/x/crypto"
@@ -396,6 +509,21 @@
   version = "v5.3.3"
 
 [[projects]]
+  digest = "1:bb926af439b58c00c9cb8b6ca590c13a864e6f29284d5e57be0ce55f250edf40"
+  name = "gopkg.in/redis.v5"
+  packages = [
+    ".",
+    "internal",
+    "internal/consistenthash",
+    "internal/hashtag",
+    "internal/pool",
+    "internal/proto",
+  ]
+  pruneopts = ""
+  revision = "a16aeec10ff407b1e7be6dd35797ccf5426ef0f0"
+  version = "v5.2.9"
+
+[[projects]]
   branch = "v2"
   digest = "1:f776026dedad7a9fef3c65180084620ca3684a87a177f5da8837755a1f8fa4fd"
   name = "gopkg.in/yaml.v2"
@@ -421,6 +549,9 @@
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "github.com/topfreegames/go-gcm",
+    "github.com/topfreegames/marathon/extensions",
+    "github.com/topfreegames/marathon/interfaces",
+    "github.com/uber-go/zap",
     "golang.org/x/crypto/pkcs12",
     "gopkg.in/pg.v5",
     "gopkg.in/pg.v5/types",
