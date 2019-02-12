@@ -308,6 +308,7 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 			if ok {
 				fmt.Fprintf(os.Stdout, "%s/%d/%d\t%s\t%s\n", msg.Topic, msg.Partition, msg.Offset, msg.Key, msg.Value)
 				q.Consumer.MarkOffset(msg, "") // mark message as processed
+				q.msgChan <- msg.Value
 			}
 			// case <-signals:
 			// 	return

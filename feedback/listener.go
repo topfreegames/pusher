@@ -23,7 +23,6 @@
 package feedback
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -43,6 +42,8 @@ type Listener struct {
 	Logger     *log.Logger
 	Queue      Queue
 	// FeedbackHandler         *Handler
+	Broker                  *Broker
+	InvalidTokenHandler     Handler
 	GracefulShutdownTimeout int
 	run                     bool
 	stopChannel             chan struct{}
@@ -92,6 +93,8 @@ func (l *Listener) configure() error {
 	// 	return err
 	// }
 	// l.FeedbackHandler = h
+	l.InvalidTokenHandler = NewInvalidTokenHandler()
+	l.Broker = NewBroker(l.Logger, q.MessagesChannel(), l.InvalidTokenHandler)
 	return nil
 }
 
@@ -119,15 +122,16 @@ func (l *Listener) Start() {
 
 	go l.Queue.ConsumeLoop()
 	// go l.FeedbackHandler.HandleMessages(l.Queue.MessagesChannel())
-	go func(msgChan *chan []byte) {
+	go l.Broker.Start()
+	// go func(msgChan *chan []byte) {
 
-		for l.run == true {
-			select {
-			case message := <-*msgChan:
-				l.handleMessage(message)
-			}
-		}
-	}(l.Queue.MessagesChannel())
+	// 	for l.run == true {
+	// 		select {
+	// 		case message := <-*msgChan:
+	// 			l.handleMessage(message)
+	// 		}
+	// 	}
+	// }(l.Queue.MessagesChannel())
 
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
@@ -146,15 +150,15 @@ func (l *Listener) Start() {
 	l.gracefulShutdown(l.Queue.PendingMessagesWaitGroup(), time.Duration(l.GracefulShutdownTimeout)*time.Second)
 }
 
-func (l *Listener) handleMessage(msg []byte) {
-	// log := l.Logger.WithField(
-	// 	"method", "feedback.handler.handleMessage",
-	// )
+// func (l *Listener) handleMessage(msg []byte) {
+// 	// log := l.Logger.WithField(
+// 	// 	"method", "feedback.handler.handleMessage",
+// 	// )
 
-	// var message Message
-	// err := json.Unmarshal(msg, &message)
-	fmt.Println("Printed Message: ", msg)
-}
+// 	// var message Message
+// 	// err := json.Unmarshal(msg, &message)
+// 	fmt.Println("Printed Message: ", msg)
+// }
 
 // GracefulShutdown waits for wg do complete then exits
 func (l *Listener) gracefulShutdown(wg *sync.WaitGroup, timeout time.Duration) {
