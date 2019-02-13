@@ -94,7 +94,7 @@ func (l *Listener) configure() error {
 	// }
 	// l.FeedbackHandler = h
 	l.InvalidTokenHandler = NewInvalidTokenHandler()
-	l.Broker = NewBroker(l.Logger, q.MessagesChannel(), l.InvalidTokenHandler)
+	l.Broker = NewBroker(l.Logger, l.Config, q.MessagesChannel())
 	return nil
 }
 

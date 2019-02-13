@@ -35,6 +35,7 @@ import (
 	raven "github.com/getsentry/raven-go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/extensions"
 	"go.uber.org/zap"
 )
 
@@ -48,7 +49,7 @@ type KafkaConsumer struct {
 	messagesReceived               int64
 	FetchWaitMaxMs                 int
 	FetchMinBytes                  int
-	msgChan                        chan []byte
+	msgChan                        chan *KafkaMessage
 	OffsetResetStrategy            string
 	run                            bool
 	SessionTimeout                 int
@@ -69,7 +70,7 @@ func NewKafkaConsumer(
 		Config:            config,
 		Logger:            logger,
 		messagesReceived:  0,
-		msgChan:           make(chan []byte),
+		msgChan:           make(chan *KafkaMessage),
 		pendingMessagesWG: nil,
 		stopChannel:       *stopChannel,
 	}
@@ -251,7 +252,7 @@ func (q *KafkaConsumer) StopConsuming() {
 }
 
 // MessagesChannel returns the channel that will receive all messages got from kafka
-func (q *KafkaConsumer) MessagesChannel() *chan []byte {
+func (q *KafkaConsumer) MessagesChannel() *chan *KafkaMessage {
 	return &q.msgChan
 }
 
@@ -308,7 +309,15 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 			if ok {
 				fmt.Fprintf(os.Stdout, "%s/%d/%d\t%s\t%s\n", msg.Topic, msg.Partition, msg.Offset, msg.Key, msg.Value)
 				q.Consumer.MarkOffset(msg, "") // mark message as processed
-				q.msgChan <- msg.Value
+
+				parsedTopic := extensions.GetGameAndPlatformFromTopic(msg.Topic)
+				message := &KafkaMessage{
+					Game:     parsedTopic.Game,
+					Platform: parsedTopic.Platform,
+					Value:    msg.Value,
+				}
+
+				q.msgChan <- message
 			}
 			// case <-signals:
 			// 	return
@@ -349,25 +358,25 @@ func (q *KafkaConsumer) unassignPartitions() error {
 	return nil
 }
 
-func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, value []byte) {
-	l := q.Logger.WithField(
-		"method", "receiveMessage",
-	)
+// func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, value []byte) {
+// 	l := q.Logger.WithField(
+// 		"method", "receiveMessage",
+// 	)
 
-	l.Debug("Processing received message...")
+// 	l.Debug("Processing received message...")
 
-	q.messagesReceived++
-	if q.messagesReceived%1000 == 0 {
-		l.Info("received from kafka", zap.Int64("numMessages", q.messagesReceived))
-	}
-	l.Debug("new kafka message", zap.Int("partition", int(topicPartition.Partition)), zap.String("message", string(value)))
-	if q.pendingMessagesWG != nil {
-		q.pendingMessagesWG.Add(1)
-	}
-	q.msgChan <- value
+// 	q.messagesReceived++
+// 	if q.messagesReceived%1000 == 0 {
+// 		l.Info("received from kafka", zap.Int64("numMessages", q.messagesReceived))
+// 	}
+// 	l.Debug("new kafka message", zap.Int("partition", int(topicPartition.Partition)), zap.String("message", string(value)))
+// 	if q.pendingMessagesWG != nil {
+// 		q.pendingMessagesWG.Add(1)
+// 	}
+// 	q.msgChan <- value
 
-	l.Debug("Received message processed.")
-}
+// 	l.Debug("Received message processed.")
+// }
 
 func (q *KafkaConsumer) handlePartitionEOF(ev kafka.Event) {
 	l := q.Logger.WithFields(log.Fields{

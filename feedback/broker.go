@@ -4,7 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	gcm "github.com/topfreegames/go-gcm"
+	"github.com/topfreegames/pusher/structs"
+
+	"github.com/sideshow/apns2"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 // Message is a struct that will decode a apns or gcm feedback message
@@ -18,53 +23,120 @@ type Message struct {
 	ID               string                 `json:"id"`
 	Err              map[string]interface{} `json:"Err"`
 	Metadata         map[string]interface{} `json:"metadata"`
+
+	Reason string
 }
 
+// Broker receives kafka messages in its InChan, unmarshal them according to the
+// platform and routes them to the correct out channel after examining their content
 type Broker struct {
 	Logger              *log.Logger
-	IncomeChannel       *chan []byte
-	InvalidTokenHandler Handler
-	run                 bool
+	Config              *viper.Viper
+	InChan              *chan *KafkaMessage
+	InvalidTokenOutChan chan *InvalidToken
+
+	run         bool
+	stopChannel chan struct{}
 }
 
-func NewBroker(logger *log.Logger, ichan *chan []byte,
-	invalidTokenHandler Handler,
+// NewBroker creates a new Broker instance
+func NewBroker(
+	logger *log.Logger, cfg *viper.Viper,
+	ichan *chan *KafkaMessage,
 ) *Broker {
 	b := &Broker{
 		Logger:              logger,
-		IncomeChannel:       ichan,
-		InvalidTokenHandler: invalidTokenHandler,
+		Config:              cfg,
+		InChan:              ichan,
+		InvalidTokenOutChan: make(chan *InvalidToken, 100),
+		stopChannel:         make(chan struct{}),
 	}
 
 	return b
 }
 
+// Start starts a routine to process the Broker in channel
 func (b *Broker) Start() {
+	b.run = true
+	go b.processMessages()
+}
+
+// Stop stops all routines from processing the in channel and close all output channels
+func (b *Broker) Stop() {
+	b.run = false
+	close(b.stopChannel)
+	close(b.InvalidTokenOutChan)
+}
+
+func (b *Broker) processMessages() {
 	l := b.Logger.WithField(
 		"operation", "Broker.Start",
 	)
-	b.run = true
-	// go h.flushFeedbacks()
+
 	for b.run == true {
 		select {
-		case msg := <-*b.IncomeChannel:
+		case msg := <-*b.InChan:
 			fmt.Println("INCOME CHANNEL HAS: ", msg)
-			var message Message
-			err := json.Unmarshal(msg, &message)
-			if err != nil {
-				l.WithError(err).Error("error unmarshelling kafka message")
+
+			switch msg.Platform {
+			case APNSPlatform:
+				var res structs.ResponseWithMetadata
+				err := json.Unmarshal(msg.Value, &res)
+				if err != nil {
+					l.WithError(err).Error(ErrAPNSUnmarshal.Error())
+				}
+				b.routeAPNSMessage(&res, msg.Game)
+
+			case GCMPlatform:
+				var res gcm.CCSMessage
+				err := json.Unmarshal(msg.Value, &res)
+				if err != nil {
+					l.WithError(err).Error(ErrGCMUnmarshal.Error())
+				}
+				b.routeGCMMessage(&res, msg.Game)
 			}
-			b.routeMessage(&message)
+
+		case <-b.stopChannel:
+			break
+		}
+
+	}
+
+	l.Info("stop processing Broker's in channel")
+}
+
+func (b *Broker) routeAPNSMessage(msg *structs.ResponseWithMetadata, game string) {
+	switch msg.Reason {
+	case apns2.ReasonBadDeviceToken, apns2.ReasonUnregistered, apns2.ReasonTopicDisallowed, apns2.ReasonDeviceTokenNotForTopic:
+		tk := &InvalidToken{
+			Token:    msg.DeviceToken,
+			Game:     game,
+			Platform: APNSPlatform,
+		}
+
+		select {
+		case b.InvalidTokenOutChan <- tk:
+		default:
+			fmt.Println("APNS OUT CHANNEL FULL")
+			b.Logger.Error(ErrInvalidTokenChanFull.Error())
 		}
 	}
 }
 
-func (b *Broker) routeMessage(msg *Message) {
-	fmt.Println("GOT MESSAGE", msg)
-
+func (b *Broker) routeGCMMessage(msg *gcm.CCSMessage, game string) {
 	switch msg.Error {
-	case "DEVICE_UNREGISTERED", "BAD_REGISTRATION",
-		"BadDeviceToken", "Unregistered", "TopicDisallowed", "DeviceTokenNotForTopic":
-		b.InvalidTokenHandler.HandleMessage(msg)
+	case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
+		tk := &InvalidToken{
+			Token:    msg.From,
+			Game:     game,
+			Platform: GCMPlatform,
+		}
+
+		select {
+		case b.InvalidTokenOutChan <- tk:
+		default:
+			fmt.Println("GCM OUT CHANNEL FULL")
+			b.Logger.Error(ErrInvalidTokenChanFull.Error())
+		}
 	}
 }
