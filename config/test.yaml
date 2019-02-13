@@ -52,9 +52,9 @@ invalidToken:
     - pg
   flush:
     time:
-      ms: 10000
+      ms: 1
   buffer:
-    size: 2000
+    size: 99
   pg:
     host: localhost
     port: 8585
