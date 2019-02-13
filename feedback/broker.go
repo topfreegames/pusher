@@ -42,16 +42,18 @@ type Broker struct {
 // NewBroker creates a new Broker instance
 func NewBroker(
 	logger *log.Logger, cfg *viper.Viper,
-	ichan *chan *KafkaMessage,
+	inChan *chan *KafkaMessage,
 ) *Broker {
 	b := &Broker{
 		Logger:              logger,
 		Config:              cfg,
-		InChan:              ichan,
+		InChan:              inChan,
 		InvalidTokenOutChan: make(chan *InvalidToken, 100),
 		stopChannel:         make(chan struct{}),
 	}
 
+	// TODO Setup default values and read them from config file
+	// input and output sizes
 	return b
 }
 

@@ -50,6 +50,11 @@ stats:
 invalidToken:
   handlers:
     - pg
+  flush:
+    time:
+      ms: 10000
+  buffer:
+    size: 2000
   pg:
     host: localhost
     port: 8585

@@ -9,6 +9,7 @@ var (
 	ErrInvalidTokenChanFull = errors.New("invalid token out channel full")
 )
 
+// Constants
 const (
 	APNSPlatform = "apns"
 	GCMPlatform  = "gcm"

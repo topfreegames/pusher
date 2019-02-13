@@ -43,7 +43,7 @@ type Listener struct {
 	Queue      Queue
 	// FeedbackHandler         *Handler
 	Broker                  *Broker
-	InvalidTokenHandler     Handler
+	InvalidTokenHandler     *InvalidTokenHandler
 	GracefulShutdownTimeout int
 	run                     bool
 	stopChannel             chan struct{}
@@ -93,8 +93,11 @@ func (l *Listener) configure() error {
 	// 	return err
 	// }
 	// l.FeedbackHandler = h
-	l.InvalidTokenHandler = NewInvalidTokenHandler()
 	l.Broker = NewBroker(l.Logger, l.Config, q.MessagesChannel())
+	l.InvalidTokenHandler, err = NewInvalidTokenHandler(l.Logger, l.Config, &l.Broker.InvalidTokenOutChan)
+	// Start Broker
+	// Start Handler
+
 	return nil
 }
 
