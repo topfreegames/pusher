@@ -2,7 +2,6 @@ package feedback
 
 import (
 	"encoding/json"
-	"fmt"
 
 	gcm "github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/structs"
@@ -78,8 +77,6 @@ func (b *Broker) processMessages() {
 	for b.run == true {
 		select {
 		case msg := <-*b.InChan:
-			fmt.Println("INCOME CHANNEL HAS: ", msg)
-
 			switch msg.Platform {
 			case APNSPlatform:
 				var res structs.ResponseWithMetadata
@@ -119,7 +116,6 @@ func (b *Broker) routeAPNSMessage(msg *structs.ResponseWithMetadata, game string
 		select {
 		case b.InvalidTokenOutChan <- tk:
 		default:
-			fmt.Println("APNS OUT CHANNEL FULL")
 			b.Logger.Error(ErrInvalidTokenChanFull.Error())
 		}
 	}
@@ -137,7 +133,6 @@ func (b *Broker) routeGCMMessage(msg *gcm.CCSMessage, game string) {
 		select {
 		case b.InvalidTokenOutChan <- tk:
 		default:
-			fmt.Println("GCM OUT CHANNEL FULL")
 			b.Logger.Error(ErrInvalidTokenChanFull.Error())
 		}
 	}

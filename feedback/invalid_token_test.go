@@ -1,6 +1,7 @@
 package feedback
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -14,29 +15,23 @@ import (
 )
 
 var _ = Describe("InvalidToken Handler", func() {
-	var logger *logrus.Logger
-	var hook *test.Hook
-	var inChan chan *InvalidToken
 	var config *viper.Viper
 	var err error
-
-	var mockClient *mocks.PGMock
 
 	configFile := "../config/test.yaml"
 
 	BeforeEach(func() {
-		logger, hook = test.NewNullLogger()
-
 		config, err = util.NewViperWithConfigFile(configFile)
 		Expect(err).NotTo(HaveOccurred())
-
-		mockClient = mocks.NewPGMock(0, 1)
-		inChan = make(chan *InvalidToken, 100)
 	})
 
 	Describe("[Unit]", func() {
 		Describe("Creating new InvalidTokenHandler", func() {
 			It("Should return a new handler", func() {
+				logger, _ := test.NewNullLogger()
+				mockClient := mocks.NewPGMock(0, 1)
+				inChan := make(chan *InvalidToken, 100)
+
 				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
@@ -48,23 +43,23 @@ var _ = Describe("InvalidToken Handler", func() {
 			BeforeEach(func() {
 				tokens = []*InvalidToken{
 					&InvalidToken{
-						Token:    "AAAAAAAAAA",
+						Token:    "flushA",
 						Game:     "boomforce",
 						Platform: "apns",
 					},
 					&InvalidToken{
-						Token:    "BBBBBBBBBB",
+						Token:    "flushB",
 						Game:     "boomforce",
 						Platform: "apns",
 					},
 				}
-				for _, t := range tokens {
-					inChan <- t
-				}
-
 			})
 
 			It("Should flush because buffer is full", func() {
+				logger, hook := test.NewNullLogger()
+				mockClient := mocks.NewPGMock(0, 1)
+				inChan := make(chan *InvalidToken, 100)
+
 				config.Set("invalidToken.flush.time.ms", 1000)
 				config.Set("invalidToken.buffer.size", 2)
 
@@ -74,12 +69,19 @@ var _ = Describe("InvalidToken Handler", func() {
 				Expect(handler).NotTo(BeNil())
 
 				handler.Start()
+				for _, t := range tokens {
+					inChan <- t
+				}
 
 				Eventually(func() []*logrus.Entry { return hook.Entries }).
 					Should(testing.ContainLogMessage("buffer is full"))
 			})
 
 			It("Should flush because reached flush timeout", func() {
+				logger, hook := test.NewNullLogger()
+				mockClient := mocks.NewPGMock(0, 1)
+				inChan := make(chan *InvalidToken, 100)
+
 				config.Set("invalidToken.flush.time.ms", 1)
 				config.Set("invalidToken.buffer.size", 200)
 
@@ -89,6 +91,9 @@ var _ = Describe("InvalidToken Handler", func() {
 				Expect(handler).NotTo(BeNil())
 
 				handler.Start()
+				for _, t := range tokens {
+					inChan <- t
+				}
 
 				Eventually(func() []*logrus.Entry { return hook.Entries }).
 					Should(testing.ContainLogMessage("flush ticker"))
@@ -96,16 +101,15 @@ var _ = Describe("InvalidToken Handler", func() {
 		})
 
 		Describe("Deleting from database", func() {
-			var handler *InvalidTokenHandler
-			var err error
+			It("Should create correct queries", func() {
+				logger, _ := test.NewNullLogger()
+				mockClient := mocks.NewPGMock(0, 1)
+				inChan := make(chan *InvalidToken, 100)
 
-			BeforeEach(func() {
-				handler, err = NewInvalidTokenHandler(logger, config, &inChan, mockClient)
+				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
-			})
 
-			It("Should create correct queries", func() {
 				handler.Start()
 
 				tokens := []*InvalidToken{
@@ -180,17 +184,80 @@ var _ = Describe("InvalidToken Handler", func() {
 				}
 			})
 
-			// It("should not break if token does not exist in db", func() {
-			// 	mockClient.Error = fmt.Errorf("pg: no rows in result set")
-			// 	handler, err = NewInvalidTokenHandler(logger, config, &inChan, mockClient)
-			// 	Expect(err).NotTo(HaveOccurred())
-			// 	Expect(handler).NotTo(BeNil())
+			It("should not break if token does not exist in db", func() {
+				logger, hook := test.NewNullLogger()
+				mockClient := mocks.NewPGMock(0, 1)
+				inChan := make(chan *InvalidToken, 100)
 
-			// })
+				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(handler).NotTo(BeNil())
 
-			// It("should not break if a pg error occured", func() {
+				handler.Start()
+				inChan <- &InvalidToken{
+					Token:    "AAAAAAAA",
+					Game:     "sniper",
+					Platform: "apns",
+				}
+				Consistently(func() []*logrus.Entry { return hook.Entries }).
+					ShouldNot(testing.ContainLogMessage("error deleting tokens"))
+			})
 
-			// })
+			It("should not break if a pg error occurred", func() {
+				logger, hook := test.NewNullLogger()
+				mockClient := mocks.NewPGMock(0, 1)
+				inChan := make(chan *InvalidToken, 100)
+
+				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(handler).NotTo(BeNil())
+				handler.bufferSize = 1
+
+				for len(mockClient.Execs) < 1 {
+					// waiting connection to db
+					time.Sleep(10 * time.Millisecond)
+				}
+				mockClient.Error = fmt.Errorf("pg: error")
+
+				handler.Start()
+				inChan <- &InvalidToken{
+					Token:    "AAAAAAAAAA",
+					Game:     "sniper",
+					Platform: "apns",
+				}
+
+				for len(mockClient.Execs) < 2 {
+					time.Sleep(10 * time.Millisecond)
+				}
+
+				Eventually(func() []*logrus.Entry {
+					return hook.Entries
+				}).Should(testing.ContainLogMessage("error deleting tokens"))
+
+				mockClient.Error = nil
+				inChan <- &InvalidToken{
+					Token:    "BBBBBBBBBB",
+					Game:     "sniper",
+					Platform: "apns",
+				}
+
+				expQuery := "DELETE FROM sniper_apns WHERE token IN (?0);"
+				expTokens := []string{"BBBBBBBBBB"}
+
+				Eventually(func() interface{} {
+					if len(mockClient.Execs) >= 3 {
+						return mockClient.Execs[2][0]
+					}
+					return nil
+				}).Should(BeEquivalentTo(expQuery))
+
+				Eventually(func() interface{} {
+					if len(mockClient.Execs) >= 3 {
+						return mockClient.Execs[2][1]
+					}
+					return nil
+				}).Should(BeEquivalentTo([]interface{}{expTokens}))
+			})
 		})
 	})
 })

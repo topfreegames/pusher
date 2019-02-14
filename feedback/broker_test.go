@@ -90,7 +90,7 @@ var _ = Describe("Broker", func() {
 					Expect(len(broker.InvalidTokenOutChan)).To(Equal(0))
 				})
 
-				It("Should return an error if invalid token outout channel is full", func() {
+				It("Should return an error if invalid token output channel is full", func() {
 					broker := NewBroker(logger, config, &inChan)
 					broker.InvalidTokenOutChan = make(chan *InvalidToken, 1)
 					broker.Start()
@@ -146,7 +146,7 @@ var _ = Describe("Broker", func() {
 						Expect(len(broker.InvalidTokenOutChan)).To(Equal(0))
 					})
 
-					It("Should return an error if invalid token outout channel is full", func() {
+					It("Should return an error if invalid token output channel is full", func() {
 						broker := NewBroker(logger, config, &inChan)
 						broker.InvalidTokenOutChan = make(chan *InvalidToken, 1)
 						broker.Start()
