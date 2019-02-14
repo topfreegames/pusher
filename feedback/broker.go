@@ -31,7 +31,7 @@ type Message struct {
 type Broker struct {
 	Logger              *log.Logger
 	Config              *viper.Viper
-	InChan              *chan *KafkaMessage
+	InChan              *chan *FeedbackMessage
 	InvalidTokenOutChan chan *InvalidToken
 
 	run         bool
@@ -41,7 +41,7 @@ type Broker struct {
 // NewBroker creates a new Broker instance
 func NewBroker(
 	logger *log.Logger, cfg *viper.Viper,
-	inChan *chan *KafkaMessage,
+	inChan *chan *FeedbackMessage,
 ) *Broker {
 	b := &Broker{
 		Logger:              logger,
