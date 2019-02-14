@@ -50,11 +50,6 @@ stats:
 invalidToken:
   handlers:
     - pg
-  flush:
-    time:
-      ms: 1
-  buffer:
-    size: 99
   pg:
     host: localhost
     port: 8585
@@ -64,3 +59,20 @@ invalidToken:
     maxRetries: 3
     database: push
     connectionTimeout: 100
+feedbackListeners:
+  invalidToken:
+    flush:
+      time:
+        ms: 1
+    buffer:
+      size: 99
+    pg:
+      host: localhost
+      port: 8585
+      user: pusher_user
+      pass: ""
+      poolSize: 20
+      maxRetries: 3
+      database: push
+      connectionTimeout: 100
+

@@ -63,22 +63,22 @@ func NewInvalidTokenHandler(
 }
 
 func (i *InvalidTokenHandler) loadConfigurationDefaults() {
-	i.Config.SetDefault("invalidToken.flush.time.ms", 5000)
-	i.Config.SetDefault("invalidToken.buffer.size", 1000)
+	i.Config.SetDefault("feedbackListeners.invalidToken.flush.time.ms", 5000)
+	i.Config.SetDefault("feedbackListeners.invalidToken.buffer.size", 1000)
 }
 
 func (i *InvalidTokenHandler) configure(db interfaces.DB) error {
 	l := i.Logger.WithField("operation", "configure")
 	i.loadConfigurationDefaults()
 
-	flushTime := time.Duration(i.Config.GetInt("invalidToken.flush.time.ms")) * time.Millisecond
-	i.bufferSize = i.Config.GetInt("invalidToken.buffer.size")
+	flushTime := time.Duration(i.Config.GetInt("feedbackListeners.invalidToken.flush.time.ms")) * time.Millisecond
+	i.bufferSize = i.Config.GetInt("feedbackListeners.invalidToken.buffer.size")
 
 	i.FlushTicker = time.NewTicker(flushTime)
 	i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
 
 	var err error
-	i.Client, err = extensions.NewPGClient("invalidToken.pg", i.Config, db)
+	i.Client, err = extensions.NewPGClient("feedbackListeners.invalidToken.pg", i.Config, db)
 	if err != nil {
 		l.WithError(err).Error("failed to configure psql database")
 		return err

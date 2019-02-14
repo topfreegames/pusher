@@ -60,8 +60,8 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
-				config.Set("invalidToken.flush.time.ms", 1000)
-				config.Set("invalidToken.buffer.size", 2)
+				config.Set("feedbackListeners.invalidToken.flush.time.ms", 1000)
+				config.Set("feedbackListeners.invalidToken.buffer.size", 2)
 
 				logger.Level = logrus.DebugLevel
 				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
@@ -82,8 +82,8 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
-				config.Set("invalidToken.flush.time.ms", 1)
-				config.Set("invalidToken.buffer.size", 200)
+				config.Set("feedbackListeners.invalidToken.flush.time.ms", 1)
+				config.Set("feedbackListeners.invalidToken.buffer.size", 200)
 
 				logger.Level = logrus.DebugLevel
 				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
