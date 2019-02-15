@@ -23,6 +23,7 @@
 package feedback
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -31,17 +32,18 @@ import (
 	"time"
 
 	raven "github.com/getsentry/raven-go"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
-// Listener will consume push feedbacks from a queue and update job feedbacks column
+// Listener will consume push feedbacks from a queue and use a broker to route
+// the messages to a convenient handler
 type Listener struct {
-	Config     *viper.Viper
-	ConfigFile string
-	Logger     *log.Logger
-	Queue      Queue
-	// FeedbackHandler         *Handler
+	Config                  *viper.Viper
+	ConfigFile              string
+	Logger                  *log.Logger
+	Queue                   Queue
 	Broker                  *Broker
 	InvalidTokenHandler     *InvalidTokenHandler
 	GracefulShutdownTimeout int
@@ -64,7 +66,7 @@ func NewListener(configFile string, logger *log.Logger) (*Listener, error) {
 }
 
 func (l *Listener) loadConfigurationDefaults() {
-	l.Config.SetDefault("gracefulShutdownTimeout", 10)
+	l.Config.SetDefault("feedbackListeners.gracefulShutdownTimeout", 1)
 }
 
 func (l *Listener) configure() error {
@@ -77,33 +79,38 @@ func (l *Listener) configure() error {
 	if err != nil {
 		return err
 	}
+
 	l.loadConfigurationDefaults()
 	l.configureSentry()
-	l.GracefulShutdownTimeout = l.Config.GetInt("gracefulShutdownTimeout")
+
+	l.GracefulShutdownTimeout = l.Config.GetInt("feedbackListeners.gracefulShutdownTimeout")
 	q, err := NewKafkaConsumer(
 		l.Config, l.Logger,
 		&l.stopChannel, nil,
 	)
 	if err != nil {
-		return err
+		return errors.Errorf("error creating new queue: %s", err.Error())
 	}
 	l.Queue = q
-	// h, err := NewHandler(l.Config, l.Logger, l.Queue.PendingMessagesWaitGroup())
-	// if err != nil {
-	// 	return err
-	// }
-	// l.FeedbackHandler = h
-	l.Broker = NewBroker(l.Logger, l.Config, q.MessagesChannel())
-	l.InvalidTokenHandler, err = NewInvalidTokenHandler(l.Logger, l.Config, &l.Broker.InvalidTokenOutChan)
-	// Start Broker
-	// Start Handler
+
+	broker, err := NewBroker(l.Logger, l.Config, q.MessagesChannel(), l.Queue.PendingMessagesWaitGroup())
+	if err != nil {
+		return errors.Errorf("error creating new broke: %s", err.Error())
+	}
+	l.Broker = broker
+
+	handler, err := NewInvalidTokenHandler(l.Logger, l.Config, &l.Broker.InvalidTokenOutChan)
+	if err != nil {
+		return errors.Errorf("error creating new invalid token handler: %s", err.Error())
+	}
+	l.InvalidTokenHandler = handler
 
 	return nil
 }
 
 func (l *Listener) configureSentry() {
 	ll := l.Logger.WithFields(log.Fields{
-		"source":    "listener",
+		"source":    "feedbackListener",
 		"operation": "configureSentry",
 	})
 
@@ -121,47 +128,36 @@ func (l *Listener) Start() {
 	log := l.Logger.WithField(
 		"method", "start",
 	)
-	log.Info("starting the feedbacks listener...")
+	log.Info("starting the feedback listener...")
 
 	go l.Queue.ConsumeLoop()
-	// go l.FeedbackHandler.HandleMessages(l.Queue.MessagesChannel())
-	go l.Broker.Start()
-	// go func(msgChan *chan []byte) {
-
-	// 	for l.run == true {
-	// 		select {
-	// 		case message := <-*msgChan:
-	// 			l.handleMessage(message)
-	// 		}
-	// 	}
-	// }(l.Queue.MessagesChannel())
+	l.Broker.Start()
+	l.InvalidTokenHandler.Start()
 
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	for l.run == true {
 		select {
 		case sig := <-sigchan:
-			log.WithField("signal", sig.String()).Warn("terminading due to caught signal")
+			log.WithField("signal", sig.String()).Warn("terminating due to caught signal")
 			l.run = false
 		case <-l.stopChannel:
+			fmt.Println("STOPPING CHANNEL")
 			log.Warn("Stop channel closed\n")
 			l.run = false
 		}
 	}
 
-	l.Queue.StopConsuming()
-	l.gracefulShutdown(l.Queue.PendingMessagesWaitGroup(), time.Duration(l.GracefulShutdownTimeout)*time.Second)
+	l.Stop()
+	// l.Queue.StopConsuming()
+	// l.gracefulShutdown(l.Queue.PendingMessagesWaitGroup(), time.Duration(l.GracefulShutdownTimeout)*time.Second)
 }
 
-// func (l *Listener) handleMessage(msg []byte) {
-// 	// log := l.Logger.WithField(
-// 	// 	"method", "feedback.handler.handleMessage",
-// 	// )
-
-// 	// var message Message
-// 	// err := json.Unmarshal(msg, &message)
-// 	fmt.Println("Printed Message: ", msg)
-// }
+func (l *Listener) Stop() {
+	l.run = false
+	l.Queue.Cleanup()
+	l.gracefulShutdown(l.Queue.PendingMessagesWaitGroup(), time.Duration(l.GracefulShutdownTimeout)*time.Second)
+}
 
 // GracefulShutdown waits for wg do complete then exits
 func (l *Listener) gracefulShutdown(wg *sync.WaitGroup, timeout time.Duration) {
@@ -174,8 +170,10 @@ func (l *Listener) gracefulShutdown(wg *sync.WaitGroup, timeout time.Duration) {
 		log.Info("listener is waiting to exit...")
 		e := WaitTimeout(wg, timeout)
 		if e {
+			fmt.Println("timeout")
 			log.Warn("exited listener because of graceful shutdown timeout")
 		} else {
+			fmt.Println("gracefully")
 			log.Info("exited listener gracefully")
 		}
 	}

@@ -14,5 +14,6 @@ type Queue interface {
 	MessagesChannel() *chan *FeedbackMessage
 	ConsumeLoop() error
 	StopConsuming()
+	Cleanup() error
 	PendingMessagesWaitGroup() *sync.WaitGroup
 }

@@ -54,6 +54,7 @@ type KafkaConsumer struct {
 	pendingMessagesWG              *sync.WaitGroup
 	HandleAllMessagesBeforeExiting bool
 	stopChannel                    chan struct{}
+	AssignedPartition              bool
 }
 
 // NewKafkaConsumer for creating a new KafkaConsumer instance
@@ -182,12 +183,12 @@ func (q *KafkaConsumer) MessagesChannel() *chan *FeedbackMessage {
 
 // ConsumeLoop consume messages from the queue and put in messages to send channel
 func (q *KafkaConsumer) ConsumeLoop() error {
-	q.run = true
 	l := q.Logger.WithFields(logrus.Fields{
 		"method": "ConsumeLoop",
 		"topics": q.Topics,
 	})
 
+	fmt.Println("kafka consumer consumming")
 	err := q.Consumer.SubscribeTopics(q.Topics, nil)
 	if err != nil {
 		l.WithError(err).Error("error subscribing to topics")
@@ -196,9 +197,11 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 
 	l.Info("successfully subscribed to topics")
 
+	q.run = true
 	for q.run == true {
 		select {
 		case ev := <-q.Consumer.Events():
+			fmt.Println("kafka consumer got a message", ev)
 			switch e := ev.(type) {
 			case kafka.AssignedPartitions:
 				err = q.assignPartitions(e.Partitions)
@@ -243,6 +246,7 @@ func (q *KafkaConsumer) assignPartitions(partitions []kafka.TopicPartition) erro
 		return err
 	}
 	l.Info("Partitions assigned.")
+	q.AssignedPartition = true
 	return nil
 }
 
@@ -277,6 +281,7 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 		q.pendingMessagesWG.Add(1)
 	}
 
+	fmt.Println("FROM TOPIC", *topicPartition.Topic)
 	parsedTopic := extensions.GetGameAndPlatformFromTopic(*topicPartition.Topic)
 	message := &FeedbackMessage{
 		Game:     parsedTopic.Game,
@@ -329,6 +334,7 @@ func (q *KafkaConsumer) handleUnrecognized(ev kafka.Event) {
 
 //Cleanup closes kafka consumer connection
 func (q *KafkaConsumer) Cleanup() error {
+	fmt.Println("CLEANING kafka consumer")
 	if q.run {
 		q.StopConsuming()
 	}

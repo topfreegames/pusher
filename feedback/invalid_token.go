@@ -90,6 +90,11 @@ func (i *InvalidTokenHandler) configure(db interfaces.DB) error {
 
 // Start starts to process the InvalidTokens from the intake channel
 func (i *InvalidTokenHandler) Start() {
+	l := i.Logger.WithField(
+		"operation", "start",
+	)
+	l.Info("starting invalid token handler")
+	fmt.Println("invalid token handler started")
 	i.run = true
 	go i.processMessages()
 }
@@ -102,15 +107,18 @@ func (i *InvalidTokenHandler) processMessages() {
 	for i.run {
 		select {
 		case tk := <-*i.InChan:
+			fmt.Println("INVALID TOKEN HANDLER GOT MESSAGE")
 			i.Buffer = append(i.Buffer, tk)
 
 			if len(i.Buffer) >= i.bufferSize {
+				fmt.Println("BUFFER FULL")
 				l.Debug("buffer is full")
 				go i.deleteTokens(i.Buffer)
 				i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
 			}
 
 		case <-i.FlushTicker.C:
+			fmt.Println("TIMEOUT")
 			l.Debug("flush ticker")
 			go i.deleteTokens(i.Buffer)
 			i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
@@ -155,27 +163,31 @@ func (i *InvalidTokenHandler) deleteTokensFromGame(tokens []string, game, platfo
 	})
 
 	var queryBuild strings.Builder
+	params := make([]interface{}, 0, len(tokens))
 	queryBuild.WriteString(fmt.Sprintf("DELETE FROM %s WHERE token IN (", game+"_"+platform))
-	for j := range tokens {
+	for j, token := range tokens {
 		queryBuild.WriteString(fmt.Sprintf("?%d", j))
 		if j == len(tokens)-1 {
 			queryBuild.WriteString(")")
 		} else {
 			queryBuild.WriteString(", ")
 		}
+		params = append(params, token)
 	}
 
 	queryBuild.WriteString(";")
 	query := queryBuild.String()
+	fmt.Println("QUERY", query)
 
 	l.Debug("deleting tokens")
-	_, err := i.Client.DB.Exec(query, []interface{}{tokens}...)
+	_, err := i.Client.DB.Exec(query, params...)
 	if err != nil && err.Error() != "pg: no rows in result set" {
 		raven.CaptureError(err, map[string]string{
 			"version": util.Version,
 			"handler": "invalidToken",
 		})
 
+		fmt.Println("ERROR FROM DELETING", err)
 		l.WithError(err).Error("error deleting tokens")
 		return err
 	}

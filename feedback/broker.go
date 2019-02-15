@@ -2,6 +2,8 @@ package feedback
 
 import (
 	"encoding/json"
+	"fmt"
+	"sync"
 
 	gcm "github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/structs"
@@ -32,6 +34,7 @@ type Broker struct {
 	Logger              *log.Logger
 	Config              *viper.Viper
 	InChan              *chan *FeedbackMessage
+	pendingMessagesWG   *sync.WaitGroup
 	InvalidTokenOutChan chan *InvalidToken
 
 	run         bool
@@ -42,22 +45,29 @@ type Broker struct {
 func NewBroker(
 	logger *log.Logger, cfg *viper.Viper,
 	inChan *chan *FeedbackMessage,
-) *Broker {
+	pendingMessagesWG *sync.WaitGroup,
+) (*Broker, error) {
 	b := &Broker{
 		Logger:              logger,
 		Config:              cfg,
 		InChan:              inChan,
+		pendingMessagesWG:   pendingMessagesWG,
 		InvalidTokenOutChan: make(chan *InvalidToken, 100),
 		stopChannel:         make(chan struct{}),
 	}
 
 	// TODO Setup default values and read them from config file
 	// input and output sizes
-	return b
+	return b, nil
 }
 
 // Start starts a routine to process the Broker in channel
 func (b *Broker) Start() {
+	l := b.Logger.WithField(
+		"operation", "start",
+	)
+	l.Info("starting broker")
+	fmt.Println("broker started")
 	b.run = true
 	go b.processMessages()
 }
@@ -71,12 +81,13 @@ func (b *Broker) Stop() {
 
 func (b *Broker) processMessages() {
 	l := b.Logger.WithField(
-		"operation", "Broker.Start",
+		"operation", "processMessages",
 	)
 
 	for b.run == true {
 		select {
 		case msg := <-*b.InChan:
+			fmt.Println("BROKER GOT MESSAGE IN IN CHANNEL", msg)
 			switch msg.Platform {
 			case APNSPlatform:
 				var res structs.ResponseWithMetadata
@@ -85,6 +96,7 @@ func (b *Broker) processMessages() {
 					l.WithError(err).Error(ErrAPNSUnmarshal.Error())
 				}
 				b.routeAPNSMessage(&res, msg.Game)
+				b.confirmMessage()
 
 			case GCMPlatform:
 				var res gcm.CCSMessage
@@ -92,7 +104,9 @@ func (b *Broker) processMessages() {
 				if err != nil {
 					l.WithError(err).Error(ErrGCMUnmarshal.Error())
 				}
+				fmt.Println("GOT GCM MESSAGE!!!!", res)
 				b.routeGCMMessage(&res, msg.Game)
+				b.confirmMessage()
 			}
 
 		case <-b.stopChannel:
@@ -135,5 +149,11 @@ func (b *Broker) routeGCMMessage(msg *gcm.CCSMessage, game string) {
 		default:
 			b.Logger.Error(ErrInvalidTokenChanFull.Error())
 		}
+	}
+}
+
+func (b *Broker) confirmMessage() {
+	if b.pendingMessagesWG != nil {
+		b.pendingMessagesWG.Done()
 	}
 }

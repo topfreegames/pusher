@@ -73,7 +73,7 @@ feedbackListeners:
   invalidToken:
     flush:
       time:
-        ms: 1
+        ms: 2000
     buffer:
       size: 99
     pg:

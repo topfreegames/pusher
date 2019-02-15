@@ -38,7 +38,9 @@ var _ = Describe("Broker", func() {
 	Describe("[Unit]", func() {
 
 		It("Should start and stop correctly", func() {
-			broker := NewBroker(logger, config, &inChan)
+			broker, err := NewBroker(logger, config, &inChan, nil)
+			Expect(err).NotTo(HaveOccurred())
+
 			broker.Start()
 
 			close(inChan)
@@ -72,7 +74,9 @@ var _ = Describe("Broker", func() {
 				})
 
 				It("Should route an invalid token feedback", func() {
-					broker := NewBroker(logger, config, &inChan)
+					broker, err := NewBroker(logger, config, &inChan, nil)
+					Expect(err).NotTo(HaveOccurred())
+
 					broker.Start()
 
 					inChan <- kafkaMsg
@@ -91,7 +95,9 @@ var _ = Describe("Broker", func() {
 				})
 
 				It("Should return an error if invalid token output channel is full", func() {
-					broker := NewBroker(logger, config, &inChan)
+					broker, err := NewBroker(logger, config, &inChan, nil)
+					Expect(err).NotTo(HaveOccurred())
+
 					broker.InvalidTokenOutChan = make(chan *InvalidToken, 1)
 					broker.Start()
 
@@ -128,7 +134,9 @@ var _ = Describe("Broker", func() {
 					})
 
 					It("Should route an invalid token feedback from GCM", func() {
-						broker := NewBroker(logger, config, &inChan)
+						broker, err := NewBroker(logger, config, &inChan, nil)
+						Expect(err).NotTo(HaveOccurred())
+
 						broker.Start()
 
 						inChan <- kafkaMsg
@@ -147,7 +155,9 @@ var _ = Describe("Broker", func() {
 					})
 
 					It("Should return an error if invalid token output channel is full", func() {
-						broker := NewBroker(logger, config, &inChan)
+						broker, err := NewBroker(logger, config, &inChan, nil)
+						Expect(err).NotTo(HaveOccurred())
+
 						broker.InvalidTokenOutChan = make(chan *InvalidToken, 1)
 						broker.Start()
 
