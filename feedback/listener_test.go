@@ -95,7 +95,7 @@ var _ = Describe("Feedback Listener", func() {
 			})
 
 			It("should return a configured listener", func() {
-				listener, err := NewListener(configFile, logger)
+				listener, err := NewListener(config, logger)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(listener).NotTo(BeNil())
 				Expect(listener.Queue).NotTo(BeNil())
@@ -163,7 +163,7 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
-					listener, err := NewListener(configFile, logger)
+					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())
@@ -226,7 +226,7 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
-					listener, err := NewListener(configFile, logger)
+					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())
@@ -298,7 +298,7 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
-					listener, err := NewListener(configFile, logger)
+					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())
@@ -439,7 +439,7 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
-					listener, err := NewListener(configFile, logger)
+					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())
@@ -502,7 +502,7 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
-					listener, err := NewListener(configFile, logger)
+					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())
@@ -574,7 +574,7 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
-					listener, err := NewListener(configFile, logger)
+					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())

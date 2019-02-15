@@ -67,3 +67,32 @@ invalidToken:
     maxRetries: 3
     database: push
     connectionTimeout: 100
+feedbackListeners:
+  queue:
+      topics:
+        - "^push-[^-_]+-(apns|gcm)-feedbacks"
+      brokers: "localhost:9941"
+      group: testGroup
+      sessionTimeout: 6000
+      fetch.min.bytes: 1
+      fetch.wait.max.ms: 100
+      offsetResetStrategy: latest
+      handleAllMessagesBeforeExiting: true
+  broker:
+    invalidTokenChan:
+      size: 999
+  invalidToken:
+    flush:
+      time:
+        ms: 2000
+    buffer:
+      size: 99
+    pg:
+      host: localhost
+      port: 8585
+      user: pusher_user
+      pass: ""
+      poolSize: 20
+      maxRetries: 3
+      database: push
+      connectionTimeout: 100

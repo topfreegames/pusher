@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -41,7 +40,6 @@ import (
 // the messages to a convenient handler
 type Listener struct {
 	Config                  *viper.Viper
-	ConfigFile              string
 	Logger                  *log.Logger
 	Queue                   Queue
 	Broker                  *Broker
@@ -52,9 +50,9 @@ type Listener struct {
 }
 
 // NewListener creates and return a new instance of feedback.Listener
-func NewListener(configFile string, logger *log.Logger) (*Listener, error) {
+func NewListener(config *viper.Viper, logger *log.Logger) (*Listener, error) {
 	l := &Listener{
-		ConfigFile:  configFile,
+		Config:      config,
 		Logger:      logger,
 		stopChannel: make(chan struct{}),
 	}
@@ -70,15 +68,15 @@ func (l *Listener) loadConfigurationDefaults() {
 }
 
 func (l *Listener) configure() error {
-	l.Config = viper.New()
-	l.Config.SetConfigFile(l.ConfigFile)
-	l.Config.SetEnvPrefix("pusher")
-	l.Config.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	l.Config.AutomaticEnv()
-	err := l.Config.ReadInConfig()
-	if err != nil {
-		return err
-	}
+	// l.Config = viper.New()
+	// l.Config.SetConfigFile(l.ConfigFile)
+	// l.Config.SetEnvPrefix("pusher")
+	// l.Config.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	// l.Config.AutomaticEnv()
+	// err := l.Config.ReadInConfig()
+	// if err != nil {
+	// 	return err
+	// }
 
 	l.loadConfigurationDefaults()
 	l.configureSentry()

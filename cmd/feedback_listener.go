@@ -23,33 +23,57 @@
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
+	raven "github.com/getsentry/raven-go"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/feedback"
-	"go.uber.org/zap"
+	"github.com/topfreegames/pusher/util"
 )
+
+func newFeedbackListener(
+	debug, json bool,
+	config *viper.Viper,
+) (*feedback.Listener, error) {
+	log := logrus.New()
+	if json {
+		log.Formatter = new(logrus.JSONFormatter)
+	}
+	if debug {
+		log.Level = logrus.DebugLevel
+	} else {
+		log.Level = logrus.InfoLevel
+	}
+
+	return feedback.NewListener(config, log)
+}
 
 // starFeedbackListenerCmd represents the start-feedback-listener command
 var startFeedbackListenerCmd = &cobra.Command{
 	Use:   "start-feedback-listener",
 	Short: "starts the feedback listener",
-	Long: `starts the feedback listener that will read from kafka topics and
-					 update job feedback column in pg, brokers and topics must be configured
-					 in the config file`,
+	Long: `starts the feedback listener that will read from kafka topics,
+		process the messages and route them for a convenient handler`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var l = log.New()
-		l.Level = log.InfoLevel
-		if debug {
-			l.Level = log.DebugLevel
+		config, err := util.NewViperWithConfigFile(cfgFile)
+		if err != nil {
+			panic(err)
 		}
 
-		l.Info("configuring feedback listener...")
-		f, err := feedback.NewListener(cfgFile, l)
-		if err != nil {
-			l.Panic("error starting feedback listener", zap.Error(err))
+		sentryURL := config.GetString("sentry.url")
+		if sentryURL != "" {
+			raven.SetDSN(sentryURL)
 		}
-		l.Info("starting feedback listener...")
-		f.Start()
+
+		listener, err := newFeedbackListener(debug, json, config)
+		if err != nil {
+			raven.CaptureErrorAndWait(err, map[string]string{
+				"version": util.Version,
+				"cmd":     "apns",
+			})
+			panic(err)
+		}
+		listener.Start()
 	},
 }
 
