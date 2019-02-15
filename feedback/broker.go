@@ -48,17 +48,27 @@ func NewBroker(
 	pendingMessagesWG *sync.WaitGroup,
 ) (*Broker, error) {
 	b := &Broker{
-		Logger:              logger,
-		Config:              cfg,
-		InChan:              inChan,
-		pendingMessagesWG:   pendingMessagesWG,
-		InvalidTokenOutChan: make(chan *InvalidToken, 100),
-		stopChannel:         make(chan struct{}),
+		Logger:            logger,
+		Config:            cfg,
+		InChan:            inChan,
+		pendingMessagesWG: pendingMessagesWG,
+		stopChannel:       make(chan struct{}),
 	}
 
-	// TODO Setup default values and read them from config file
-	// input and output sizes
+	b.configure()
+	fmt.Println("BROKER OUT CHAN SIZE", cap(b.InvalidTokenOutChan))
+
 	return b, nil
+}
+
+func (b *Broker) loadConfigurationDefaults() {
+	b.Config.SetDefault("feedbackListeners.broker.invalidTokenChan.size", 1000)
+}
+
+func (b *Broker) configure() {
+	b.loadConfigurationDefaults()
+
+	b.InvalidTokenOutChan = make(chan *InvalidToken, b.Config.GetInt("feedbackListeners.broker.invalidTokenChan.size"))
 }
 
 // Start starts a routine to process the Broker in channel
@@ -86,27 +96,29 @@ func (b *Broker) processMessages() {
 
 	for b.run == true {
 		select {
-		case msg := <-*b.InChan:
-			fmt.Println("BROKER GOT MESSAGE IN IN CHANNEL", msg)
-			switch msg.Platform {
-			case APNSPlatform:
-				var res structs.ResponseWithMetadata
-				err := json.Unmarshal(msg.Value, &res)
-				if err != nil {
-					l.WithError(err).Error(ErrAPNSUnmarshal.Error())
-				}
-				b.routeAPNSMessage(&res, msg.Game)
-				b.confirmMessage()
+		case msg, ok := <-*b.InChan:
+			if ok {
+				fmt.Println("BROKER GOT MESSAGE IN IN CHANNEL", msg)
+				switch msg.Platform {
+				case APNSPlatform:
+					var res structs.ResponseWithMetadata
+					err := json.Unmarshal(msg.Value, &res)
+					if err != nil {
+						l.WithError(err).Error(ErrAPNSUnmarshal.Error())
+					}
+					b.routeAPNSMessage(&res, msg.Game)
+					b.confirmMessage()
 
-			case GCMPlatform:
-				var res gcm.CCSMessage
-				err := json.Unmarshal(msg.Value, &res)
-				if err != nil {
-					l.WithError(err).Error(ErrGCMUnmarshal.Error())
+				case GCMPlatform:
+					var res gcm.CCSMessage
+					err := json.Unmarshal(msg.Value, &res)
+					if err != nil {
+						l.WithError(err).Error(ErrGCMUnmarshal.Error())
+					}
+					fmt.Println("GOT GCM MESSAGE!!!!", res)
+					b.routeGCMMessage(&res, msg.Game)
+					b.confirmMessage()
 				}
-				fmt.Println("GOT GCM MESSAGE!!!!", res)
-				b.routeGCMMessage(&res, msg.Game)
-				b.confirmMessage()
 			}
 
 		case <-b.stopChannel:

@@ -70,6 +70,9 @@ feedbackListeners:
       fetch.wait.max.ms: 100
       offsetResetStrategy: latest
       handleAllMessagesBeforeExiting: true
+  broker:
+    invalidTokenChan:
+      size: 999
   invalidToken:
     flush:
       time:

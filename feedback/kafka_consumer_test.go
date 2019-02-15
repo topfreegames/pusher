@@ -37,7 +37,7 @@ import (
 	"github.com/topfreegames/pusher/util"
 )
 
-var _ = Describe("Kafka Extension", func() {
+var _ = Describe("Kafka Consumer", func() {
 	logger, hook := test.NewNullLogger()
 	logger.Level = logrus.DebugLevel
 

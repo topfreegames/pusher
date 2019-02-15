@@ -334,7 +334,6 @@ func (q *KafkaConsumer) handleUnrecognized(ev kafka.Event) {
 
 //Cleanup closes kafka consumer connection
 func (q *KafkaConsumer) Cleanup() error {
-	fmt.Println("CLEANING kafka consumer")
 	if q.run {
 		q.StopConsuming()
 	}

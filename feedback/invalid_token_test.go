@@ -106,6 +106,9 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
+				config.Set("feedbackListeners.invalidToken.flush.time.ms", 10000)
+				config.Set("feedbackListeners.invalidToken.buffer.size", 6)
+
 				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
@@ -152,23 +155,23 @@ var _ = Describe("InvalidToken Handler", func() {
 				time.Sleep(5 * time.Millisecond)
 				expResults := []struct {
 					Query  string
-					Tokens []string
+					Tokens []interface{}
 				}{
 					{
 						Query:  "DELETE FROM boomforce_apns WHERE token IN (?0, ?1);",
-						Tokens: []string{"AAAAAAAAAA", "BBBBBBBBBB"},
+						Tokens: []interface{}{"AAAAAAAAAA", "BBBBBBBBBB"},
 					},
 					{
 						Query:  "DELETE FROM sniper_apns WHERE token IN (?0);",
-						Tokens: []string{"CCCCCCCCCC"},
+						Tokens: []interface{}{"CCCCCCCCCC"},
 					},
 					{
 						Query:  "DELETE FROM boomforce_gcm WHERE token IN (?0);",
-						Tokens: []string{"DDDDDDDDDD"},
+						Tokens: []interface{}{"DDDDDDDDDD"},
 					},
 					{
 						Query:  "DELETE FROM sniper_gcm WHERE token IN (?0, ?1);",
-						Tokens: []string{"EEEEEEEEEE", "FFFFFFFFFF"},
+						Tokens: []interface{}{"EEEEEEEEEE", "FFFFFFFFFF"},
 					},
 				}
 
@@ -176,7 +179,7 @@ var _ = Describe("InvalidToken Handler", func() {
 					Eventually(func() interface{} {
 						for _, exec := range mockClient.Execs[1:] {
 							if exec[0].(string) == res.Query {
-								return exec[1].([]interface{})[0]
+								return exec[1]
 							}
 						}
 						return nil
@@ -242,7 +245,7 @@ var _ = Describe("InvalidToken Handler", func() {
 				}
 
 				expQuery := "DELETE FROM sniper_apns WHERE token IN (?0);"
-				expTokens := []string{"BBBBBBBBBB"}
+				expTokens := []interface{}{"BBBBBBBBBB"}
 
 				Eventually(func() interface{} {
 					if len(mockClient.Execs) >= 3 {
@@ -256,7 +259,7 @@ var _ = Describe("InvalidToken Handler", func() {
 						return mockClient.Execs[2][1]
 					}
 					return nil
-				}).Should(BeEquivalentTo([]interface{}{expTokens}))
+				}).Should(BeEquivalentTo(expTokens))
 			})
 		})
 	})

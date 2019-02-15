@@ -44,9 +44,10 @@ func NewInvalidTokenHandler(
 
 ) (*InvalidTokenHandler, error) {
 	h := &InvalidTokenHandler{
-		Logger: logger,
-		Config: cfg,
-		InChan: inChan,
+		Logger:   logger,
+		Config:   cfg,
+		InChan:   inChan,
+		stopChan: make(chan bool),
 	}
 
 	var db interfaces.DB
@@ -99,6 +100,12 @@ func (i *InvalidTokenHandler) Start() {
 	go i.processMessages()
 }
 
+// Stop stops the Handler from consuming messages from the intake channel
+func (i *InvalidTokenHandler) Stop() {
+	i.run = false
+	close(i.stopChan)
+}
+
 func (i *InvalidTokenHandler) processMessages() {
 	l := i.Logger.WithFields(log.Fields{
 		"operation": "processMessages",
@@ -107,18 +114,18 @@ func (i *InvalidTokenHandler) processMessages() {
 	for i.run {
 		select {
 		case tk := <-*i.InChan:
-			fmt.Println("INVALID TOKEN HANDLER GOT MESSAGE")
+			// fmt.Println("INVALID TOKEN HANDLER GOT MESSAGE")
 			i.Buffer = append(i.Buffer, tk)
 
 			if len(i.Buffer) >= i.bufferSize {
-				fmt.Println("BUFFER FULL")
+				// fmt.Println("BUFFER IS FULL")
 				l.Debug("buffer is full")
 				go i.deleteTokens(i.Buffer)
 				i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
 			}
 
 		case <-i.FlushTicker.C:
-			fmt.Println("TIMEOUT")
+			// fmt.Println("TIMEOUT")
 			l.Debug("flush ticker")
 			go i.deleteTokens(i.Buffer)
 			i.Buffer = make([]*InvalidToken, 0, i.bufferSize)

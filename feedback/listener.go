@@ -149,13 +149,15 @@ func (l *Listener) Start() {
 	}
 
 	l.Stop()
-	// l.Queue.StopConsuming()
-	// l.gracefulShutdown(l.Queue.PendingMessagesWaitGroup(), time.Duration(l.GracefulShutdownTimeout)*time.Second)
 }
 
+// Stop stops the execution of the Listener
 func (l *Listener) Stop() {
 	l.run = false
+	l.Queue.StopConsuming()
 	l.Queue.Cleanup()
+	l.Broker.Stop()
+	l.InvalidTokenHandler.Stop()
 	l.gracefulShutdown(l.Queue.PendingMessagesWaitGroup(), time.Duration(l.GracefulShutdownTimeout)*time.Second)
 }
 
