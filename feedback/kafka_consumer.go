@@ -46,7 +46,7 @@ type KafkaConsumer struct {
 	FetchMinBytes                  int
 	FetchWaitMaxMs                 int
 	messagesReceived               int64
-	msgChan                        chan *FeedbackMessage
+	msgChan                        chan QueueMessage
 	OffsetResetStrategy            string
 	run                            bool
 	SessionTimeout                 int
@@ -109,7 +109,7 @@ func (q *KafkaConsumer) configure(client interfaces.KafkaConsumerClient) error {
 	q.ChannelSize = q.Config.GetInt("feedbackListeners.queue.channelSize")
 	q.HandleAllMessagesBeforeExiting = q.Config.GetBool("feedbackListeners.queue.handleAllMessagesBeforeExiting")
 
-	q.msgChan = make(chan *FeedbackMessage, q.ChannelSize)
+	q.msgChan = make(chan QueueMessage, q.ChannelSize)
 
 	if q.HandleAllMessagesBeforeExiting {
 		var wg sync.WaitGroup
@@ -185,7 +185,7 @@ func (q *KafkaConsumer) StopConsuming() {
 }
 
 // MessagesChannel returns the channel that will receive all messages got from kafka
-func (q *KafkaConsumer) MessagesChannel() *chan *FeedbackMessage {
+func (q *KafkaConsumer) MessagesChannel() *chan QueueMessage {
 	return &q.msgChan
 }
 
@@ -292,7 +292,7 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 	}
 
 	parsedTopic := extensions.GetGameAndPlatformFromTopic(*topicPartition.Topic)
-	message := &FeedbackMessage{
+	message := &KafkaMessage{
 		Game:     parsedTopic.Game,
 		Platform: parsedTopic.Platform,
 		Value:    value,

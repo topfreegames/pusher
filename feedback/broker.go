@@ -53,7 +53,7 @@ type Message struct {
 type Broker struct {
 	Logger              *log.Logger
 	Config              *viper.Viper
-	InChan              *chan *FeedbackMessage
+	InChan              *chan QueueMessage
 	pendingMessagesWG   *sync.WaitGroup
 	InvalidTokenOutChan chan *InvalidToken
 
@@ -64,7 +64,7 @@ type Broker struct {
 // NewBroker creates a new Broker instance
 func NewBroker(
 	logger *log.Logger, cfg *viper.Viper,
-	inChan *chan *FeedbackMessage,
+	inChan *chan QueueMessage,
 	pendingMessagesWG *sync.WaitGroup,
 ) (*Broker, error) {
 	b := &Broker{
@@ -117,22 +117,22 @@ func (b *Broker) processMessages() {
 		select {
 		case msg, ok := <-*b.InChan:
 			if ok {
-				switch msg.Platform {
+				switch msg.GetPlatform() {
 				case APNSPlatform:
 					var res structs.ResponseWithMetadata
-					err := json.Unmarshal(msg.Value, &res)
+					err := json.Unmarshal(msg.GetValue(), &res)
 					if err != nil {
 						l.WithError(err).Error(ErrAPNSUnmarshal.Error())
 					}
-					b.routeAPNSMessage(&res, msg.Game)
+					b.routeAPNSMessage(&res, msg.GetGame())
 
 				case GCMPlatform:
 					var res gcm.CCSMessage
-					err := json.Unmarshal(msg.Value, &res)
+					err := json.Unmarshal(msg.GetValue(), &res)
 					if err != nil {
 						l.WithError(err).Error(ErrGCMUnmarshal.Error())
 					}
-					b.routeGCMMessage(&res, msg.Game)
+					b.routeGCMMessage(&res, msg.GetGame())
 				}
 
 				b.confirmMessage()

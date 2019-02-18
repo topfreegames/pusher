@@ -42,7 +42,7 @@ import (
 var _ = Describe("Broker", func() {
 	var logger *logrus.Logger
 	var hook *test.Hook
-	var inChan chan *FeedbackMessage
+	var inChan chan QueueMessage
 	var config *viper.Viper
 	var err error
 
@@ -54,7 +54,7 @@ var _ = Describe("Broker", func() {
 		config, err = util.NewViperWithConfigFile(configFile)
 		Expect(err).NotTo(HaveOccurred())
 
-		inChan = make(chan *FeedbackMessage, 100)
+		inChan = make(chan QueueMessage, 100)
 	})
 
 	Describe("[Unit]", func() {
@@ -76,7 +76,7 @@ var _ = Describe("Broker", func() {
 				game := "boomforce"
 				platform := "apns"
 				var value []byte
-				var kafkaMsg *FeedbackMessage
+				var kafkaMsg QueueMessage
 
 				BeforeEach(func() {
 					value, err = json.Marshal(&structs.ResponseWithMetadata{
@@ -87,7 +87,7 @@ var _ = Describe("Broker", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 
-					kafkaMsg = &FeedbackMessage{
+					kafkaMsg = &KafkaMessage{
 						Game:     game,
 						Platform: platform,
 						Value:    value,
@@ -137,7 +137,7 @@ var _ = Describe("Broker", func() {
 				game := "boomforce"
 				platform := "gcm"
 				var value []byte
-				var kafkaMsg *FeedbackMessage
+				var kafkaMsg QueueMessage
 
 				BeforeEach(func() {
 					value, err = json.Marshal(&gcm.CCSMessage{
@@ -146,7 +146,7 @@ var _ = Describe("Broker", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 
-					kafkaMsg = &FeedbackMessage{
+					kafkaMsg = &KafkaMessage{
 						Game:     game,
 						Platform: platform,
 						Value:    value,

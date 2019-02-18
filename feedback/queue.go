@@ -24,18 +24,41 @@ package feedback
 
 import "sync"
 
-// FeedbackMessage sent through the Channel
-type FeedbackMessage struct {
+// QueueMessage defines the interface that should be implemented by the type
+// produced by a Queue
+type QueueMessage interface {
+	GetGame() string
+	GetPlatform() string
+	GetValue() []byte
+}
+
+// Queue interface for making new queues pluggable easily
+type Queue interface {
+	MessagesChannel() *chan QueueMessage
+	ConsumeLoop() error
+	StopConsuming()
+	Cleanup() error
+	PendingMessagesWaitGroup() *sync.WaitGroup
+}
+
+// KafkaMessage implements the FeedbackMessage interface
+type KafkaMessage struct {
 	Game     string
 	Platform string
 	Value    []byte
 }
 
-// Queue interface for making new queues pluggable easily
-type Queue interface {
-	MessagesChannel() *chan *FeedbackMessage
-	ConsumeLoop() error
-	StopConsuming()
-	Cleanup() error
-	PendingMessagesWaitGroup() *sync.WaitGroup
+// GetGame returns the message's Game
+func (k *KafkaMessage) GetGame() string {
+	return k.Game
+}
+
+// GetPlatform returns the message's Platform
+func (k *KafkaMessage) GetPlatform() string {
+	return k.Platform
+}
+
+// GetValue returns the message's Value
+func (k *KafkaMessage) GetValue() []byte {
+	return k.Value
 }

@@ -198,7 +198,7 @@ var _ = Describe("Kafka Consumer", func() {
 				consumer.messagesReceived = 999
 
 				publishEvent(event)
-				Eventually(consumer.msgChan, 5).Should(Receive(Equal(&FeedbackMessage{
+				Eventually(consumer.msgChan, 5).Should(Receive(Equal(&KafkaMessage{
 					Game:     "games",
 					Platform: "apns",
 					Value:    val,
@@ -352,7 +352,7 @@ var _ = Describe("Kafka Consumer", func() {
 					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(client.msgChan, 10*time.Second).Should(Receive(Equal(&FeedbackMessage{
+				Eventually(client.msgChan, 10*time.Second).Should(Receive(Equal(&KafkaMessage{
 					Game:     game,
 					Platform: platform,
 					Value:    value,
