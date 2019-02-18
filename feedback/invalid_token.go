@@ -136,9 +136,7 @@ func (i *InvalidTokenHandler) processMessages() {
 	})
 
 	flushTicker := time.NewTicker(i.flushTime)
-	defer func() {
-		flushTicker.Stop()
-	}()
+	defer flushTicker.Stop()
 
 	for i.run {
 		select {
