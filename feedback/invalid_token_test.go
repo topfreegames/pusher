@@ -218,6 +218,12 @@ var _ = Describe("InvalidToken Handler", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 
+				for len(mockClient.Execs) < 1 {
+					// waiting connection to db
+					time.Sleep(10 * time.Millisecond)
+				}
+				mockClient.Error = fmt.Errorf("pg: no rows in result set")
+
 				handler.Start()
 				inChan <- &InvalidToken{
 					Token:    "AAAAAAAA",
