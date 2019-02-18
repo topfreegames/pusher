@@ -51,12 +51,14 @@ type InvalidTokenHandler struct {
 	StatsReporter []interfaces.StatsReporter
 	Client        *extensions.PGClient
 
-	FlushTicker *time.Ticker
-	InChan      chan *InvalidToken
-	Buffer      []*InvalidToken
-	bufferSize  int
-	run         bool
-	stopChan    chan bool
+	flushTime time.Duration
+
+	InChan     chan *InvalidToken
+	Buffer     []*InvalidToken
+	bufferSize int
+
+	run      bool
+	stopChan chan bool
 }
 
 // NewInvalidTokenHandler returns a new InvalidTokenHandler instance
@@ -95,10 +97,9 @@ func (i *InvalidTokenHandler) configure(db interfaces.DB) error {
 	l := i.Logger.WithField("method", "configure")
 	i.loadConfigurationDefaults()
 
-	flushTime := time.Duration(i.Config.GetInt("feedbackListeners.invalidToken.flush.time.ms")) * time.Millisecond
+	i.flushTime = time.Duration(i.Config.GetInt("feedbackListeners.invalidToken.flush.time.ms")) * time.Millisecond
 	i.bufferSize = i.Config.GetInt("feedbackListeners.invalidToken.buffer.size")
 
-	i.FlushTicker = time.NewTicker(flushTime)
 	i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
 
 	var err error
@@ -126,7 +127,6 @@ func (i *InvalidTokenHandler) Start() {
 // Stop stops the Handler from consuming messages from the intake channel
 func (i *InvalidTokenHandler) Stop() {
 	i.run = false
-	i.FlushTicker.Stop()
 	close(i.stopChan)
 }
 
@@ -134,6 +134,11 @@ func (i *InvalidTokenHandler) processMessages() {
 	l := i.Logger.WithFields(log.Fields{
 		"method": "processMessages",
 	})
+
+	flushTicker := time.NewTicker(i.flushTime)
+	defer func() {
+		flushTicker.Stop()
+	}()
 
 	for i.run {
 		select {
@@ -148,7 +153,7 @@ func (i *InvalidTokenHandler) processMessages() {
 				}
 			}
 
-		case <-i.FlushTicker.C:
+		case <-flushTicker.C:
 			l.Debug("flush ticker")
 			i.deleteTokens(i.Buffer)
 			i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
