@@ -54,7 +54,7 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
-				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
+				handler, err := NewInvalidTokenHandler(logger, config, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 			})
@@ -86,7 +86,7 @@ var _ = Describe("InvalidToken Handler", func() {
 				config.Set("feedbackListeners.invalidToken.buffer.size", 2)
 
 				logger.Level = logrus.DebugLevel
-				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
+				handler, err := NewInvalidTokenHandler(logger, config, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 
@@ -108,7 +108,7 @@ var _ = Describe("InvalidToken Handler", func() {
 				config.Set("feedbackListeners.invalidToken.buffer.size", 200)
 
 				logger.Level = logrus.DebugLevel
-				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
+				handler, err := NewInvalidTokenHandler(logger, config, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 
@@ -131,7 +131,7 @@ var _ = Describe("InvalidToken Handler", func() {
 				config.Set("feedbackListeners.invalidToken.flush.time.ms", 10000)
 				config.Set("feedbackListeners.invalidToken.buffer.size", 6)
 
-				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
+				handler, err := NewInvalidTokenHandler(logger, config, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 
@@ -214,7 +214,7 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
-				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
+				handler, err := NewInvalidTokenHandler(logger, config, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 
@@ -239,7 +239,7 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
-				handler, err := NewInvalidTokenHandler(logger, config, &inChan, mockClient)
+				handler, err := NewInvalidTokenHandler(logger, config, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 				handler.bufferSize = 1

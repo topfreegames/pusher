@@ -51,7 +51,7 @@ type InvalidTokenHandler struct {
 	Client *extensions.PGClient
 
 	FlushTicker *time.Ticker
-	InChan      *chan *InvalidToken
+	InChan      chan *InvalidToken
 	Buffer      []*InvalidToken
 	bufferSize  int
 	run         bool
@@ -61,7 +61,7 @@ type InvalidTokenHandler struct {
 // NewInvalidTokenHandler returns a new InvalidTokenHandler instance
 func NewInvalidTokenHandler(
 	logger *log.Logger, cfg *viper.Viper,
-	inChan *chan *InvalidToken,
+	inChan chan *InvalidToken,
 	dbOrNil ...interfaces.DB,
 
 ) (*InvalidTokenHandler, error) {
@@ -125,6 +125,7 @@ func (i *InvalidTokenHandler) Start() {
 // Stop stops the Handler from consuming messages from the intake channel
 func (i *InvalidTokenHandler) Stop() {
 	i.run = false
+	i.FlushTicker.Stop()
 	close(i.stopChan)
 }
 
@@ -135,7 +136,7 @@ func (i *InvalidTokenHandler) processMessages() {
 
 	for i.run {
 		select {
-		case tk, ok := <-*i.InChan:
+		case tk, ok := <-i.InChan:
 			if ok {
 				i.Buffer = append(i.Buffer, tk)
 

@@ -59,7 +59,7 @@ var _ = Describe("Broker", func() {
 
 	Describe("[Unit]", func() {
 		It("Should start and stop correctly", func() {
-			broker, err := NewBroker(logger, config, &inChan, nil)
+			broker, err := NewBroker(logger, config, inChan, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			broker.Start()
@@ -95,7 +95,7 @@ var _ = Describe("Broker", func() {
 				})
 
 				It("Should route an invalid token feedback", func() {
-					broker, err := NewBroker(logger, config, &inChan, nil)
+					broker, err := NewBroker(logger, config, inChan, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					broker.Start()
@@ -111,12 +111,12 @@ var _ = Describe("Broker", func() {
 					Expect(tk).To(Equal(expTk))
 
 					broker.Stop()
-					Expect(len(*broker.InChan)).To(Equal(0))
+					Expect(len(broker.InChan)).To(Equal(0))
 					Expect(len(broker.InvalidTokenOutChan)).To(Equal(0))
 				})
 
 				It("Should return an error if invalid token output channel is full", func() {
-					broker, err := NewBroker(logger, config, &inChan, nil)
+					broker, err := NewBroker(logger, config, inChan, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					broker.InvalidTokenOutChan = make(chan *InvalidToken, 1)
@@ -154,7 +154,7 @@ var _ = Describe("Broker", func() {
 				})
 
 				It("Should route an invalid token feedback from GCM", func() {
-					broker, err := NewBroker(logger, config, &inChan, nil)
+					broker, err := NewBroker(logger, config, inChan, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					broker.Start()
@@ -170,12 +170,12 @@ var _ = Describe("Broker", func() {
 					Expect(tk).To(Equal(expTk))
 
 					broker.Stop()
-					Expect(len(*broker.InChan)).To(Equal(0))
+					Expect(len(broker.InChan)).To(Equal(0))
 					Expect(len(broker.InvalidTokenOutChan)).To(Equal(0))
 				})
 
 				It("Should return an error if invalid token output channel is full", func() {
-					broker, err := NewBroker(logger, config, &inChan, nil)
+					broker, err := NewBroker(logger, config, inChan, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					broker.InvalidTokenOutChan = make(chan *InvalidToken, 1)

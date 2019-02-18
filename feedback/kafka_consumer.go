@@ -185,8 +185,8 @@ func (q *KafkaConsumer) StopConsuming() {
 }
 
 // MessagesChannel returns the channel that will receive all messages got from kafka
-func (q *KafkaConsumer) MessagesChannel() *chan QueueMessage {
-	return &q.msgChan
+func (q *KafkaConsumer) MessagesChannel() chan QueueMessage {
+	return q.msgChan
 }
 
 // ConsumeLoop consume messages from the queue and put in messages to send channel

@@ -53,7 +53,7 @@ type Message struct {
 type Broker struct {
 	Logger              *log.Logger
 	Config              *viper.Viper
-	InChan              *chan QueueMessage
+	InChan              chan QueueMessage
 	pendingMessagesWG   *sync.WaitGroup
 	InvalidTokenOutChan chan *InvalidToken
 
@@ -64,7 +64,7 @@ type Broker struct {
 // NewBroker creates a new Broker instance
 func NewBroker(
 	logger *log.Logger, cfg *viper.Viper,
-	inChan *chan QueueMessage,
+	inChan chan QueueMessage,
 	pendingMessagesWG *sync.WaitGroup,
 ) (*Broker, error) {
 	b := &Broker{
@@ -115,7 +115,7 @@ func (b *Broker) processMessages() {
 
 	for b.run == true {
 		select {
-		case msg, ok := <-*b.InChan:
+		case msg, ok := <-b.InChan:
 			if ok {
 				switch msg.GetPlatform() {
 				case APNSPlatform:
@@ -156,6 +156,10 @@ func (b *Broker) routeAPNSMessage(msg *structs.ResponseWithMetadata, game string
 			Platform: APNSPlatform,
 		}
 
+		// We adopt a best-effort approach here. There's no significant problem
+		// if a token is not actually deleted since we can do it later during a new
+		// push cycle. If the invalid token output channel is full, we just drop the
+		// token and move to the next message
 		select {
 		case b.InvalidTokenOutChan <- tk:
 		default:
@@ -173,6 +177,10 @@ func (b *Broker) routeGCMMessage(msg *gcm.CCSMessage, game string) {
 			Platform: GCMPlatform,
 		}
 
+		// We adopt a best-effort approach here. There's no significant problem
+		// if a token is not actually deleted since we can do it later during a new
+		// push cycle. If the invalid token output channel is full, we just drop the
+		// token and move to the next message
 		select {
 		case b.InvalidTokenOutChan <- tk:
 		default:

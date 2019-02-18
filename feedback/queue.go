@@ -34,7 +34,7 @@ type QueueMessage interface {
 
 // Queue interface for making new queues pluggable easily
 type Queue interface {
-	MessagesChannel() *chan QueueMessage
+	MessagesChannel() chan QueueMessage
 	ConsumeLoop() error
 	StopConsuming()
 	Cleanup() error

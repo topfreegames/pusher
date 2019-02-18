@@ -86,7 +86,7 @@ func (l *Listener) configure() error {
 	}
 	l.Broker = broker
 
-	handler, err := NewInvalidTokenHandler(l.Logger, l.Config, &l.Broker.InvalidTokenOutChan)
+	handler, err := NewInvalidTokenHandler(l.Logger, l.Config, l.Broker.InvalidTokenOutChan)
 	if err != nil {
 		return fmt.Errorf("error creating new invalid token handler: %s", err.Error())
 	}
