@@ -30,6 +30,7 @@ import (
 type StatsDClient interface {
 	Incr(string, []string, float64) error
 	Gauge(string, float64, []string, float64) error
+	Count(string, int64, []string, float64) error
 	Timing(string, time.Duration, []string, float64) error
 	Close() error
 }

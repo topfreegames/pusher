@@ -53,7 +53,7 @@ var _ = Describe("StatsD Extension", func() {
 
 				statsd.HandleNotificationSent("game", "apns")
 				statsd.HandleNotificationSent("game", "apns")
-				Expect(mockClient.Count["sent"]).To(Equal(2))
+				Expect(mockClient.Counts["sent"]).To(Equal(int64(2)))
 			})
 		})
 
@@ -65,7 +65,7 @@ var _ = Describe("StatsD Extension", func() {
 
 				statsd.HandleNotificationSuccess("game", "apns")
 				statsd.HandleNotificationSuccess("game", "apns")
-				Expect(mockClient.Count["ack"]).To(Equal(2))
+				Expect(mockClient.Counts["ack"]).To(Equal(int64(2)))
 			})
 		})
 
@@ -96,7 +96,41 @@ var _ = Describe("StatsD Extension", func() {
 				statsd.HandleNotificationFailure("game", "apns", pErr)
 				statsd.HandleNotificationFailure("game", "apns", pErr)
 
-				Expect(mockClient.Count["failed"]).To(Equal(2))
+				Expect(mockClient.Counts["failed"]).To(Equal(int64(2)))
+			})
+		})
+
+		Describe("Reporting metric count", func() {
+			It("should report metric increment in statsd", func() {
+				statsd, err := NewStatsD(config, logger, mockClient)
+				Expect(err).NotTo(HaveOccurred())
+				defer statsd.Cleanup()
+
+				statsd.ReportMetricCount("tokens_delete_success", 2, "game", "apns")
+				statsd.ReportMetricCount("tokens_delete_error", 3, "game", "apns")
+
+				statsd.ReportMetricCount("tokens_delete_success", 3, "game", "apns")
+				statsd.ReportMetricCount("tokens_delete_error", 0, "game", "apns")
+
+				Expect(mockClient.Counts["tokens_delete_success"]).To(Equal(int64(5)))
+				Expect(mockClient.Counts["tokens_delete_error"]).To(Equal(int64(3)))
+			})
+		})
+
+		Describe("Reporting metric gauge", func() {
+			It("should report metric gauge in statsd", func() {
+				statsd, err := NewStatsD(config, logger, mockClient)
+				Expect(err).NotTo(HaveOccurred())
+				defer statsd.Cleanup()
+
+				statsd.ReportMetricGauge("in_chan_size", 10, "game", "apns")
+				Expect(mockClient.Gauges["in_chan_size"]).To(Equal(float64(10)))
+
+				statsd.ReportMetricGauge("in_chan_size", 0, "game", "apns")
+				Expect(mockClient.Gauges["in_chan_size"]).To(Equal(float64(0)))
+
+				statsd.ReportMetricGauge("in_chan_size", 3, "game", "apns")
+				Expect(mockClient.Gauges["in_chan_size"]).To(Equal(float64(3)))
 			})
 		})
 	})
