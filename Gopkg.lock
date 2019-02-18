@@ -10,30 +10,6 @@
   version = "1.1.0"
 
 [[projects]]
-  digest = "1:29b1e6604e762715716cae79145c8732a964b8fe564cc330de1495090fbc777a"
-  name = "github.com/DataDog/zstd"
-  packages = ["."]
-  pruneopts = ""
-  revision = "c7161f8c63c045cbc7ca051dcc969dd0e4054de2"
-  version = "v1.3.5"
-
-[[projects]]
-  digest = "1:072c4df72b72758253d774fe5602c1a9ab86056e55ec806def5aa139e5ac7a4d"
-  name = "github.com/Shopify/sarama"
-  packages = ["."]
-  pruneopts = ""
-  revision = "03a43f93cd29dc549e6d9b11892795c206f9c38c"
-  version = "v1.20.1"
-
-[[projects]]
-  digest = "1:6da5545112f73dbad12895d25e39818c1c3e8040ebba488d4d3fe43bc8685eb6"
-  name = "github.com/bsm/sarama-cluster"
-  packages = ["."]
-  pruneopts = ""
-  revision = "c618e605e15c0d7535f6c96ff8efbb0dba4fd66c"
-  version = "v2.1.15"
-
-[[projects]]
   digest = "1:73ec5e4a5b52be94cf0efee29713e78e229696eb733063f85bebdd8fce337b8b"
   name = "github.com/certifi/gocertifi"
   packages = ["."]
@@ -66,30 +42,6 @@
   version = "v3.0.0"
 
 [[projects]]
-  digest = "1:6d6672f85a84411509885eaa32f597577873de00e30729b9bb0eb1e1faa49c12"
-  name = "github.com/eapache/go-resiliency"
-  packages = ["breaker"]
-  pruneopts = ""
-  revision = "ea41b0fad31007accc7f806884dcdf3da98b79ce"
-  version = "v1.1.0"
-
-[[projects]]
-  branch = "master"
-  digest = "1:6643c01e619a68f80ac12ad81223275df653528c6d7e3788291c1fd6f1d622f6"
-  name = "github.com/eapache/go-xerial-snappy"
-  packages = ["."]
-  pruneopts = ""
-  revision = "776d5712da21bc4762676d614db1d8a64f4238b0"
-
-[[projects]]
-  digest = "1:d8d46d21073d0f65daf1740ebf4629c65e04bf92e14ce93c2201e8624843c3d3"
-  name = "github.com/eapache/queue"
-  packages = ["."]
-  pruneopts = ""
-  revision = "44cc805cf13205b55f69e14bcb69867d1ae92f98"
-  version = "v1.1.0"
-
-[[projects]]
   digest = "1:9f1e571696860f2b4f8a241b43ce91c6085e7aaed849ccca53f590a4dc7b95bd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -104,14 +56,6 @@
   packages = ["."]
   pruneopts = ""
   revision = "d175f85701dfbf44cb0510114c9943e665e60907"
-
-[[projects]]
-  branch = "master"
-  digest = "1:2a5888946cdbc8aa360fd43301f9fc7869d663f60d5eedae7d4e6e5e4f06f2bf"
-  name = "github.com/golang/snappy"
-  packages = ["."]
-  pruneopts = ""
-  revision = "2e65f85255dbc3072edf28d6b5b8efc472979f5a"
 
 [[projects]]
   branch = "master"
@@ -252,15 +196,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:a1d7aa6caa82465a50a4c1da6f8dc9ff2ab4624a41b7020ef3d1fbed9ba9845d"
-  name = "github.com/pierrec/lz4"
-  packages = [
-    ".",
-    "internal/xxh32",
-  ]
+  digest = "1:1d7e1867c49a6dd9856598ef7c3123604ea3daabf5b83f303ff457bcbc410b1d"
+  name = "github.com/pkg/errors"
+  packages = ["."]
   pruneopts = ""
-  revision = "473cd7ce01a1113208073166464b98819526150e"
-  version = "v2.0.8"
+  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
+  version = "v0.8.1"
 
 [[projects]]
   digest = "1:256484dbbcd271f9ecebc6795b2df8cad4c458dd0f5fd82a8c2fa0c29f233411"
@@ -269,14 +210,6 @@
   pruneopts = ""
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
   version = "v1.0.0"
-
-[[projects]]
-  branch = "master"
-  digest = "1:bc5884d890d71ae56382665a93d792af3602dae40fa98778170e4795598a7264"
-  name = "github.com/rcrowley/go-metrics"
-  packages = ["."]
-  pruneopts = ""
-  revision = "3113b8401b8a98917cde58f8bbd42a1b1c03b1fd"
 
 [[projects]]
   digest = "1:6b55df4b0517a459af9d3879c99330af4367adcf45f3d0d37ded80a6272ae057"
@@ -387,29 +320,6 @@
   version = "v1.3"
 
 [[projects]]
-  digest = "1:74f86c458e82e1c4efbab95233e0cf51b7cc02dc03193be9f62cd81224e10401"
-  name = "go.uber.org/atomic"
-  packages = ["."]
-  pruneopts = ""
-  revision = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289"
-  version = "v1.3.2"
-
-[[projects]]
-  digest = "1:d15eea6585546add6adb6ab9473fa7864eb52db897b6a710bb40ea1e936e362a"
-  name = "go.uber.org/zap"
-  packages = [
-    ".",
-    "buffer",
-    "internal/bufferpool",
-    "internal/exit",
-    "internal/multierror",
-    "zapcore",
-  ]
-  pruneopts = ""
-  revision = "72313cde80537dd4dc9b7b80eda6d7ed796c4232"
-  version = "v1.0.0-rc.1"
-
-[[projects]]
   branch = "master"
   digest = "1:1710f8497e287491a719f21eb51b1068b224c63d31084b3d7121c6d65bc3bebf"
   name = "golang.org/x/crypto"
@@ -506,13 +416,12 @@
   analyzer-version = 1
   input-imports = [
     "github.com/DataDog/datadog-go/statsd",
-    "github.com/Shopify/sarama",
-    "github.com/bsm/sarama-cluster",
     "github.com/confluentinc/confluent-kafka-go/kafka",
     "github.com/getsentry/raven-go",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
     "github.com/onsi/gomega/types",
+    "github.com/pkg/errors",
     "github.com/satori/go.uuid",
     "github.com/sideshow/apns2",
     "github.com/sideshow/apns2/token",
@@ -521,7 +430,6 @@
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "github.com/topfreegames/go-gcm",
-    "go.uber.org/zap",
     "golang.org/x/crypto/pkcs12",
     "gopkg.in/pg.v5",
     "gopkg.in/pg.v5/types",
