@@ -23,13 +23,13 @@
 package feedback
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -76,19 +76,19 @@ func (l *Listener) configure() error {
 		&l.stopChannel, nil,
 	)
 	if err != nil {
-		return errors.Errorf("error creating new queue: %s", err.Error())
+		return fmt.Errorf("error creating new queue: %s", err.Error())
 	}
 	l.Queue = q
 
 	broker, err := NewBroker(l.Logger, l.Config, q.MessagesChannel(), l.Queue.PendingMessagesWaitGroup())
 	if err != nil {
-		return errors.Errorf("error creating new broker: %s", err.Error())
+		return fmt.Errorf("error creating new broker: %s", err.Error())
 	}
 	l.Broker = broker
 
 	handler, err := NewInvalidTokenHandler(l.Logger, l.Config, &l.Broker.InvalidTokenOutChan)
 	if err != nil {
-		return errors.Errorf("error creating new invalid token handler: %s", err.Error())
+		return fmt.Errorf("error creating new invalid token handler: %s", err.Error())
 	}
 	l.InvalidTokenHandler = handler
 

@@ -385,7 +385,7 @@ var _ = Describe("Feedback Listener", func() {
 								WHERE token = ?0`, game, platform), deviceToken)
 								Expect(err).NotTo(HaveOccurred())
 								return res.RowsReturned()
-							}, 15*time.Second).Should(Equal(0))
+							}, 30*time.Second).Should(Equal(0))
 						}
 					}
 					listener.Stop()
@@ -673,7 +673,7 @@ var _ = Describe("Feedback Listener", func() {
 								WHERE token = ?0`, game, platform), deviceToken)
 								Expect(err).NotTo(HaveOccurred())
 								return res.RowsReturned()
-							}, 15*time.Second).Should(Equal(0))
+							}, 30*time.Second).Should(Equal(0))
 						}
 					}
 					listener.Stop()
