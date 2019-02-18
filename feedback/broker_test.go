@@ -58,7 +58,6 @@ var _ = Describe("Broker", func() {
 	})
 
 	Describe("[Unit]", func() {
-
 		It("Should start and stop correctly", func() {
 			broker, err := NewBroker(logger, config, &inChan, nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -133,62 +132,60 @@ var _ = Describe("Broker", func() {
 		})
 
 		Describe("GCM Feedback Messages", func() {
-			Describe("APNS Feedback Messages", func() {
-				Describe("Invalid Token", func() {
-					deviceToken := "LZ4KXN4NWY72LIZCGWNGS2E6NLCGZZKFUH1R0EHQFG18SF4IXYUF7U0D539IIYIM2WP59YXFSBD9RK4WLFZFPVTP63PTRTI92LPUF1JYYNJUAP98UDHNB4ZYZBSNNFRF2DC34G6BJ721CA0VNKZL41QR"
-					game := "boomforce"
-					platform := "gcm"
-					var value []byte
-					var kafkaMsg *FeedbackMessage
+			Describe("Invalid Token", func() {
+				deviceToken := "LZ4KXN4NWY72LIZCGWNGS2E6NLCGZZKFUH1R0EHQFG18SF4IXYUF7U0D539IIYIM2WP59YXFSBD9RK4WLFZFPVTP63PTRTI92LPUF1JYYNJUAP98UDHNB4ZYZBSNNFRF2DC34G6BJ721CA0VNKZL41QR"
+				game := "boomforce"
+				platform := "gcm"
+				var value []byte
+				var kafkaMsg *FeedbackMessage
 
-					BeforeEach(func() {
-						value, err = json.Marshal(&gcm.CCSMessage{
-							From:  deviceToken,
-							Error: "DEVICE_UNREGISTERED",
-						})
-						Expect(err).NotTo(HaveOccurred())
-
-						kafkaMsg = &FeedbackMessage{
-							Game:     game,
-							Platform: platform,
-							Value:    value,
-						}
+				BeforeEach(func() {
+					value, err = json.Marshal(&gcm.CCSMessage{
+						From:  deviceToken,
+						Error: "DEVICE_UNREGISTERED",
 					})
+					Expect(err).NotTo(HaveOccurred())
 
-					It("Should route an invalid token feedback from GCM", func() {
-						broker, err := NewBroker(logger, config, &inChan, nil)
-						Expect(err).NotTo(HaveOccurred())
+					kafkaMsg = &FeedbackMessage{
+						Game:     game,
+						Platform: platform,
+						Value:    value,
+					}
+				})
 
-						broker.Start()
+				It("Should route an invalid token feedback from GCM", func() {
+					broker, err := NewBroker(logger, config, &inChan, nil)
+					Expect(err).NotTo(HaveOccurred())
 
-						inChan <- kafkaMsg
-						tk := <-broker.InvalidTokenOutChan
+					broker.Start()
 
-						expTk := &InvalidToken{
-							Token:    deviceToken,
-							Game:     game,
-							Platform: platform,
-						}
-						Expect(tk).To(Equal(expTk))
+					inChan <- kafkaMsg
+					tk := <-broker.InvalidTokenOutChan
 
-						broker.Stop()
-						Expect(len(*broker.InChan)).To(Equal(0))
-						Expect(len(broker.InvalidTokenOutChan)).To(Equal(0))
-					})
+					expTk := &InvalidToken{
+						Token:    deviceToken,
+						Game:     game,
+						Platform: platform,
+					}
+					Expect(tk).To(Equal(expTk))
 
-					It("Should return an error if invalid token output channel is full", func() {
-						broker, err := NewBroker(logger, config, &inChan, nil)
-						Expect(err).NotTo(HaveOccurred())
+					broker.Stop()
+					Expect(len(*broker.InChan)).To(Equal(0))
+					Expect(len(broker.InvalidTokenOutChan)).To(Equal(0))
+				})
 
-						broker.InvalidTokenOutChan = make(chan *InvalidToken, 1)
-						broker.Start()
+				It("Should return an error if invalid token output channel is full", func() {
+					broker, err := NewBroker(logger, config, &inChan, nil)
+					Expect(err).NotTo(HaveOccurred())
 
-						inChan <- kafkaMsg
-						inChan <- kafkaMsg
+					broker.InvalidTokenOutChan = make(chan *InvalidToken, 1)
+					broker.Start()
 
-						Eventually(func() []*logrus.Entry { return hook.Entries }).
-							Should(testing.ContainLogMessage(ErrInvalidTokenChanFull.Error()))
-					})
+					inChan <- kafkaMsg
+					inChan <- kafkaMsg
+
+					Eventually(func() []*logrus.Entry { return hook.Entries }).
+						Should(testing.ContainLogMessage(ErrInvalidTokenChanFull.Error()))
 				})
 			})
 		})

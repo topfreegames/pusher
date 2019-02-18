@@ -45,8 +45,7 @@ type Message struct {
 	ID               string                 `json:"id"`
 	Err              map[string]interface{} `json:"Err"`
 	Metadata         map[string]interface{} `json:"metadata"`
-
-	Reason string
+	Reason           string                 `json:"reason"`
 }
 
 // Broker receives kafka messages in its InChan, unmarshal them according to the
