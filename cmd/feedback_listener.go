@@ -53,7 +53,7 @@ var startFeedbackListenerCmd = &cobra.Command{
 	Use:   "start-feedback-listener",
 	Short: "starts the feedback listener",
 	Long: `starts the feedback listener that will read from kafka topics,
-		process the messages and route them for a convenient handler`,
+		process the messages and route them to a convenient handler`,
 	Run: func(cmd *cobra.Command, args []string) {
 		config, err := util.NewViperWithConfigFile(cfgFile)
 		if err != nil {
@@ -73,6 +73,7 @@ var startFeedbackListenerCmd = &cobra.Command{
 			})
 			panic(err)
 		}
+
 		listener.Start()
 	},
 }

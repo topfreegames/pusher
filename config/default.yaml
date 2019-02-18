@@ -39,16 +39,6 @@ feedback:
   cache:
     requestTimeout: 1800000
     cleaningInterval: 300000
-  listener:
-    flushInterval: 5000
-    gracefulShutdownTimeout: 30
-    kafka:
-      topics:
-        - "^.*-feedbacks$"
-      group: marathon-consumer-group
-      sessionTimeout: 6000
-      handleAllMessagesBeforeExiting: true
-      offsetResetStrategy: latest
 stats:
   reporters:
     - statsd
