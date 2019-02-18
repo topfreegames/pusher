@@ -142,14 +142,14 @@ func (i *InvalidTokenHandler) processMessages() {
 
 				if len(i.Buffer) >= i.bufferSize {
 					l.Debug("buffer is full")
-					go i.deleteTokens(i.Buffer)
+					i.deleteTokens(i.Buffer)
 					i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
 				}
 			}
 
 		case <-i.FlushTicker.C:
 			l.Debug("flush ticker")
-			go i.deleteTokens(i.Buffer)
+			i.deleteTokens(i.Buffer)
 			i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
 
 		case <-i.stopChan:

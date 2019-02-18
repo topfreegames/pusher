@@ -156,15 +156,7 @@ func (b *Broker) routeAPNSMessage(msg *structs.ResponseWithMetadata, game string
 			Platform: APNSPlatform,
 		}
 
-		// We adopt a best-effort approach here. There's no significant problem
-		// if a token is not actually deleted since we can do it later during a new
-		// push cycle. If the invalid token output channel is full, we just drop the
-		// token and move to the next message
-		select {
-		case b.InvalidTokenOutChan <- tk:
-		default:
-			b.Logger.Error(ErrInvalidTokenChanFull.Error())
-		}
+		b.InvalidTokenOutChan <- tk
 	}
 }
 
@@ -177,15 +169,7 @@ func (b *Broker) routeGCMMessage(msg *gcm.CCSMessage, game string) {
 			Platform: GCMPlatform,
 		}
 
-		// We adopt a best-effort approach here. There's no significant problem
-		// if a token is not actually deleted since we can do it later during a new
-		// push cycle. If the invalid token output channel is full, we just drop the
-		// token and move to the next message
-		select {
-		case b.InvalidTokenOutChan <- tk:
-		default:
-			b.Logger.Error(ErrInvalidTokenChanFull.Error())
-		}
+		b.InvalidTokenOutChan <- tk
 	}
 }
 

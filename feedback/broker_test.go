@@ -114,20 +114,6 @@ var _ = Describe("Broker", func() {
 					Expect(len(broker.InChan)).To(Equal(0))
 					Expect(len(broker.InvalidTokenOutChan)).To(Equal(0))
 				})
-
-				It("Should return an error if invalid token output channel is full", func() {
-					broker, err := NewBroker(logger, config, inChan, nil)
-					Expect(err).NotTo(HaveOccurred())
-
-					broker.InvalidTokenOutChan = make(chan *InvalidToken, 1)
-					broker.Start()
-
-					inChan <- kafkaMsg
-					inChan <- kafkaMsg
-
-					Eventually(func() []*logrus.Entry { return hook.Entries }).
-						Should(testing.ContainLogMessage(ErrInvalidTokenChanFull.Error()))
-				})
 			})
 		})
 
@@ -172,20 +158,6 @@ var _ = Describe("Broker", func() {
 					broker.Stop()
 					Expect(len(broker.InChan)).To(Equal(0))
 					Expect(len(broker.InvalidTokenOutChan)).To(Equal(0))
-				})
-
-				It("Should return an error if invalid token output channel is full", func() {
-					broker, err := NewBroker(logger, config, inChan, nil)
-					Expect(err).NotTo(HaveOccurred())
-
-					broker.InvalidTokenOutChan = make(chan *InvalidToken, 1)
-					broker.Start()
-
-					inChan <- kafkaMsg
-					inChan <- kafkaMsg
-
-					Eventually(func() []*logrus.Entry { return hook.Entries }).
-						Should(testing.ContainLogMessage(ErrInvalidTokenChanFull.Error()))
 				})
 			})
 		})
