@@ -59,7 +59,7 @@ var _ = Describe("Broker", func() {
 
 	Describe("[Unit]", func() {
 		It("Should start and stop correctly", func() {
-			broker, err := NewBroker(logger, config, inChan, nil)
+			broker, err := NewBroker(logger, config, nil, inChan, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			broker.Start()
@@ -95,7 +95,7 @@ var _ = Describe("Broker", func() {
 				})
 
 				It("Should route an invalid token feedback", func() {
-					broker, err := NewBroker(logger, config, inChan, nil)
+					broker, err := NewBroker(logger, config, nil, inChan, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					broker.Start()
@@ -140,7 +140,7 @@ var _ = Describe("Broker", func() {
 				})
 
 				It("Should route an invalid token feedback from GCM", func() {
-					broker, err := NewBroker(logger, config, inChan, nil)
+					broker, err := NewBroker(logger, config, nil, inChan, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					broker.Start()

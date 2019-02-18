@@ -132,8 +132,14 @@ func (s *StatsD) ReportMetricGauge(
 	hostname, _ := os.Hostname()
 	tags := []string{
 		fmt.Sprintf("hostname:%s", hostname),
-		fmt.Sprintf("game:%s", game),
-		fmt.Sprintf("platform:%s", platform),
+	}
+
+	if game != "" {
+		tags = append(tags, game)
+	}
+
+	if platform != "" {
+		tags = append(tags, platform)
 	}
 
 	s.Client.Gauge(metric, value, tags, 1)
@@ -148,8 +154,14 @@ func (s *StatsD) ReportMetricCount(
 	hostname, _ := os.Hostname()
 	tags := []string{
 		fmt.Sprintf("hostname:%s", hostname),
-		fmt.Sprintf("game:%s", game),
-		fmt.Sprintf("platform:%s", platform),
+	}
+
+	if game != "" {
+		tags = append(tags, game)
+	}
+
+	if platform != "" {
+		tags = append(tags, platform)
 	}
 
 	s.Client.Count(metric, value, tags, 1)

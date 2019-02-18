@@ -43,6 +43,8 @@ feedback:
 stats:
   reporters:
     - statsd
+  flush:
+    s: 5
   statsd:
     host: "localhost:40001"
     prefix: "push"

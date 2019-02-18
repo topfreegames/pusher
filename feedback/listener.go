@@ -32,30 +32,38 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/interfaces"
 )
 
 // Listener will consume push feedbacks from a queue and use a broker to route
 // the messages to a convenient handler
 type Listener struct {
-	Config                  *viper.Viper
-	Logger                  *log.Logger
+	Config           *viper.Viper
+	Logger           *log.Logger
+	StatsReporters   []interfaces.StatsReporter
+	StatsFlushTicker *time.Ticker
+
 	Queue                   Queue
 	Broker                  *Broker
 	InvalidTokenHandler     *InvalidTokenHandler
 	GracefulShutdownTimeout int
-	run                     bool
-	stopChannel             chan struct{}
+
+	run         bool
+	stopChannel chan struct{}
 }
 
 // NewListener creates and return a new Listener instance
-func NewListener(config *viper.Viper, logger *log.Logger) (*Listener, error) {
+func NewListener(
+	config *viper.Viper, logger *log.Logger,
+	statsdClientOrNil interfaces.StatsDClient,
+) (*Listener, error) {
 	l := &Listener{
 		Config:      config,
 		Logger:      logger,
 		stopChannel: make(chan struct{}),
 	}
 
-	err := l.configure()
+	err := l.configure(statsdClientOrNil)
 	if err != nil {
 		return nil, err
 	}
@@ -65,12 +73,17 @@ func NewListener(config *viper.Viper, logger *log.Logger) (*Listener, error) {
 
 func (l *Listener) loadConfigurationDefaults() {
 	l.Config.SetDefault("feedbackListeners.gracefulShutdownTimeout", 1)
+	l.Config.SetDefault("stats.flush.s", 5)
 }
 
-func (l *Listener) configure() error {
+func (l *Listener) configure(statsdClientrOrNil interfaces.StatsDClient) error {
 	l.loadConfigurationDefaults()
 
 	l.GracefulShutdownTimeout = l.Config.GetInt("feedbackListeners.gracefulShutdownTimeout")
+	if err := l.configureStatsReporters(statsdClientrOrNil); err != nil {
+		return fmt.Errorf("error configuring statsReporters")
+	}
+
 	q, err := NewKafkaConsumer(
 		l.Config, l.Logger,
 		&l.stopChannel, nil,
@@ -80,17 +93,30 @@ func (l *Listener) configure() error {
 	}
 	l.Queue = q
 
-	broker, err := NewBroker(l.Logger, l.Config, q.MessagesChannel(), l.Queue.PendingMessagesWaitGroup())
+	broker, err := NewBroker(l.Logger, l.Config, nil, q.MessagesChannel(), l.Queue.PendingMessagesWaitGroup())
 	if err != nil {
 		return fmt.Errorf("error creating new broker: %s", err.Error())
 	}
 	l.Broker = broker
 
-	handler, err := NewInvalidTokenHandler(l.Logger, l.Config, l.Broker.InvalidTokenOutChan)
+	handler, err := NewInvalidTokenHandler(l.Logger, l.Config, nil, l.Broker.InvalidTokenOutChan)
 	if err != nil {
 		return fmt.Errorf("error creating new invalid token handler: %s", err.Error())
 	}
 	l.InvalidTokenHandler = handler
+
+	return nil
+}
+
+func (l *Listener) configureStatsReporters(clientOrNil interfaces.StatsDClient) error {
+	reporters, err := configureStatsReporters(l.Config, l.Logger, clientOrNil)
+	if err != nil {
+		return err
+	}
+	l.StatsReporters = reporters
+
+	flushTimeout := time.Duration(l.Config.GetInt("stats.flush.s")) * time.Second
+	l.StatsFlushTicker = time.NewTicker(flushTimeout)
 
 	return nil
 }
@@ -117,15 +143,29 @@ func (l *Listener) Start() {
 		case <-l.stopChannel:
 			log.Warn("Stop channel closed\n")
 			l.run = false
+		case <-l.StatsFlushTicker.C:
+			l.flushStats()
 		}
 	}
 
 	l.Stop()
 }
 
+func (l *Listener) flushStats() {
+	statsReporterReportMetricGauge(l.StatsReporters,
+		"queue_out_channel", float64(len(l.Queue.MessagesChannel())), "", "")
+	statsReporterReportMetricGauge(l.StatsReporters,
+		"broker_in_channel", float64(len(l.Broker.InChan)), "", "")
+	statsReporterReportMetricGauge(l.StatsReporters,
+		"broker_invalid_token_channel", float64(len(l.Broker.InvalidTokenOutChan)), "", "")
+}
+
 // Stop stops the execution of the Listener
 func (l *Listener) Stop() {
 	l.run = false
+	l.flushStats()
+	l.StatsFlushTicker.Stop()
+
 	l.Queue.StopConsuming()
 	l.Queue.Cleanup()
 	l.Broker.Stop()

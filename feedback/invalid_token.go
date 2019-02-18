@@ -46,9 +46,10 @@ type InvalidToken struct {
 // When the buffer is full or after a timeout, it is flushed, triggering the deletion
 // of the tokens from the database
 type InvalidTokenHandler struct {
-	Logger *log.Logger
-	Config *viper.Viper
-	Client *extensions.PGClient
+	Logger        *log.Logger
+	Config        *viper.Viper
+	StatsReporter []interfaces.StatsReporter
+	Client        *extensions.PGClient
 
 	FlushTicker *time.Ticker
 	InChan      chan *InvalidToken
@@ -60,16 +61,16 @@ type InvalidTokenHandler struct {
 
 // NewInvalidTokenHandler returns a new InvalidTokenHandler instance
 func NewInvalidTokenHandler(
-	logger *log.Logger, cfg *viper.Viper,
+	logger *log.Logger, cfg *viper.Viper, statsReporter []interfaces.StatsReporter,
 	inChan chan *InvalidToken,
 	dbOrNil ...interfaces.DB,
-
 ) (*InvalidTokenHandler, error) {
 	h := &InvalidTokenHandler{
-		Logger:   logger,
-		Config:   cfg,
-		InChan:   inChan,
-		stopChan: make(chan bool),
+		Logger:        logger,
+		Config:        cfg,
+		StatsReporter: statsReporter,
+		InChan:        inChan,
+		stopChan:      make(chan bool),
 	}
 
 	var db interfaces.DB
@@ -218,8 +219,14 @@ func (i *InvalidTokenHandler) deleteTokensFromGame(tokens []string, game, platfo
 		})
 
 		l.WithError(err).Error("error deleting tokens")
+		statsReporterReportMetricCount(i.StatsReporter,
+			"tokens_deleted_error", int64(len(tokens)), game, platform)
+
 		return err
 	}
+
+	statsReporterReportMetricCount(i.StatsReporter,
+		"tokens_deleted_success", int64(len(tokens)), game, platform)
 
 	return nil
 }
