@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2019 TFG Co <backend@tfgco.com>
+ * Author: TFG Co <backend@tfgco.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 package feedback
 
 import (
@@ -69,7 +91,7 @@ func (i *InvalidTokenHandler) loadConfigurationDefaults() {
 }
 
 func (i *InvalidTokenHandler) configure(db interfaces.DB) error {
-	l := i.Logger.WithField("operation", "configure")
+	l := i.Logger.WithField("method", "configure")
 	i.loadConfigurationDefaults()
 
 	flushTime := time.Duration(i.Config.GetInt("feedbackListeners.invalidToken.flush.time.ms")) * time.Millisecond
@@ -92,10 +114,10 @@ func (i *InvalidTokenHandler) configure(db interfaces.DB) error {
 // Start starts to process the InvalidTokens from the intake channel
 func (i *InvalidTokenHandler) Start() {
 	l := i.Logger.WithField(
-		"operation", "start",
+		"method", "start",
 	)
 	l.Info("starting invalid token handler")
-	fmt.Println("invalid token handler started")
+
 	i.run = true
 	go i.processMessages()
 }
@@ -108,24 +130,23 @@ func (i *InvalidTokenHandler) Stop() {
 
 func (i *InvalidTokenHandler) processMessages() {
 	l := i.Logger.WithFields(log.Fields{
-		"operation": "processMessages",
+		"method": "processMessages",
 	})
 
 	for i.run {
 		select {
-		case tk := <-*i.InChan:
-			// fmt.Println("INVALID TOKEN HANDLER GOT MESSAGE")
-			i.Buffer = append(i.Buffer, tk)
+		case tk, ok := <-*i.InChan:
+			if ok {
+				i.Buffer = append(i.Buffer, tk)
 
-			if len(i.Buffer) >= i.bufferSize {
-				// fmt.Println("BUFFER IS FULL")
-				l.Debug("buffer is full")
-				go i.deleteTokens(i.Buffer)
-				i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
+				if len(i.Buffer) >= i.bufferSize {
+					l.Debug("buffer is full")
+					go i.deleteTokens(i.Buffer)
+					i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
+				}
 			}
 
 		case <-i.FlushTicker.C:
-			// fmt.Println("TIMEOUT")
 			l.Debug("flush ticker")
 			go i.deleteTokens(i.Buffer)
 			i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
@@ -134,6 +155,8 @@ func (i *InvalidTokenHandler) processMessages() {
 			break
 		}
 	}
+
+	l.Info("stop processing Invalid Token Handler's in channel")
 }
 
 // deleteTokens groups tokens by game and platform and deletes them from the
@@ -164,9 +187,9 @@ func splitTokens(tokens []*InvalidToken) map[string]map[string][]string {
 
 func (i *InvalidTokenHandler) deleteTokensFromGame(tokens []string, game, platform string) error {
 	l := i.Logger.WithFields(log.Fields{
-		"operation": "deleteTokensFromGame",
-		"game":      game,
-		"platform":  platform,
+		"method":   "deleteTokensFromGame",
+		"game":     game,
+		"platform": platform,
 	})
 
 	var queryBuild strings.Builder
@@ -184,7 +207,6 @@ func (i *InvalidTokenHandler) deleteTokensFromGame(tokens []string, game, platfo
 
 	queryBuild.WriteString(";")
 	query := queryBuild.String()
-	fmt.Println("QUERY", query)
 
 	l.Debug("deleting tokens")
 	_, err := i.Client.DB.Exec(query, params...)
@@ -194,7 +216,6 @@ func (i *InvalidTokenHandler) deleteTokensFromGame(tokens []string, game, platfo
 			"handler": "invalidToken",
 		})
 
-		fmt.Println("ERROR FROM DELETING", err)
 		l.WithError(err).Error("error deleting tokens")
 		return err
 	}

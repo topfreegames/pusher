@@ -1,8 +1,29 @@
+/*
+ * Copyright (c) 2019 TFG Co <backend@tfgco.com>
+ * Author: TFG Co <backend@tfgco.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 package feedback
 
 import (
 	"encoding/json"
-	"fmt"
 	"sync"
 
 	gcm "github.com/topfreegames/go-gcm"
@@ -13,7 +34,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Message is a struct that will decode a apns or gcm feedback message
+// Message is a struct that will decode an apns or gcm feedback message
 type Message struct {
 	From             string                 `json:"from"`
 	MessageID        string                 `json:"message_id"`
@@ -56,7 +77,6 @@ func NewBroker(
 	}
 
 	b.configure()
-	fmt.Println("BROKER OUT CHAN SIZE", cap(b.InvalidTokenOutChan))
 
 	return b, nil
 }
@@ -74,15 +94,15 @@ func (b *Broker) configure() {
 // Start starts a routine to process the Broker in channel
 func (b *Broker) Start() {
 	l := b.Logger.WithField(
-		"operation", "start",
+		"method", "start",
 	)
 	l.Info("starting broker")
-	fmt.Println("broker started")
+
 	b.run = true
 	go b.processMessages()
 }
 
-// Stop stops all routines from processing the in channel and close all output channels
+// Stop stops all routines from processing the in channel and closes all output channels
 func (b *Broker) Stop() {
 	b.run = false
 	close(b.stopChannel)
@@ -91,14 +111,13 @@ func (b *Broker) Stop() {
 
 func (b *Broker) processMessages() {
 	l := b.Logger.WithField(
-		"operation", "processMessages",
+		"method`", "processMessages",
 	)
 
 	for b.run == true {
 		select {
 		case msg, ok := <-*b.InChan:
 			if ok {
-				fmt.Println("BROKER GOT MESSAGE IN IN CHANNEL", msg)
 				switch msg.Platform {
 				case APNSPlatform:
 					var res structs.ResponseWithMetadata
@@ -107,7 +126,6 @@ func (b *Broker) processMessages() {
 						l.WithError(err).Error(ErrAPNSUnmarshal.Error())
 					}
 					b.routeAPNSMessage(&res, msg.Game)
-					b.confirmMessage()
 
 				case GCMPlatform:
 					var res gcm.CCSMessage
@@ -115,10 +133,10 @@ func (b *Broker) processMessages() {
 					if err != nil {
 						l.WithError(err).Error(ErrGCMUnmarshal.Error())
 					}
-					fmt.Println("GOT GCM MESSAGE!!!!", res)
 					b.routeGCMMessage(&res, msg.Game)
-					b.confirmMessage()
 				}
+
+				b.confirmMessage()
 			}
 
 		case <-b.stopChannel:

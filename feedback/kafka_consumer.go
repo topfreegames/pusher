@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 TFG Co <backend@tfgco.com>
+ * Copyright (c) 2019 TFG Co <backend@tfgco.com>
  * Author: TFG Co <backend@tfgco.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -71,14 +71,17 @@ func NewKafkaConsumer(
 		pendingMessagesWG: nil,
 		stopChannel:       *stopChannel,
 	}
+
 	var client interfaces.KafkaConsumerClient
 	if len(clientOrNil) == 1 {
 		client = clientOrNil[0]
 	}
+
 	err := q.configure(client)
 	if err != nil {
 		return nil, err
 	}
+
 	return q, nil
 }
 
@@ -117,6 +120,7 @@ func (q *KafkaConsumer) configure(client interfaces.KafkaConsumerClient) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -154,19 +158,23 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 				"auto.commit.enable": true,
 			},
 		})
+
 		if err != nil {
 			l.WithError(err).Error("error configuring kafka queue")
 			return err
 		}
+
 		q.Consumer = c
 	} else {
 		q.Consumer = client
 	}
+
 	l.Info("kafka queue configured")
 	return nil
 }
 
-// PendingMessagesWaitGroup returns the waitGroup that is incremented every time a push is consumed
+// PendingMessagesWaitGroup returns the waitGroup that is incremented every time
+// a feedback is consumed
 func (q *KafkaConsumer) PendingMessagesWaitGroup() *sync.WaitGroup {
 	return q.pendingMessagesWG
 }
@@ -188,7 +196,6 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 		"topics": q.Topics,
 	})
 
-	fmt.Println("kafka consumer consumming")
 	err := q.Consumer.SubscribeTopics(q.Topics, nil)
 	if err != nil {
 		l.WithError(err).Error("error subscribing to topics")
@@ -200,32 +207,33 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 	q.run = true
 	for q.run == true {
 		select {
-		case ev := <-q.Consumer.Events():
-			fmt.Println("kafka consumer got a message", ev)
-			switch e := ev.(type) {
-			case kafka.AssignedPartitions:
-				err = q.assignPartitions(e.Partitions)
-				if err != nil {
-					l.WithError(err).Error("error assigning partitions")
+		case ev, ok := <-q.Consumer.Events():
+			if ok {
+				switch e := ev.(type) {
+				case kafka.AssignedPartitions:
+					err = q.assignPartitions(e.Partitions)
+					if err != nil {
+						l.WithError(err).Error("error assigning partitions")
+					}
+				case kafka.RevokedPartitions:
+					err = q.unassignPartitions()
+					if err != nil {
+						l.WithError(err).Error("error revoking partitions")
+					}
+				case *kafka.Message:
+					q.receiveMessage(e.TopicPartition, e.Value)
+				case kafka.PartitionEOF:
+					q.handlePartitionEOF(ev)
+				case kafka.OffsetsCommitted:
+					q.handleOffsetsCommitted(ev)
+				case kafka.Error:
+					q.handleError(ev)
+					q.StopConsuming()
+					close(q.stopChannel)
+					return e
+				default:
+					q.handleUnrecognized(e)
 				}
-			case kafka.RevokedPartitions:
-				err = q.unassignPartitions()
-				if err != nil {
-					l.WithError(err).Error("error revoking partitions")
-				}
-			case *kafka.Message:
-				q.receiveMessage(e.TopicPartition, e.Value)
-			case kafka.PartitionEOF:
-				q.handlePartitionEOF(ev)
-			case kafka.OffsetsCommitted:
-				q.handleOffsetsCommitted(ev)
-			case kafka.Error:
-				q.handleError(ev)
-				q.StopConsuming()
-				close(q.stopChannel)
-				return e
-			default:
-				q.handleUnrecognized(e)
 			}
 		}
 	}
@@ -245,6 +253,7 @@ func (q *KafkaConsumer) assignPartitions(partitions []kafka.TopicPartition) erro
 		l.WithError(err).Error("Failed to assign partitions.")
 		return err
 	}
+
 	l.Info("Partitions assigned.")
 	q.AssignedPartition = true
 	return nil
@@ -261,6 +270,7 @@ func (q *KafkaConsumer) unassignPartitions() error {
 		l.WithError(err).Error("Failed to unassign partitions.")
 		return err
 	}
+
 	l.Info("Partitions unassigned.")
 	return nil
 }
@@ -281,7 +291,6 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 		q.pendingMessagesWG.Add(1)
 	}
 
-	fmt.Println("FROM TOPIC", *topicPartition.Topic)
 	parsedTopic := extensions.GetGameAndPlatformFromTopic(*topicPartition.Topic)
 	message := &FeedbackMessage{
 		Game:     parsedTopic.Game,
@@ -290,7 +299,6 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 	}
 
 	q.msgChan <- message
-
 	l.Debug("Received message processed.")
 }
 

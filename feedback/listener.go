@@ -23,14 +23,12 @@
 package feedback
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
 
-	raven "github.com/getsentry/raven-go"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -49,17 +47,19 @@ type Listener struct {
 	stopChannel             chan struct{}
 }
 
-// NewListener creates and return a new instance of feedback.Listener
+// NewListener creates and return a new Listener instance
 func NewListener(config *viper.Viper, logger *log.Logger) (*Listener, error) {
 	l := &Listener{
 		Config:      config,
 		Logger:      logger,
 		stopChannel: make(chan struct{}),
 	}
+
 	err := l.configure()
 	if err != nil {
 		return nil, err
 	}
+
 	return l, nil
 }
 
@@ -68,18 +68,7 @@ func (l *Listener) loadConfigurationDefaults() {
 }
 
 func (l *Listener) configure() error {
-	// l.Config = viper.New()
-	// l.Config.SetConfigFile(l.ConfigFile)
-	// l.Config.SetEnvPrefix("pusher")
-	// l.Config.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	// l.Config.AutomaticEnv()
-	// err := l.Config.ReadInConfig()
-	// if err != nil {
-	// 	return err
-	// }
-
 	l.loadConfigurationDefaults()
-	l.configureSentry()
 
 	l.GracefulShutdownTimeout = l.Config.GetInt("feedbackListeners.gracefulShutdownTimeout")
 	q, err := NewKafkaConsumer(
@@ -93,7 +82,7 @@ func (l *Listener) configure() error {
 
 	broker, err := NewBroker(l.Logger, l.Config, q.MessagesChannel(), l.Queue.PendingMessagesWaitGroup())
 	if err != nil {
-		return errors.Errorf("error creating new broke: %s", err.Error())
+		return errors.Errorf("error creating new broker: %s", err.Error())
 	}
 	l.Broker = broker
 
@@ -104,20 +93,6 @@ func (l *Listener) configure() error {
 	l.InvalidTokenHandler = handler
 
 	return nil
-}
-
-func (l *Listener) configureSentry() {
-	ll := l.Logger.WithFields(log.Fields{
-		"source":    "feedbackListener",
-		"operation": "configureSentry",
-	})
-
-	sentryURL := l.Config.GetString("sentry.url")
-	if sentryURL != "" {
-		raven.SetDSN(sentryURL)
-	}
-
-	ll.Info("Configured sentry successfully.")
 }
 
 // Start starts the listener
@@ -140,7 +115,6 @@ func (l *Listener) Start() {
 			log.WithField("signal", sig.String()).Warn("terminating due to caught signal")
 			l.run = false
 		case <-l.stopChannel:
-			fmt.Println("STOPPING CHANNEL")
 			log.Warn("Stop channel closed\n")
 			l.run = false
 		}
@@ -159,7 +133,7 @@ func (l *Listener) Stop() {
 	l.gracefulShutdown(l.Queue.PendingMessagesWaitGroup(), time.Duration(l.GracefulShutdownTimeout)*time.Second)
 }
 
-// GracefulShutdown waits for wg do complete then exits
+// GracefulShutdown waits for wg to complete then exits
 func (l *Listener) gracefulShutdown(wg *sync.WaitGroup, timeout time.Duration) {
 	log := l.Logger.WithFields(log.Fields{
 		"method":  "gracefulShutdown",
@@ -170,10 +144,8 @@ func (l *Listener) gracefulShutdown(wg *sync.WaitGroup, timeout time.Duration) {
 		log.Info("listener is waiting to exit...")
 		e := WaitTimeout(wg, timeout)
 		if e {
-			fmt.Println("timeout")
 			log.Warn("exited listener because of graceful shutdown timeout")
 		} else {
-			fmt.Println("gracefully")
 			log.Info("exited listener gracefully")
 		}
 	}

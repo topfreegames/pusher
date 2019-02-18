@@ -1,6 +1,8 @@
+// +build integration
+
 /*
- * Copyright (c) 2019 Felipe Cavalcanti <fjfcavalcanti@gmail.com>
- * Author: Felipe Cavalcanti <fjfcavalcanti@gmail.com>
+ * Copyright (c) 2019 TFG Co <backend@tfgco.com>
+ * Author: TFG Co <backend@tfgco.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -86,7 +88,7 @@ var _ = Describe("Feedback Listener", func() {
 		}
 	})
 
-	Describe("[Integration]", func() {
+	Describe("[Integration2]", func() {
 		Describe("Create a new instance of listener", func() {
 			var logger *logrus.Logger
 
@@ -112,7 +114,10 @@ var _ = Describe("Feedback Listener", func() {
 					platform = "gcm"
 
 					brokers := config.GetString("feedbackListeners.queue.brokers")
-					p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokers})
+					p, err := kafka.NewProducer(&kafka.ConfigMap{
+						"bootstrap.servers": brokers,
+						"linger.ms":         1,
+					})
 					Expect(err).NotTo(HaveOccurred())
 					defer func() {
 						p.Close()
@@ -171,7 +176,10 @@ var _ = Describe("Feedback Listener", func() {
 					Expect(listener.InvalidTokenHandler).NotTo(BeNil())
 
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
-					p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokers})
+					p, err := kafka.NewProducer(&kafka.ConfigMap{
+						"bootstrap.servers": brokers,
+						"linger.ms":         1,
+					})
 					Expect(err).NotTo(HaveOccurred())
 					defer func() {
 						p.Close()
@@ -234,7 +242,10 @@ var _ = Describe("Feedback Listener", func() {
 					Expect(listener.InvalidTokenHandler).NotTo(BeNil())
 
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
-					p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokers})
+					p, err := kafka.NewProducer(&kafka.ConfigMap{
+						"bootstrap.servers": brokers,
+						"linger.ms":         1,
+					})
 					Expect(err).NotTo(HaveOccurred())
 					defer func() {
 						p.Close()
@@ -306,7 +317,10 @@ var _ = Describe("Feedback Listener", func() {
 					Expect(listener.InvalidTokenHandler).NotTo(BeNil())
 
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
-					p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokers})
+					p, err := kafka.NewProducer(&kafka.ConfigMap{
+						"bootstrap.servers": brokers,
+						"linger.ms":         1,
+					})
 					Expect(err).NotTo(HaveOccurred())
 					defer func() {
 						p.Close()
@@ -385,7 +399,10 @@ var _ = Describe("Feedback Listener", func() {
 					platform = "apns"
 
 					brokers := config.GetString("feedbackListeners.queue.brokers")
-					p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokers})
+					p, err := kafka.NewProducer(&kafka.ConfigMap{
+						"bootstrap.servers": brokers,
+						"linger.ms":         1,
+					})
 					Expect(err).NotTo(HaveOccurred())
 					defer func() {
 						p.Close()
@@ -447,7 +464,10 @@ var _ = Describe("Feedback Listener", func() {
 					Expect(listener.InvalidTokenHandler).NotTo(BeNil())
 
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
-					p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokers})
+					p, err := kafka.NewProducer(&kafka.ConfigMap{
+						"bootstrap.servers": brokers,
+						"linger.ms":         1,
+					})
 					Expect(err).NotTo(HaveOccurred())
 					defer func() {
 						p.Close()
@@ -510,7 +530,10 @@ var _ = Describe("Feedback Listener", func() {
 					Expect(listener.InvalidTokenHandler).NotTo(BeNil())
 
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
-					p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokers})
+					p, err := kafka.NewProducer(&kafka.ConfigMap{
+						"bootstrap.servers": brokers,
+						"linger.ms":         1,
+					})
 					Expect(err).NotTo(HaveOccurred())
 					defer func() {
 						p.Close()
@@ -582,7 +605,10 @@ var _ = Describe("Feedback Listener", func() {
 					Expect(listener.InvalidTokenHandler).NotTo(BeNil())
 
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
-					p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": brokers})
+					p, err := kafka.NewProducer(&kafka.ConfigMap{
+						"bootstrap.servers": brokers,
+						"linger.ms":         1,
+					})
 					Expect(err).NotTo(HaveOccurred())
 					defer func() {
 						p.Close()
