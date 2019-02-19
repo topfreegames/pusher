@@ -329,6 +329,7 @@ var _ = Describe("Kafka Consumer", func() {
 				platform := "apns"
 				value := []byte("Hello Go!")
 
+				config.Set("feedbackListeners.queue.group", "new_group")
 				config.Set("feedbackListeners.queue.topics", []string{"push-" + game + "-" + platform + "-feedback"})
 				client, err := NewKafkaConsumer(config, logger, &stopChannel)
 				Expect(err).NotTo(HaveOccurred())

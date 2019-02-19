@@ -77,6 +77,32 @@ var _ = Describe("Feedback Listener", func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 		}
+
+		brokers := config.GetString("feedbackListeners.queue.brokers")
+		p, err := kafka.NewProducer(&kafka.ConfigMap{
+			"bootstrap.servers": brokers,
+			"linger.ms":         100,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		defer p.Close()
+
+		// to make sure that the consumer will be assigned to the necessary
+		// topics since the beginning
+		for _, platform := range []string{"apns", "gcm"} {
+			for _, game := range []string{game1, game2} {
+				topic := "push-" + game + "-" + platform + "-feedbacks"
+				eventChan := make(chan kafka.Event)
+
+				p.Produce(&kafka.Message{
+					TopicPartition: kafka.TopicPartition{
+						Topic:     &topic,
+						Partition: kafka.PartitionAny,
+					},
+					Value: []byte{}},
+					eventChan)
+				Eventually(eventChan, 5*time.Second).Should(Receive())
+			}
+		}
 	})
 
 	AfterSuite(func() {
@@ -112,33 +138,6 @@ var _ = Describe("Feedback Listener", func() {
 
 				BeforeEach(func() {
 					platform = "gcm"
-
-					brokers := config.GetString("feedbackListeners.queue.brokers")
-					p, err := kafka.NewProducer(&kafka.ConfigMap{
-						"bootstrap.servers": brokers,
-						"linger.ms":         1,
-					})
-					Expect(err).NotTo(HaveOccurred())
-					defer func() {
-						p.Close()
-					}()
-
-					// to make sure that the consumer will be assigned to the necessary
-					// topics since the beginning
-					for _, game := range []string{game1, game2} {
-						topic := "push-" + game + "-" + platform + "-feedbacks"
-						eventChan := make(chan kafka.Event)
-
-						p.Produce(&kafka.Message{
-							TopicPartition: kafka.TopicPartition{
-								Topic:     &topic,
-								Partition: kafka.PartitionAny,
-							},
-							Value: []byte{}},
-							eventChan)
-						Eventually(eventChan, 5*time.Second).Should(Receive())
-					}
-
 					feedbacks = make(map[string][]*gcm.CCSMessage)
 					tokens := make(map[string][]string)
 
@@ -168,6 +167,8 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
+					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
+
 					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
@@ -178,12 +179,10 @@ var _ = Describe("Feedback Listener", func() {
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
 					p, err := kafka.NewProducer(&kafka.ConfigMap{
 						"bootstrap.servers": brokers,
-						"linger.ms":         1,
+						"linger.ms":         100,
 					})
 					Expect(err).NotTo(HaveOccurred())
-					defer func() {
-						p.Close()
-					}()
+					defer p.Close()
 
 					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
@@ -207,7 +206,6 @@ var _ = Describe("Feedback Listener", func() {
 					value, err := json.Marshal(feedbacks[game][0])
 					Expect(err).NotTo(HaveOccurred())
 
-					eventsChan := make(chan kafka.Event)
 					err = p.Produce(
 						&kafka.Message{
 							TopicPartition: kafka.TopicPartition{
@@ -215,10 +213,9 @@ var _ = Describe("Feedback Listener", func() {
 								Partition: kafka.PartitionAny,
 							},
 							Value: value},
-						eventsChan,
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
-					<-eventsChan
 
 					Eventually(func() int {
 						res, err := db.Exec(fmt.Sprintf(`SELECT FROM %s_%s
@@ -234,6 +231,8 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
+					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
+
 					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
@@ -244,12 +243,10 @@ var _ = Describe("Feedback Listener", func() {
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
 					p, err := kafka.NewProducer(&kafka.ConfigMap{
 						"bootstrap.servers": brokers,
-						"linger.ms":         1,
+						"linger.ms":         100,
 					})
 					Expect(err).NotTo(HaveOccurred())
-					defer func() {
-						p.Close()
-					}()
+					defer p.Close()
 
 					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
@@ -277,7 +274,6 @@ var _ = Describe("Feedback Listener", func() {
 						value, err := json.Marshal(msg)
 						Expect(err).NotTo(HaveOccurred())
 
-						eventsChan := make(chan kafka.Event)
 						err = p.Produce(
 							&kafka.Message{
 								TopicPartition: kafka.TopicPartition{
@@ -285,10 +281,10 @@ var _ = Describe("Feedback Listener", func() {
 									Partition: kafka.PartitionAny,
 								},
 								Value: value},
-							eventsChan,
+							nil,
 						)
 						Expect(err).NotTo(HaveOccurred())
-						<-eventsChan
+
 					}
 
 					for _, msg := range feedbacks[game] {
@@ -309,6 +305,8 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
+					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
+
 					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
@@ -319,12 +317,10 @@ var _ = Describe("Feedback Listener", func() {
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
 					p, err := kafka.NewProducer(&kafka.ConfigMap{
 						"bootstrap.servers": brokers,
-						"linger.ms":         1,
+						"linger.ms":         100,
 					})
 					Expect(err).NotTo(HaveOccurred())
-					defer func() {
-						p.Close()
-					}()
+					defer p.Close()
 
 					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
@@ -369,10 +365,7 @@ var _ = Describe("Feedback Listener", func() {
 					}
 
 					for _, msg := range msgs {
-						eventsChan := make(chan kafka.Event)
-
-						err = p.Produce(msg, eventsChan)
-						<-eventsChan
+						err = p.Produce(msg, nil)
 						Expect(err).NotTo(HaveOccurred())
 					}
 
@@ -388,6 +381,7 @@ var _ = Describe("Feedback Listener", func() {
 							}, 30*time.Second).Should(Equal(0))
 						}
 					}
+
 					listener.Stop()
 				})
 			})
@@ -397,33 +391,6 @@ var _ = Describe("Feedback Listener", func() {
 
 				BeforeEach(func() {
 					platform = "apns"
-
-					brokers := config.GetString("feedbackListeners.queue.brokers")
-					p, err := kafka.NewProducer(&kafka.ConfigMap{
-						"bootstrap.servers": brokers,
-						"linger.ms":         1,
-					})
-					Expect(err).NotTo(HaveOccurred())
-					defer func() {
-						p.Close()
-					}()
-
-					// to make sure that the consumer will be assigned to the necessary
-					// topics since the beginning
-					for _, game := range []string{game1, game2} {
-						topic := "push-" + game + "-" + platform + "-feedbacks"
-						eventChan := make(chan kafka.Event)
-
-						p.Produce(&kafka.Message{
-							TopicPartition: kafka.TopicPartition{
-								Topic:     &topic,
-								Partition: kafka.PartitionAny,
-							},
-							Value: []byte{}},
-							eventChan)
-						Eventually(eventChan, 5*time.Second).Should(Receive())
-					}
-
 					feedbacks = make(map[string][]*structs.ResponseWithMetadata)
 					tokens := make(map[string][]string)
 
@@ -456,6 +423,8 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
+					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
+
 					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
@@ -466,12 +435,10 @@ var _ = Describe("Feedback Listener", func() {
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
 					p, err := kafka.NewProducer(&kafka.ConfigMap{
 						"bootstrap.servers": brokers,
-						"linger.ms":         1,
+						"linger.ms":         100,
 					})
 					Expect(err).NotTo(HaveOccurred())
-					defer func() {
-						p.Close()
-					}()
+					defer p.Close()
 
 					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
@@ -495,7 +462,6 @@ var _ = Describe("Feedback Listener", func() {
 					value, err := json.Marshal(feedbacks[game][0])
 					Expect(err).NotTo(HaveOccurred())
 
-					eventsChan := make(chan kafka.Event)
 					err = p.Produce(
 						&kafka.Message{
 							TopicPartition: kafka.TopicPartition{
@@ -503,10 +469,9 @@ var _ = Describe("Feedback Listener", func() {
 								Partition: kafka.PartitionAny,
 							},
 							Value: value},
-						eventsChan,
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
-					<-eventsChan
 
 					Eventually(func() int {
 						res, err := db.Exec(fmt.Sprintf(`SELECT FROM %s_%s
@@ -522,6 +487,8 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
+					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
+
 					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
@@ -532,12 +499,10 @@ var _ = Describe("Feedback Listener", func() {
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
 					p, err := kafka.NewProducer(&kafka.ConfigMap{
 						"bootstrap.servers": brokers,
-						"linger.ms":         1,
+						"linger.ms":         100,
 					})
 					Expect(err).NotTo(HaveOccurred())
-					defer func() {
-						p.Close()
-					}()
+					defer p.Close()
 
 					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
@@ -565,7 +530,6 @@ var _ = Describe("Feedback Listener", func() {
 						value, err := json.Marshal(msg)
 						Expect(err).NotTo(HaveOccurred())
 
-						eventsChan := make(chan kafka.Event)
 						err = p.Produce(
 							&kafka.Message{
 								TopicPartition: kafka.TopicPartition{
@@ -573,10 +537,9 @@ var _ = Describe("Feedback Listener", func() {
 									Partition: kafka.PartitionAny,
 								},
 								Value: value},
-							eventsChan,
+							nil,
 						)
 						Expect(err).NotTo(HaveOccurred())
-						<-eventsChan
 					}
 
 					for _, msg := range feedbacks[game] {
@@ -597,6 +560,8 @@ var _ = Describe("Feedback Listener", func() {
 					logger, _ := test.NewNullLogger()
 					logger.Level = logrus.DebugLevel
 
+					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
+
 					listener, err := NewListener(config, logger)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
@@ -607,12 +572,10 @@ var _ = Describe("Feedback Listener", func() {
 					brokers := listener.Config.GetString("feedbackListeners.queue.brokers")
 					p, err := kafka.NewProducer(&kafka.ConfigMap{
 						"bootstrap.servers": brokers,
-						"linger.ms":         1,
+						"linger.ms":         100,
 					})
 					Expect(err).NotTo(HaveOccurred())
-					defer func() {
-						p.Close()
-					}()
+					defer p.Close()
 
 					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
@@ -657,10 +620,7 @@ var _ = Describe("Feedback Listener", func() {
 					}
 
 					for _, msg := range msgs {
-						eventsChan := make(chan kafka.Event)
-
-						err = p.Produce(msg, eventsChan)
-						<-eventsChan
+						err = p.Produce(msg, nil)
 						Expect(err).NotTo(HaveOccurred())
 					}
 
