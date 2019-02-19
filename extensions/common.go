@@ -52,6 +52,11 @@ func getGameAndPlatformFromTopic(topic string) ParsedTopic {
 	}
 }
 
+// GetGameAndPlatformFromTopic returns the game and plaform specified in the Kafka topic
+func GetGameAndPlatformFromTopic(topic string) ParsedTopic {
+	return getGameAndPlatformFromTopic(topic)
+}
+
 func sendToFeedbackReporters(feedbackReporters []interfaces.FeedbackReporter, res interface{}, topic ParsedTopic) error {
 	jres, err := json.Marshal(res)
 	if err != nil {
