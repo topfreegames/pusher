@@ -382,7 +382,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.sendMessage(kafkaMessage)
 				handler.sendMessage(kafkaMessage)
 
-				Expect(mockStatsDClient.Count["sent"]).To(Equal(2))
+				Expect(mockStatsDClient.Counts["sent"]).To(Equal(int64(2)))
 			})
 
 			It("should call HandleNotificationSuccess upon message response received", func() {
@@ -396,7 +396,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 
 				handler.handleAPNSResponse(res)
 				handler.handleAPNSResponse(res)
-				Expect(mockStatsDClient.Count["ack"]).To(Equal(2))
+				Expect(mockStatsDClient.Counts["ack"]).To(Equal(int64(2)))
 			})
 
 			It("should call HandleNotificationFailure upon message response received", func() {
@@ -411,7 +411,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				handler.handleAPNSResponse(res)
 
-				Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
+				Expect(mockStatsDClient.Counts["failed"]).To(Equal(int64(2)))
 			})
 		})
 

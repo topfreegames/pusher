@@ -45,7 +45,7 @@ func newFeedbackListener(
 		log.Level = logrus.InfoLevel
 	}
 
-	return feedback.NewListener(config, log)
+	return feedback.NewListener(config, log, nil)
 }
 
 // starFeedbackListenerCmd represents the start-feedback-listener command

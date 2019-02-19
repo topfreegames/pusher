@@ -54,7 +54,7 @@ func NewPGMock(rowsAffected, rowsReturned int, errOrNil ...error) *PGMock {
 }
 
 func (m *PGMock) getResult() *types.Result {
-	return types.NewResult([]byte(fmt.Sprintf(" %d", m.RowsAffected)), m.RowsReturned)
+	return types.NewResult([]byte(fmt.Sprintf(" %d\000", m.RowsAffected)), m.RowsReturned)
 }
 
 //Close records that it is closed

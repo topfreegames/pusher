@@ -27,6 +27,7 @@ import (
 	"sync"
 
 	gcm "github.com/topfreegames/go-gcm"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/structs"
 
 	"github.com/sideshow/apns2"
@@ -53,6 +54,7 @@ type Message struct {
 type Broker struct {
 	Logger              *log.Logger
 	Config              *viper.Viper
+	StatsReporters      []interfaces.StatsReporter
 	InChan              chan QueueMessage
 	pendingMessagesWG   *sync.WaitGroup
 	InvalidTokenOutChan chan *InvalidToken
@@ -63,13 +65,14 @@ type Broker struct {
 
 // NewBroker creates a new Broker instance
 func NewBroker(
-	logger *log.Logger, cfg *viper.Viper,
+	logger *log.Logger, cfg *viper.Viper, statsReporters []interfaces.StatsReporter,
 	inChan chan QueueMessage,
 	pendingMessagesWG *sync.WaitGroup,
 ) (*Broker, error) {
 	b := &Broker{
 		Logger:            logger,
 		Config:            cfg,
+		StatsReporters:    statsReporters,
 		InChan:            inChan,
 		pendingMessagesWG: pendingMessagesWG,
 		stopChannel:       make(chan struct{}),

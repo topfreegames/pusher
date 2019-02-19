@@ -123,7 +123,7 @@ var _ = Describe("Feedback Listener", func() {
 			})
 
 			It("should return a configured listener", func() {
-				listener, err := NewListener(config, logger)
+				listener, err := NewListener(config, logger, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(listener).NotTo(BeNil())
 				Expect(listener.Queue).NotTo(BeNil())
@@ -169,7 +169,7 @@ var _ = Describe("Feedback Listener", func() {
 
 					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
 
-					listener, err := NewListener(config, logger)
+					listener, err := NewListener(config, logger, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())
@@ -224,7 +224,7 @@ var _ = Describe("Feedback Listener", func() {
 						return res.RowsReturned()
 					}, 15*time.Second).Should(Equal(0))
 
-					listener.Stop()
+					close(listener.stopChannel)
 				})
 
 				It("should delete a batch of tokens from a single game", func() {
@@ -233,7 +233,7 @@ var _ = Describe("Feedback Listener", func() {
 
 					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
 
-					listener, err := NewListener(config, logger)
+					listener, err := NewListener(config, logger, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())
@@ -298,7 +298,7 @@ var _ = Describe("Feedback Listener", func() {
 						}, 15*time.Second).Should(Equal(0))
 					}
 
-					listener.Stop()
+					close(listener.stopChannel)
 				})
 
 				It("should delete a batch of tokens from different games", func() {
@@ -307,7 +307,7 @@ var _ = Describe("Feedback Listener", func() {
 
 					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
 
-					listener, err := NewListener(config, logger)
+					listener, err := NewListener(config, logger, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())
@@ -382,7 +382,7 @@ var _ = Describe("Feedback Listener", func() {
 						}
 					}
 
-					listener.Stop()
+					close(listener.stopChannel)
 				})
 			})
 
@@ -425,7 +425,7 @@ var _ = Describe("Feedback Listener", func() {
 
 					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
 
-					listener, err := NewListener(config, logger)
+					listener, err := NewListener(config, logger, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())
@@ -480,7 +480,7 @@ var _ = Describe("Feedback Listener", func() {
 						return res.RowsReturned()
 					}, 15*time.Second).Should(Equal(0))
 
-					listener.Stop()
+					close(listener.stopChannel)
 				})
 
 				It("should delete a batch of tokens from a single game", func() {
@@ -489,7 +489,7 @@ var _ = Describe("Feedback Listener", func() {
 
 					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
 
-					listener, err := NewListener(config, logger)
+					listener, err := NewListener(config, logger, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())
@@ -553,7 +553,7 @@ var _ = Describe("Feedback Listener", func() {
 						}, 15*time.Second).Should(Equal(0))
 					}
 
-					listener.Stop()
+					close(listener.stopChannel)
 				})
 
 				It("should delete a batch of tokens from different games", func() {
@@ -562,7 +562,7 @@ var _ = Describe("Feedback Listener", func() {
 
 					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))
 
-					listener, err := NewListener(config, logger)
+					listener, err := NewListener(config, logger, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listener).NotTo(BeNil())
 					Expect(listener.Queue).NotTo(BeNil())
@@ -636,7 +636,8 @@ var _ = Describe("Feedback Listener", func() {
 							}, 30*time.Second).Should(Equal(0))
 						}
 					}
-					listener.Stop()
+
+					close(listener.stopChannel)
 				})
 			})
 		})

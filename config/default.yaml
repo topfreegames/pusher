@@ -42,6 +42,8 @@ feedback:
 stats:
   reporters:
     - statsd
+  flush:
+    s: 5
   statsd:
     host: "localhost:8125"
     prefix: "push"

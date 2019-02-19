@@ -29,7 +29,7 @@ import (
 
 //StatsDClientMock should be used for tests that need to send xmpp messages to StatsD
 type StatsDClientMock struct {
-	Count   map[string]int
+	Counts  map[string]int64
 	Gauges  map[string]interface{}
 	Timings map[string]interface{}
 	Closed  bool
@@ -39,7 +39,7 @@ type StatsDClientMock struct {
 func NewStatsDClientMock() *StatsDClientMock {
 	return &StatsDClientMock{
 		Closed:  false,
-		Count:   map[string]int{},
+		Counts:  map[string]int64{},
 		Gauges:  map[string]interface{}{},
 		Timings: map[string]interface{}{},
 	}
@@ -50,7 +50,15 @@ var mutexCount, mutexGauges, mutexTimings sync.Mutex
 //Incr stores the new count in a map
 func (m *StatsDClientMock) Incr(bucket string, tags []string, rate float64) error {
 	mutexCount.Lock()
-	m.Count[bucket]++
+	m.Counts[bucket]++
+	mutexCount.Unlock()
+	return nil
+}
+
+// Count increases a metric value by the given value
+func (m *StatsDClientMock) Count(bucket string, value int64, tags []string, rate float64) error {
+	mutexCount.Lock()
+	m.Counts[bucket] += value
 	mutexCount.Unlock()
 	return nil
 }

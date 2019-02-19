@@ -122,3 +122,47 @@ func (s *StatsD) Cleanup() error {
 	s.Client.Close()
 	return nil
 }
+
+// ReportMetricGauge reports a metric as a Gauge with hostname, game and platform
+// as tags
+func (s *StatsD) ReportMetricGauge(
+	metric string, value float64,
+	game, platform string,
+) {
+	hostname, _ := os.Hostname()
+	tags := []string{
+		fmt.Sprintf("hostname:%s", hostname),
+	}
+
+	if game != "" {
+		tags = append(tags, game)
+	}
+
+	if platform != "" {
+		tags = append(tags, platform)
+	}
+
+	s.Client.Gauge(metric, value, tags, 1)
+}
+
+// ReportMetricCount reports a metric as a Count with hostname, game and platform
+// as tags
+func (s *StatsD) ReportMetricCount(
+	metric string, value int64,
+	game, platform string,
+) {
+	hostname, _ := os.Hostname()
+	tags := []string{
+		fmt.Sprintf("hostname:%s", hostname),
+	}
+
+	if game != "" {
+		tags = append(tags, game)
+	}
+
+	if platform != "" {
+		tags = append(tags, platform)
+	}
+
+	s.Client.Count(metric, value, tags, 1)
+}

@@ -32,7 +32,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
-	"github.com/topfreegames/go-gcm"
+	gcm "github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	. "github.com/topfreegames/pusher/testing"
@@ -214,9 +214,9 @@ var _ = Describe("GCM Message Handler", func() {
 					gcm.XMPPMessage{
 						TimeToLive:               &ttl,
 						DeliveryReceiptRequested: false,
-						DryRun: true,
-						To:     uuid.NewV4().String(),
-						Data:   map[string]interface{}{},
+						DryRun:                   true,
+						To:                       uuid.NewV4().String(),
+						Data:                     map[string]interface{}{},
 					},
 					metadata,
 					makeTimestamp() + int64(1000000),
@@ -245,9 +245,9 @@ var _ = Describe("GCM Message Handler", func() {
 					gcm.XMPPMessage{
 						TimeToLive:               &ttl,
 						DeliveryReceiptRequested: false,
-						DryRun: true,
-						To:     uuid.NewV4().String(),
-						Data:   map[string]interface{}{},
+						DryRun:                   true,
+						To:                       uuid.NewV4().String(),
+						Data:                     map[string]interface{}{},
 					},
 					metadata,
 					makeTimestamp() - int64(100),
@@ -285,9 +285,9 @@ var _ = Describe("GCM Message Handler", func() {
 				msg := &gcm.XMPPMessage{
 					TimeToLive:               &ttl,
 					DeliveryReceiptRequested: false,
-					DryRun: true,
-					To:     uuid.NewV4().String(),
-					Data:   map[string]interface{}{},
+					DryRun:                   true,
+					To:                       uuid.NewV4().String(),
+					Data:                     map[string]interface{}{},
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
@@ -315,9 +315,9 @@ var _ = Describe("GCM Message Handler", func() {
 					gcm.XMPPMessage{
 						TimeToLive:               &ttl,
 						DeliveryReceiptRequested: false,
-						DryRun: true,
-						To:     uuid.NewV4().String(),
-						Data:   map[string]interface{}{},
+						DryRun:                   true,
+						To:                       uuid.NewV4().String(),
+						Data:                     map[string]interface{}{},
 					},
 					metadata,
 					makeTimestamp() + int64(1000000),
@@ -341,9 +341,9 @@ var _ = Describe("GCM Message Handler", func() {
 				msg := &gcm.XMPPMessage{
 					TimeToLive:               &ttl,
 					DeliveryReceiptRequested: false,
-					DryRun: true,
-					To:     uuid.NewV4().String(),
-					Data:   map[string]interface{}{},
+					DryRun:                   true,
+					To:                       uuid.NewV4().String(),
+					Data:                     map[string]interface{}{},
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
@@ -460,9 +460,9 @@ var _ = Describe("GCM Message Handler", func() {
 				msg := &gcm.XMPPMessage{
 					TimeToLive:               &ttl,
 					DeliveryReceiptRequested: false,
-					DryRun: true,
-					To:     uuid.NewV4().String(),
-					Data:   map[string]interface{}{},
+					DryRun:                   true,
+					To:                       uuid.NewV4().String(),
+					Data:                     map[string]interface{}{},
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
@@ -476,14 +476,14 @@ var _ = Describe("GCM Message Handler", func() {
 
 				err = handler.sendMessage(kafkaMessage)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(mockStatsDClient.Count["sent"]).To(Equal(2))
+				Expect(mockStatsDClient.Counts["sent"]).To(Equal(int64(2)))
 			})
 
 			It("should call HandleNotificationSuccess upon message response received", func() {
 				res := gcm.CCSMessage{}
 				handler.handleGCMResponse(res)
 				handler.handleGCMResponse(res)
-				Expect(mockStatsDClient.Count["ack"]).To(Equal(2))
+				Expect(mockStatsDClient.Counts["ack"]).To(Equal(int64(2)))
 			})
 
 			It("should call HandleNotificationFailure upon message response received", func() {
@@ -493,7 +493,7 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.handleGCMResponse(res)
 				handler.handleGCMResponse(res)
 
-				Expect(mockStatsDClient.Count["failed"]).To(Equal(2))
+				Expect(mockStatsDClient.Counts["failed"]).To(Equal(int64(2)))
 			})
 		})
 
