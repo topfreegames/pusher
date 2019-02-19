@@ -227,7 +227,7 @@ var _ = Describe("Feedback Listener", func() {
 						return res.RowsReturned()
 					}, 15*time.Second).Should(Equal(0))
 
-					listener.Stop()
+					close(listener.stopChannel)
 				})
 
 				It("should delete a batch of tokens from a single game", func() {
@@ -302,7 +302,7 @@ var _ = Describe("Feedback Listener", func() {
 						}, 15*time.Second).Should(Equal(0))
 					}
 
-					listener.Stop()
+					close(listener.stopChannel)
 				})
 
 				It("should delete a batch of tokens from different games", func() {
@@ -388,7 +388,8 @@ var _ = Describe("Feedback Listener", func() {
 							}, 30*time.Second).Should(Equal(0))
 						}
 					}
-					listener.Stop()
+
+					close(listener.stopChannel)
 				})
 			})
 
@@ -515,7 +516,7 @@ var _ = Describe("Feedback Listener", func() {
 						return res.RowsReturned()
 					}, 15*time.Second).Should(Equal(0))
 
-					listener.Stop()
+					close(listener.stopChannel)
 				})
 
 				It("should delete a batch of tokens from a single game", func() {
@@ -590,7 +591,7 @@ var _ = Describe("Feedback Listener", func() {
 						}, 15*time.Second).Should(Equal(0))
 					}
 
-					listener.Stop()
+					close(listener.stopChannel)
 				})
 
 				It("should delete a batch of tokens from different games", func() {
@@ -676,7 +677,8 @@ var _ = Describe("Feedback Listener", func() {
 							}, 30*time.Second).Should(Equal(0))
 						}
 					}
-					listener.Stop()
+
+					close(listener.stopChannel)
 				})
 			})
 		})

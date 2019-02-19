@@ -31,6 +31,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/testing"
@@ -40,7 +41,7 @@ import (
 var _ = Describe("InvalidToken Handler", func() {
 	var config *viper.Viper
 	var mockStatsDClient *mocks.StatsDClientMock
-	var statReporters []interfaces.StatsReporter
+	var statsReporters []interfaces.StatsReporter
 	var err error
 
 	configFile := "../config/test.yaml"
@@ -57,7 +58,13 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
-				handler, err := NewInvalidTokenHandler(logger, config, nil, inChan, mockClient)
+				mockStatsDClient = mocks.NewStatsDClientMock()
+				c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				statsReporters = []interfaces.StatsReporter{c}
+
+				handler, err := NewInvalidTokenHandler(logger, config, statsReporters, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 			})
@@ -82,17 +89,26 @@ var _ = Describe("InvalidToken Handler", func() {
 
 			It("Should flush because buffer is full", func() {
 				logger, hook := test.NewNullLogger()
+				logger.Level = logrus.DebugLevel
+
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
+
+				mockStatsDClient = mocks.NewStatsDClientMock()
+				c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				statsReporters = []interfaces.StatsReporter{c}
 
 				config.Set("feedbackListeners.invalidToken.flush.time.ms", 1000)
 				config.Set("feedbackListeners.invalidToken.buffer.size", 2)
 
-				logger.Level = logrus.DebugLevel
-				handler, err := NewInvalidTokenHandler(logger, config, nil, inChan, mockClient)
+				handler, err := NewInvalidTokenHandler(logger, config, statsReporters, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 
+				mockClient.RowsAffected = 2
+				mockClient.RowsReturned = 0
 				handler.Start()
 				for _, t := range tokens {
 					inChan <- t
@@ -100,21 +116,42 @@ var _ = Describe("InvalidToken Handler", func() {
 
 				Eventually(func() []*logrus.Entry { return hook.Entries }).
 					Should(testing.ContainLogMessage("buffer is full"))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteSuccess]
+				}).Should(BeEquivalentTo(2))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteError]
+				}).Should(BeEquivalentTo(0))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteNonexistent]
+				}).Should(BeEquivalentTo(0))
 			})
 
 			It("Should flush because reached flush timeout", func() {
 				logger, hook := test.NewNullLogger()
+				logger.Level = logrus.DebugLevel
+
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
 				config.Set("feedbackListeners.invalidToken.flush.time.ms", 1)
 				config.Set("feedbackListeners.invalidToken.buffer.size", 200)
 
-				logger.Level = logrus.DebugLevel
-				handler, err := NewInvalidTokenHandler(logger, config, nil, inChan, mockClient)
+				mockStatsDClient = mocks.NewStatsDClientMock()
+				c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				statsReporters = []interfaces.StatsReporter{c}
+
+				handler, err := NewInvalidTokenHandler(logger, config, statsReporters, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 
+				mockClient.RowsAffected = 2
+				mockClient.RowsReturned = 0
 				handler.Start()
 				for _, t := range tokens {
 					inChan <- t
@@ -122,6 +159,18 @@ var _ = Describe("InvalidToken Handler", func() {
 
 				Eventually(func() []*logrus.Entry { return hook.Entries }).
 					Should(testing.ContainLogMessage("flush ticker"))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteSuccess]
+				}).Should(BeEquivalentTo(2))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteError]
+				}).Should(BeEquivalentTo(0))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteNonexistent]
+				}).Should(BeEquivalentTo(0))
 			})
 		})
 
@@ -134,7 +183,13 @@ var _ = Describe("InvalidToken Handler", func() {
 				config.Set("feedbackListeners.invalidToken.flush.time.ms", 10000)
 				config.Set("feedbackListeners.invalidToken.buffer.size", 6)
 
-				handler, err := NewInvalidTokenHandler(logger, config, nil, inChan, mockClient)
+				mockStatsDClient = mocks.NewStatsDClientMock()
+				c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				statsReporters = []interfaces.StatsReporter{c}
+
+				handler, err := NewInvalidTokenHandler(logger, config, statsReporters, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 
@@ -217,7 +272,15 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
-				handler, err := NewInvalidTokenHandler(logger, config, nil, inChan, mockClient)
+				mockStatsDClient = mocks.NewStatsDClientMock()
+				c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				statsReporters = []interfaces.StatsReporter{c}
+
+				config.Set("feedbackListeners.invalidToken.buffer.size", 1)
+
+				handler, err := NewInvalidTokenHandler(logger, config, statsReporters, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 
@@ -226,6 +289,8 @@ var _ = Describe("InvalidToken Handler", func() {
 					time.Sleep(10 * time.Millisecond)
 				}
 				mockClient.Error = fmt.Errorf("pg: no rows in result set")
+				mockClient.RowsAffected = 0
+				mockClient.RowsReturned = 0
 
 				handler.Start()
 				inChan <- &InvalidToken{
@@ -235,6 +300,18 @@ var _ = Describe("InvalidToken Handler", func() {
 				}
 				Consistently(func() []*logrus.Entry { return hook.Entries }).
 					ShouldNot(testing.ContainLogMessage("error deleting tokens"))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteSuccess]
+				}).Should(BeEquivalentTo(0))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteError]
+				}).Should(BeEquivalentTo(0))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteNonexistent]
+				}).Should(BeEquivalentTo(1))
 			})
 
 			It("should not break if a pg error occurred", func() {
@@ -242,7 +319,15 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
-				handler, err := NewInvalidTokenHandler(logger, config, nil, inChan, mockClient)
+				mockStatsDClient = mocks.NewStatsDClientMock()
+				c, err := extensions.NewStatsD(config, logger, mockStatsDClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				statsReporters = []interfaces.StatsReporter{c}
+
+				config.Set("feedbackListeners.invalidToken.buffer.size", 1)
+
+				handler, err := NewInvalidTokenHandler(logger, config, statsReporters, inChan, mockClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handler).NotTo(BeNil())
 				handler.bufferSize = 1
@@ -269,6 +354,9 @@ var _ = Describe("InvalidToken Handler", func() {
 				}).Should(testing.ContainLogMessage("error deleting tokens"))
 
 				mockClient.Error = nil
+				mockClient.RowsAffected = 1
+				mockClient.RowsReturned = 0
+
 				inChan <- &InvalidToken{
 					Token:    "BBBBBBBBBB",
 					Game:     "sniper",
@@ -291,6 +379,18 @@ var _ = Describe("InvalidToken Handler", func() {
 					}
 					return nil
 				}).Should(BeEquivalentTo(expTokens))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteSuccess]
+				}).Should(BeEquivalentTo(1))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteError]
+				}).Should(BeEquivalentTo(1))
+
+				Eventually(func() int64 {
+					return mockStatsDClient.Counts[MetricsTokensDeleteNonexistent]
+				}).Should(BeEquivalentTo(0))
 			})
 		})
 	})

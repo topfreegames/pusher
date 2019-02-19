@@ -38,10 +38,10 @@ import (
 // Listener will consume push feedbacks from a queue and use a broker to route
 // the messages to a convenient handler
 type Listener struct {
-	Config           *viper.Viper
-	Logger           *log.Logger
-	StatsReporters   []interfaces.StatsReporter
-	StatsFlushTicker *time.Ticker
+	Config         *viper.Viper
+	Logger         *log.Logger
+	StatsReporters []interfaces.StatsReporter
+	statsFlushTime time.Duration
 
 	Queue                   Queue
 	Broker                  *Broker
@@ -114,9 +114,7 @@ func (l *Listener) configureStatsReporters(clientOrNil interfaces.StatsDClient) 
 		return err
 	}
 	l.StatsReporters = reporters
-
-	flushTimeout := time.Duration(l.Config.GetInt("stats.flush.s")) * time.Second
-	l.StatsFlushTicker = time.NewTicker(flushTimeout)
+	l.statsFlushTime = time.Duration(l.Config.GetInt("stats.flush.s")) * time.Second
 
 	return nil
 }
@@ -135,6 +133,10 @@ func (l *Listener) Start() {
 
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	flushTicker := time.NewTicker(l.statsFlushTime)
+	defer flushTicker.Stop()
+
 	for l.run == true {
 		select {
 		case sig := <-sigchan:
@@ -143,12 +145,12 @@ func (l *Listener) Start() {
 		case <-l.stopChannel:
 			log.Warn("Stop channel closed\n")
 			l.run = false
-		case <-l.StatsFlushTicker.C:
+		case <-flushTicker.C:
 			l.flushStats()
 		}
 	}
 
-	l.Stop()
+	l.Cleanup()
 }
 
 func (l *Listener) flushStats() {
@@ -158,13 +160,13 @@ func (l *Listener) flushStats() {
 		"broker_in_channel", float64(len(l.Broker.InChan)), "", "")
 	statsReporterReportMetricGauge(l.StatsReporters,
 		"broker_invalid_token_channel", float64(len(l.Broker.InvalidTokenOutChan)), "", "")
+	statsReporterReportMetricGauge(l.StatsReporters,
+		"invalid_token_handler_buffer", float64(len(l.InvalidTokenHandler.Buffer)), "", "")
 }
 
-// Stop stops the execution of the Listener
-func (l *Listener) Stop() {
-	l.run = false
+// Cleanup ends the Listener execution
+func (l *Listener) Cleanup() {
 	l.flushStats()
-	l.StatsFlushTicker.Stop()
 
 	l.Queue.StopConsuming()
 	l.Queue.Cleanup()

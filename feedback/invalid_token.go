@@ -35,6 +35,13 @@ import (
 	"github.com/topfreegames/pusher/util"
 )
 
+// Metrics name sent by the Handler
+const (
+	MetricsTokensDeleteSuccess     = "tokens_delete_success"
+	MetricsTokensDeleteError       = "tokens_delete_error"
+	MetricsTokensDeleteNonexistent = "tokens_delete_nonexistent"
+)
+
 // InvalidToken represents a token with the necessary information to be deleted
 type InvalidToken struct {
 	Token    string
@@ -214,7 +221,7 @@ func (i *InvalidTokenHandler) deleteTokensFromGame(tokens []string, game, platfo
 	query := queryBuild.String()
 
 	l.Debug("deleting tokens")
-	_, err := i.Client.DB.Exec(query, params...)
+	res, err := i.Client.DB.Exec(query, params...)
 	if err != nil && err.Error() != "pg: no rows in result set" {
 		raven.CaptureError(err, map[string]string{
 			"version": util.Version,
@@ -223,13 +230,29 @@ func (i *InvalidTokenHandler) deleteTokensFromGame(tokens []string, game, platfo
 
 		l.WithError(err).Error("error deleting tokens")
 		statsReporterReportMetricCount(i.StatsReporter,
-			"tokens_deleted_error", int64(len(tokens)), game, platform)
+			MetricsTokensDeleteError, int64(len(tokens)), game, platform)
 
 		return err
 	}
 
+	if err != nil && err.Error() == "pg: no rows in result set" {
+		statsReporterReportMetricCount(i.StatsReporter,
+			MetricsTokensDeleteNonexistent, int64(len(tokens)),
+			game, platform)
+
+		return nil
+	}
+
+	if res.RowsAffected() != len(tokens) {
+		statsReporterReportMetricCount(i.StatsReporter,
+			MetricsTokensDeleteNonexistent, int64(len(tokens)-res.RowsAffected()),
+			game, platform)
+
+		return nil
+	}
+
 	statsReporterReportMetricCount(i.StatsReporter,
-		"tokens_deleted_success", int64(len(tokens)), game, platform)
+		MetricsTokensDeleteSuccess, int64(len(tokens)), game, platform)
 
 	return nil
 }
