@@ -93,13 +93,13 @@ func (l *Listener) configure(statsdClientrOrNil interfaces.StatsDClient) error {
 	}
 	l.Queue = q
 
-	broker, err := NewBroker(l.Logger, l.Config, nil, q.MessagesChannel(), l.Queue.PendingMessagesWaitGroup())
+	broker, err := NewBroker(l.Logger, l.Config, l.StatsReporters, q.MessagesChannel(), l.Queue.PendingMessagesWaitGroup())
 	if err != nil {
 		return fmt.Errorf("error creating new broker: %s", err.Error())
 	}
 	l.Broker = broker
 
-	handler, err := NewInvalidTokenHandler(l.Logger, l.Config, nil, l.Broker.InvalidTokenOutChan)
+	handler, err := NewInvalidTokenHandler(l.Logger, l.Config, l.StatsReporters, l.Broker.InvalidTokenOutChan)
 	if err != nil {
 		return fmt.Errorf("error creating new invalid token handler: %s", err.Error())
 	}

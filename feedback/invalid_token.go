@@ -248,6 +248,9 @@ func (i *InvalidTokenHandler) deleteTokensFromGame(tokens []string, game, platfo
 			MetricsTokensDeleteNonexistent, int64(len(tokens)-res.RowsAffected()),
 			game, platform)
 
+		statsReporterReportMetricCount(i.StatsReporter,
+			MetricsTokensDeleteSuccess, int64(res.RowsAffected()), game, platform)
+
 		return nil
 	}
 
