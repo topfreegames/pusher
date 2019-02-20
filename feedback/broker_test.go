@@ -57,7 +57,7 @@ var _ = Describe("Broker", func() {
 		inChan = make(chan QueueMessage, 100)
 	})
 
-	Describe("[Unit]", func() {
+	Describe("[Unit]Broker", func() {
 		It("Should start and stop correctly", func() {
 			broker, err := NewBroker(logger, config, nil, inChan, nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -114,6 +114,26 @@ var _ = Describe("Broker", func() {
 					Expect(len(broker.InChan)).To(Equal(0))
 					Expect(len(broker.InvalidTokenOutChan)).To(Equal(0))
 				})
+
+				It("Should not route if invalid token is disabled", func() {
+					config.Set("feedbackListeners.broker.invalidTokenEnabled", false)
+
+					broker, err := NewBroker(logger, config, nil, inChan, nil)
+					Expect(err).NotTo(HaveOccurred())
+
+					broker.Start()
+					inChan <- kafkaMsg
+
+					Eventually(func() int {
+						return len(broker.InChan)
+					}).Should(Equal(0))
+
+					Consistently(func() int {
+						return len(broker.InvalidTokenOutChan)
+					}).Should(Equal(0))
+
+					broker.Stop()
+				})
 			})
 		})
 
@@ -158,6 +178,26 @@ var _ = Describe("Broker", func() {
 					broker.Stop()
 					Expect(len(broker.InChan)).To(Equal(0))
 					Expect(len(broker.InvalidTokenOutChan)).To(Equal(0))
+				})
+
+				It("Should not route if invalid token is disabled", func() {
+					config.Set("feedbackListeners.broker.invalidTokenEnabled", false)
+
+					broker, err := NewBroker(logger, config, nil, inChan, nil)
+					Expect(err).NotTo(HaveOccurred())
+
+					broker.Start()
+					inChan <- kafkaMsg
+
+					Eventually(func() int {
+						return len(broker.InChan)
+					}).Should(Equal(0))
+
+					Consistently(func() int {
+						return len(broker.InvalidTokenOutChan)
+					}).Should(Equal(0))
+
+					broker.Stop()
 				})
 			})
 		})

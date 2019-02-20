@@ -57,6 +57,7 @@ type Broker struct {
 	StatsReporters      []interfaces.StatsReporter
 	InChan              chan QueueMessage
 	pendingMessagesWG   *sync.WaitGroup
+	InvalidTokenEnabled bool
 	InvalidTokenOutChan chan *InvalidToken
 
 	run         bool
@@ -85,11 +86,13 @@ func NewBroker(
 
 func (b *Broker) loadConfigurationDefaults() {
 	b.Config.SetDefault("feedbackListeners.broker.invalidTokenChan.size", 1000)
+	b.Config.SetDefault("feedbackListeners.broker.invalidTokenEnabled", true)
 }
 
 func (b *Broker) configure() {
 	b.loadConfigurationDefaults()
 
+	b.InvalidTokenEnabled = b.Config.GetBool("feedbackListeners.broker.invalidTokenEnabled")
 	b.InvalidTokenOutChan = make(chan *InvalidToken, b.Config.GetInt("feedbackListeners.broker.invalidTokenChan.size"))
 }
 
@@ -153,26 +156,30 @@ func (b *Broker) processMessages() {
 func (b *Broker) routeAPNSMessage(msg *structs.ResponseWithMetadata, game string) {
 	switch msg.Reason {
 	case apns2.ReasonBadDeviceToken, apns2.ReasonUnregistered, apns2.ReasonTopicDisallowed, apns2.ReasonDeviceTokenNotForTopic:
-		tk := &InvalidToken{
-			Token:    msg.DeviceToken,
-			Game:     game,
-			Platform: APNSPlatform,
-		}
+		if b.InvalidTokenEnabled {
+			tk := &InvalidToken{
+				Token:    msg.DeviceToken,
+				Game:     game,
+				Platform: APNSPlatform,
+			}
 
-		b.InvalidTokenOutChan <- tk
+			b.InvalidTokenOutChan <- tk
+		}
 	}
 }
 
 func (b *Broker) routeGCMMessage(msg *gcm.CCSMessage, game string) {
 	switch msg.Error {
 	case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
-		tk := &InvalidToken{
-			Token:    msg.From,
-			Game:     game,
-			Platform: GCMPlatform,
-		}
+		if b.InvalidTokenEnabled {
+			tk := &InvalidToken{
+				Token:    msg.From,
+				Game:     game,
+				Platform: GCMPlatform,
+			}
 
-		b.InvalidTokenOutChan <- tk
+			b.InvalidTokenOutChan <- tk
+		}
 	}
 }
 
