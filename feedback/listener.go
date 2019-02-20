@@ -131,6 +131,9 @@ func (l *Listener) Start() {
 	l.Broker.Start()
 	l.InvalidTokenHandler.Start()
 
+	statsReporterReportMetricCount(l.StatsReporters,
+		"feedback_listener_restart", 1, "", "")
+
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
