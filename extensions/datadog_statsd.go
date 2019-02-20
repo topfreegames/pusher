@@ -135,11 +135,11 @@ func (s *StatsD) ReportMetricGauge(
 	}
 
 	if game != "" {
-		tags = append(tags, game)
+		tags = append(tags, fmt.Sprintf("game:%s", game))
 	}
 
 	if platform != "" {
-		tags = append(tags, platform)
+		tags = append(tags, fmt.Sprintf("platform:%s", platform))
 	}
 
 	s.Client.Gauge(metric, value, tags, 1)
@@ -157,11 +157,11 @@ func (s *StatsD) ReportMetricCount(
 	}
 
 	if game != "" {
-		tags = append(tags, game)
+		tags = append(tags, fmt.Sprintf("game:%s", game))
 	}
 
 	if platform != "" {
-		tags = append(tags, platform)
+		tags = append(tags, fmt.Sprintf("platform:%s", platform))
 	}
 
 	s.Client.Count(metric, value, tags, 1)
