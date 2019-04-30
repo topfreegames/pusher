@@ -32,7 +32,7 @@
 
 [[constraint]]
   name = "github.com/topfreegames/go-gcm"
-  branch = "master"
+  version = "1.4.0"
 
 [[constraint]]
   branch = "master"
