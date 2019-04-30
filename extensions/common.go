@@ -38,12 +38,6 @@ type ParsedTopic struct {
 	Game     string
 }
 
-func handleInvalidToken(invalidTokenHandlers []interfaces.InvalidTokenHandler, token string, game string, platform string) {
-	for _, invalidTokenHandler := range invalidTokenHandlers {
-		invalidTokenHandler.HandleToken(token, game, platform)
-	}
-}
-
 func getGameAndPlatformFromTopic(topic string) ParsedTopic {
 	res := topicRegex.FindStringSubmatch(topic)
 	return ParsedTopic{

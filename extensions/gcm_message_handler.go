@@ -61,7 +61,6 @@ type GCMMessageHandler struct {
 	feedbackReporters            []interfaces.FeedbackReporter
 	GCMClient                    interfaces.GCMClient
 	InflightMessagesMetadata     map[string]interface{}
-	InvalidTokenHandlers         []interfaces.InvalidTokenHandler
 	IsProduction                 bool
 	Logger                       *log.Logger
 	LogStatsInterval             time.Duration
@@ -90,7 +89,6 @@ func NewGCMMessageHandler(
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
 	feedbackReporters []interfaces.FeedbackReporter,
-	invalidTokenHandlers []interfaces.InvalidTokenHandler,
 	client interfaces.GCMClient,
 ) (*GCMMessageHandler, error) {
 	l := logger.WithFields(log.Fields{
@@ -106,7 +104,6 @@ func NewGCMMessageHandler(
 		failuresReceived:             0,
 		feedbackReporters:            feedbackReporters,
 		InflightMessagesMetadata:     map[string]interface{}{},
-		InvalidTokenHandlers:         invalidTokenHandlers,
 		IsProduction:                 isProduction,
 		Logger:                       logger,
 		pendingMessagesWG:            pendingMessagesWG,
@@ -238,10 +235,6 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 			if ccsMessageWithMetadata.Metadata != nil {
 				ccsMessageWithMetadata.Metadata["deleteToken"] = true
 			}
-			handleInvalidToken(
-				g.InvalidTokenHandlers, cm.From,
-				parsedTopic.Game, parsedTopic.Platform,
-			)
 		case "INVALID_JSON":
 			l.WithFields(log.Fields{
 				"category":   "JsonError",

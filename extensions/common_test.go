@@ -23,11 +23,8 @@
 package extensions
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 
 	"github.com/sirupsen/logrus"
@@ -41,8 +38,6 @@ var _ = Describe("Common", func() {
 	var config *viper.Viper
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var feedbackClients []interfaces.FeedbackReporter
-	var invalidTokenHandlers []interfaces.InvalidTokenHandler
-	var db *mocks.PGMock
 
 	configFile := "../config/test.yaml"
 	logger, hook := test.NewNullLogger()
@@ -57,34 +52,7 @@ var _ = Describe("Common", func() {
 			kc, err := NewKafkaProducer(config, logger, mockKafkaProducerClient)
 			Expect(err).NotTo(HaveOccurred())
 			feedbackClients = []interfaces.FeedbackReporter{kc}
-
-			db = mocks.NewPGMock(0, 1)
-			it, err := NewTokenPG(config, logger, db)
-			Expect(err).NotTo(HaveOccurred())
-			invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
-
 			hook.Reset()
-		})
-
-		Describe("Handle token error", func() {
-			It("should be successful", func() {
-				token := uuid.NewV4().String()
-				handleInvalidToken(invalidTokenHandlers, token, "test", "apns")
-				query := "DELETE FROM test_apns WHERE token = ?0;"
-				Expect(db.Execs).To(HaveLen(2))
-				Expect(db.Execs[1][0]).To(BeEquivalentTo(query))
-				Expect(db.Execs[1][1]).To(BeEquivalentTo([]interface{}{token}))
-			})
-
-			It("should fail silently", func() {
-				token := uuid.NewV4().String()
-				db.Error = fmt.Errorf("pg: error")
-				handleInvalidToken(invalidTokenHandlers, token, "test", "apns")
-				Expect(db.Execs).To(HaveLen(2))
-				query := "DELETE FROM test_apns WHERE token = ?0;"
-				Expect(db.Execs[1][0]).To(BeEquivalentTo(query))
-				Expect(db.Execs[1][1]).To(BeEquivalentTo([]interface{}{token}))
-			})
 		})
 
 		Describe("Send feedback to reporters", func() {

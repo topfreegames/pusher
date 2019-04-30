@@ -45,7 +45,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 	var db interfaces.DB
 	var feedbackClients []interfaces.FeedbackReporter
 	var handler *APNSMessageHandler
-	var invalidTokenHandlers []interfaces.InvalidTokenHandler
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var mockPushQueue *mocks.APNSPushQueueMock
 	var mockStatsDClient *mocks.StatsDClientMock
@@ -77,9 +76,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
 			db = mocks.NewPGMock(0, 1)
-			it, err := NewTokenPG(config, logger, db)
-			Expect(err).NotTo(HaveOccurred())
-			invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 
 			mockPushQueue = mocks.NewAPNSPushQueueMock()
 			handler, err = NewAPNSMessageHandler(
@@ -94,7 +90,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				nil,
 				statsClients,
 				feedbackClients,
-				invalidTokenHandlers,
 				mockPushQueue,
 			)
 			Expect(err).NotTo(HaveOccurred())
@@ -133,8 +128,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
-				//Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 
 			It("if response has error push.ErrBadDeviceToken", func() {
@@ -146,8 +139,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
-				//Expect(hook.Entries[len(hook.Entries)-2].Data["category"]).To(Equal("TokenError"))
 			})
 
 			It("if response has error push.ErrBadCertificate", func() {
@@ -159,7 +150,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				//Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 			})
 
 			It("if response has error push.ErrBadCertificateEnvironment", func() {
@@ -171,7 +161,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				//Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 			})
 
 			It("if response has error push.ErrForbidden", func() {
@@ -183,7 +172,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				//Expect(hook.LastEntry().Data["category"]).To(Equal("CertificateError"))
 			})
 
 			It("if response has error push.ErrMissingTopic", func() {
@@ -195,7 +183,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				//Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 			})
 
 			It("if response has error push.ErrTopicDisallowed", func() {
@@ -207,7 +194,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				//Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 			})
 
 			It("if response has error push.ErrDeviceTokenNotForTopic", func() {
@@ -219,7 +205,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				//Expect(hook.LastEntry().Data["category"]).To(Equal("TopicError"))
 			})
 
 			It("if response has error push.ErrIdleTimeout", func() {
@@ -231,7 +216,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
 			It("if response has error push.ErrShutdown", func() {
@@ -243,7 +227,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
 			It("if response has error push.ErrInternalServerError", func() {
@@ -255,7 +238,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
 			It("if response has error push.ErrServiceUnavailable", func() {
@@ -267,7 +249,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				//Expect(hook.LastEntry().Data["category"]).To(Equal("AppleError"))
 			})
 
 			It("if response has untracked error", func() {
@@ -279,7 +260,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				//Expect(hook.LastEntry().Data["category"]).To(Equal("DefaultError"))
 			})
 		})
 
@@ -425,9 +405,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				feedbackClients = []interfaces.FeedbackReporter{kc}
 
 				db = mocks.NewPGMock(0, 1)
-				it, err := NewTokenPG(config, logger, db)
-				Expect(err).NotTo(HaveOccurred())
-				invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
+
 				handler, err = NewAPNSMessageHandler(
 					authKeyPath,
 					keyID,
@@ -440,7 +418,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 					nil,
 					statsClients,
 					feedbackClients,
-					invalidTokenHandlers,
 					mockPushQueue,
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -594,7 +571,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 				isProduction,
 				config,
 				logger,
-				nil,
 				nil,
 				nil,
 				nil,

@@ -41,7 +41,6 @@ type GCMPusher struct {
 	Config                  *viper.Viper
 	feedbackReporters       []interfaces.FeedbackReporter
 	GracefulShutdownTimeout int
-	InvalidTokenHandlers    []interfaces.InvalidTokenHandler
 	IsProduction            bool
 	Logger                  *logrus.Logger
 	MessageHandler          map[string]interfaces.MessageHandler
@@ -95,9 +94,6 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 	if err = g.configureFeedbackReporters(); err != nil {
 		return err
 	}
-	if err = g.configureInvalidTokenHandlers(db); err != nil {
-		return err
-	}
 	q, err := extensions.NewKafkaConsumer(
 		g.Config,
 		g.Logger,
@@ -124,7 +120,6 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 			g.Queue.PendingMessagesWaitGroup(),
 			g.StatsReporters,
 			g.feedbackReporters,
-			g.InvalidTokenHandlers,
 			client,
 		)
 		if herr != nil {
@@ -150,15 +145,6 @@ func (g *GCMPusher) configureFeedbackReporters() error {
 		return err
 	}
 	g.feedbackReporters = reporters
-	return nil
-}
-
-func (g *GCMPusher) configureInvalidTokenHandlers(dbOrNil interfaces.DB) error {
-	invalidTokenHandlers, err := configureInvalidTokenHandlers(g.Config, g.Logger, dbOrNil)
-	if err != nil {
-		return err
-	}
-	g.InvalidTokenHandlers = invalidTokenHandlers
 	return nil
 }
 
