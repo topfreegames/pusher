@@ -60,7 +60,6 @@ type APNSMessageHandler struct {
 	failuresReceived             int64
 	feedbackReporters            []interfaces.FeedbackReporter
 	InflightMessagesMetadata     map[string]interface{}
-	InvalidTokenHandlers         []interfaces.InvalidTokenHandler
 	IsProduction                 bool
 	Logger                       *log.Logger
 	LogStatsInterval             time.Duration
@@ -87,7 +86,6 @@ func NewAPNSMessageHandler(
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
 	feedbackReporters []interfaces.FeedbackReporter,
-	invalidTokenHandlers []interfaces.InvalidTokenHandler,
 	pushQueue interfaces.APNSPushQueue,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
@@ -100,7 +98,6 @@ func NewAPNSMessageHandler(
 		failuresReceived:             0,
 		feedbackReporters:            feedbackReporters,
 		InflightMessagesMetadata:     map[string]interface{}{},
-		InvalidTokenHandlers:         invalidTokenHandlers,
 		IsProduction:                 isProduction,
 		Logger:                       logger,
 		pendingMessagesWG:            pendingMessagesWG,
@@ -286,10 +283,6 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 			if responseWithMetadata.Metadata != nil {
 				responseWithMetadata.Metadata["deleteToken"] = true
 			}
-			handleInvalidToken(
-				a.InvalidTokenHandlers, responseWithMetadata.DeviceToken,
-				a.appName, "apns",
-			)
 		case apns2.ReasonBadCertificate, apns2.ReasonBadCertificateEnvironment, apns2.ReasonForbidden:
 			l.WithFields(log.Fields{
 				"category":   "CertificateError",

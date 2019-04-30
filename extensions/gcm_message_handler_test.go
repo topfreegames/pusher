@@ -42,9 +42,7 @@ import (
 var _ = Describe("GCM Message Handler", func() {
 	var feedbackClients []interfaces.FeedbackReporter
 	var handler *GCMMessageHandler
-	var invalidTokenHandlers []interfaces.InvalidTokenHandler
 	var mockClient *mocks.GCMClientMock
-	var mockDb *mocks.PGMock
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var mockStatsDClient *mocks.StatsDClientMock
 	var statsClients []interfaces.StatsReporter
@@ -72,11 +70,6 @@ var _ = Describe("GCM Message Handler", func() {
 			statsClients = []interfaces.StatsReporter{c}
 			feedbackClients = []interfaces.FeedbackReporter{kc}
 
-			mockDb = mocks.NewPGMock(0, 1)
-			it, err := NewTokenPG(config, logger, mockDb)
-			Expect(err).NotTo(HaveOccurred())
-			invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
-
 			mockClient = mocks.NewGCMClientMock()
 			handler, err = NewGCMMessageHandler(
 				senderID,
@@ -87,7 +80,6 @@ var _ = Describe("GCM Message Handler", func() {
 				nil,
 				statsClients,
 				feedbackClients,
-				invalidTokenHandlers,
 				mockClient,
 			)
 			Expect(err).NotTo(HaveOccurred())
@@ -133,7 +125,6 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
 			})
 
 			It("if response has error BAD_REGISTRATION", func() {
@@ -143,7 +134,6 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.handleGCMResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
-				Expect(hook.Entries).To(ContainLogMessage("deleting token"))
 			})
 
 			It("if response has error INVALID_JSON", func() {
@@ -507,9 +497,6 @@ var _ = Describe("GCM Message Handler", func() {
 				feedbackClients = []interfaces.FeedbackReporter{kc}
 
 				mockClient = mocks.NewGCMClientMock()
-				it, err := NewTokenPG(config, logger, mockDb)
-				Expect(err).NotTo(HaveOccurred())
-				invalidTokenHandlers = []interfaces.InvalidTokenHandler{it}
 
 				handler, err = NewGCMMessageHandler(
 					senderID,
@@ -520,7 +507,6 @@ var _ = Describe("GCM Message Handler", func() {
 					nil,
 					statsClients,
 					feedbackClients,
-					invalidTokenHandlers,
 					mockClient,
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -710,7 +696,6 @@ var _ = Describe("GCM Message Handler", func() {
 				statsClients,
 				feedbackClients,
 				nil,
-				nil,
 			)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -729,7 +714,6 @@ var _ = Describe("GCM Message Handler", func() {
 					nil,
 					statsClients,
 					feedbackClients,
-					nil,
 					nil,
 				)
 				Expect(handler).To(BeNil())
