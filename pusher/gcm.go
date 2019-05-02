@@ -23,6 +23,7 @@
 package pusher
 
 import (
+	"errors"
 	"os"
 	"os/signal"
 	"runtime"
@@ -104,6 +105,7 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 	}
 	g.Queue = q
 	g.MessageHandler = make(map[string]interfaces.MessageHandler)
+	success := 0
 	for _, k := range strings.Split(g.Config.GetString("gcm.apps"), ",") {
 		senderID := g.Config.GetString("gcm.certs." + k + ".senderID")
 		apiKey := g.Config.GetString("gcm.certs." + k + ".apiKey")
@@ -111,7 +113,7 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 			"Configuring messageHandler for game %s with senderID %s and apiKey %s",
 			k, senderID, apiKey,
 		)
-		handler, herr := extensions.NewGCMMessageHandler(
+		handler, err := extensions.NewGCMMessageHandler(
 			senderID,
 			apiKey,
 			g.IsProduction,
@@ -122,10 +124,21 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 			g.feedbackReporters,
 			client,
 		)
-		if herr != nil {
-			return herr
+		if err == nil {
+			success++
+		} else {
+			for _, statsReporter := range g.StatsReporters {
+				statsReporter.InitializeFailure(k, "gcm")
+			}
+			l.WithFields(logrus.Fields{
+				"method": "gcm",
+				"game":   k,
+			}).Error(err)
 		}
 		g.MessageHandler[k] = handler
+	}
+	if success == 0 {
+		return errors.New("Could not initilize any app")
 	}
 	return nil
 }
