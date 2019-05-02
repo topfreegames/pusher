@@ -87,7 +87,7 @@ func (p *Pusher) routeMessages(msgChan *chan interfaces.KafkaMessage) {
 	}
 }
 
-// Start starts pusher in apns mode
+// Start starts pusher
 func (p *Pusher) Start() {
 	p.run = true
 	l := p.Logger.WithFields(logrus.Fields{
