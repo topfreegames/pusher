@@ -93,7 +93,7 @@ func (p *Pusher) Start() {
 	l := p.Logger.WithFields(logrus.Fields{
 		"method": "start",
 	})
-	l.Info("starting pusher in apns mode...")
+	l.Info("starting pusher...")
 	go p.routeMessages(p.Queue.MessagesChannel())
 	for _, v := range p.MessageHandler {
 		go v.HandleResponses()
