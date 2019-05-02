@@ -304,12 +304,12 @@
   version = "v1.1.4"
 
 [[projects]]
-  digest = "1:cb1a22ff7d494bf32d904e8a52649f9615200ac2cbdd42d836c5a80a42482262"
+  digest = "1:93be438ba7982596794de9ea2f65691526de0e0e6979931959407b19b55dbafd"
   name = "github.com/topfreegames/go-gcm"
   packages = ["."]
   pruneopts = ""
-  revision = "31e6666875e2bf5aed58ae88c7c79f21a8188913"
-  version = "v1.3"
+  revision = "c90433a40260198ecee6142da278cdc863c5ba34"
+  version = "v1.4"
 
 [[projects]]
   branch = "master"
