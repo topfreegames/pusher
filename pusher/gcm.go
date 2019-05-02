@@ -23,12 +23,7 @@
 package pusher
 
 import (
-	"os"
-	"os/signal"
-	"runtime"
 	"strings"
-	"syscall"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -38,16 +33,7 @@ import (
 
 // GCMPusher struct for GCM pusher
 type GCMPusher struct {
-	Config                  *viper.Viper
-	feedbackReporters       []interfaces.FeedbackReporter
-	GracefulShutdownTimeout int
-	IsProduction            bool
-	Logger                  *logrus.Logger
-	MessageHandler          map[string]interfaces.MessageHandler
-	Queue                   interfaces.Queue
-	run                     bool
-	StatsReporters          []interfaces.StatsReporter
-	stopChannel             chan struct{}
+	Pusher
 }
 
 // NewGCMPusher for getting a new GCMPusher instance
@@ -60,10 +46,12 @@ func NewGCMPusher(
 	clientOrNil ...interfaces.GCMClient,
 ) (*GCMPusher, error) {
 	g := &GCMPusher{
-		Config:       config,
-		IsProduction: isProduction,
-		Logger:       logger,
-		stopChannel:  make(chan struct{}),
+		Pusher: Pusher{
+			Config:       config,
+			IsProduction: isProduction,
+			Logger:       logger,
+			stopChannel:  make(chan struct{}),
+		},
 	}
 	var client interfaces.GCMClient
 	if len(clientOrNil) > 0 {
@@ -74,11 +62,6 @@ func NewGCMPusher(
 		return nil, err
 	}
 	return g, nil
-}
-
-func (g *GCMPusher) loadConfigurationDefaults() {
-	g.Config.SetDefault("gracefulShutdownTimeout", 10)
-	g.Config.SetDefault("stats.reporters", []string{})
 }
 
 func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, statsdClientOrNil interfaces.StatsDClient) error {
@@ -128,91 +111,4 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 		g.MessageHandler[k] = handler
 	}
 	return nil
-}
-
-func (g *GCMPusher) configureStatsReporters(clientOrNil interfaces.StatsDClient) error {
-	reporters, err := configureStatsReporters(g.Config, g.Logger, clientOrNil)
-	if err != nil {
-		return err
-	}
-	g.StatsReporters = reporters
-	return nil
-}
-
-func (g *GCMPusher) configureFeedbackReporters() error {
-	reporters, err := configureFeedbackReporters(g.Config, g.Logger)
-	if err != nil {
-		return err
-	}
-	g.feedbackReporters = reporters
-	return nil
-}
-
-func (g *GCMPusher) routeMessages(msgChan *chan interfaces.KafkaMessage) {
-	for g.run == true {
-		select {
-		case message := <-*msgChan:
-			if handler, ok := g.MessageHandler[message.Game]; ok {
-				handler.HandleMessages(message)
-			} else {
-				g.Logger.WithFields(logrus.Fields{
-					"method": "routeMessages",
-					"game":   message.Game,
-				}).Error("Game not found")
-			}
-		}
-	}
-}
-
-// Start starts pusher in apns mode
-func (g *GCMPusher) Start() {
-	g.run = true
-	l := g.Logger.WithFields(logrus.Fields{
-		"method": "start",
-	})
-	l.Info("starting pusher in gcm mode...")
-	go g.routeMessages(g.Queue.MessagesChannel())
-	for _, v := range g.MessageHandler {
-		go v.HandleResponses()
-		go v.LogStats()
-		msgHandler, _ := v.(*extensions.GCMMessageHandler)
-		go msgHandler.CleanMetadataCache()
-	}
-
-	go g.Queue.ConsumeLoop()
-	go g.reportGoStats()
-
-	sigchan := make(chan os.Signal)
-	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
-
-	for g.run == true {
-		select {
-		case sig := <-sigchan:
-			l.Warnf("caught signal %v: terminating\n", sig)
-			g.run = false
-		case <-g.stopChannel:
-			l.Warn("Stop channel closed\n")
-			g.run = false
-		}
-	}
-	g.Queue.StopConsuming()
-	GracefulShutdown(g.Queue.PendingMessagesWaitGroup(), time.Duration(g.GracefulShutdownTimeout)*time.Second)
-}
-
-func (g *GCMPusher) reportGoStats() {
-	for {
-		num := runtime.NumGoroutine()
-		m := &runtime.MemStats{}
-		runtime.ReadMemStats(m)
-		gcTime := m.PauseNs[(m.NumGC+255)%256]
-		for _, statsReporter := range g.StatsReporters {
-			statsReporter.ReportGoStats(
-				num,
-				m.Alloc, m.HeapObjects, m.NextGC,
-				gcTime,
-			)
-		}
-
-		time.Sleep(30 * time.Second)
-	}
 }
