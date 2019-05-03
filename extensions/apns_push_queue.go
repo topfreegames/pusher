@@ -121,8 +121,9 @@ func (p *APNSPushQueue) pushWorker() {
 
 	for notification := range p.pushChannel {
 		client := <-p.clients
-		res, err := client.Push(notification)
 		p.clients <- client
+
+		res, err := client.Push(notification)
 		if err != nil {
 			l.WithError(err).Error("push error")
 		}
@@ -137,6 +138,7 @@ func (p *APNSPushQueue) pushWorker() {
 			DeviceToken: notification.DeviceToken,
 		}
 		p.responseChannel <- newRes
+
 	}
 }
 
