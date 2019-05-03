@@ -24,12 +24,7 @@ package pusher
 
 import (
 	"errors"
-	"os"
-	"os/signal"
-	"runtime"
 	"strings"
-	"syscall"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -39,17 +34,7 @@ import (
 
 // APNSPusher struct for apns pusher
 type APNSPusher struct {
-	CertificatePath         string
-	Config                  *viper.Viper
-	feedbackReporters       []interfaces.FeedbackReporter
-	GracefulShutdownTimeout int
-	IsProduction            bool
-	Logger                  *logrus.Logger
-	MessageHandler          map[string]interfaces.MessageHandler
-	Queue                   interfaces.Queue
-	run                     bool
-	StatsReporters          []interfaces.StatsReporter
-	stopChannel             chan struct{}
+	Pusher
 }
 
 // NewAPNSPusher for getting a new APNSPusher instance
@@ -62,10 +47,12 @@ func NewAPNSPusher(
 	queueOrNil ...interfaces.APNSPushQueue,
 ) (*APNSPusher, error) {
 	a := &APNSPusher{
-		Config:       config,
-		IsProduction: isProduction,
-		Logger:       logger,
-		stopChannel:  make(chan struct{}),
+		Pusher: Pusher{
+			Config:       config,
+			IsProduction: isProduction,
+			Logger:       logger,
+			stopChannel:  make(chan struct{}),
+		},
 	}
 	var queue interfaces.APNSPushQueue
 	if len(queueOrNil) > 0 {
@@ -76,10 +63,6 @@ func NewAPNSPusher(
 		return nil, err
 	}
 	return a, nil
-}
-
-func (a *APNSPusher) loadConfigurationDefaults() {
-	a.Config.SetDefault("gracefulShutdownTimeout", 10)
 }
 
 func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB, statsdClientOrNil interfaces.StatsDClient) error {
@@ -148,90 +131,4 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 		return errors.New("Could not initilize any app")
 	}
 	return nil
-}
-
-func (a *APNSPusher) configureFeedbackReporters() error {
-	reporters, err := configureFeedbackReporters(a.Config, a.Logger)
-	if err != nil {
-		return err
-	}
-	a.feedbackReporters = reporters
-	return nil
-}
-
-func (a *APNSPusher) configureStatsReporters(clientOrNil interfaces.StatsDClient) error {
-	reporters, err := configureStatsReporters(a.Config, a.Logger, clientOrNil)
-	if err != nil {
-		return err
-	}
-	a.StatsReporters = reporters
-	return nil
-}
-
-func (a *APNSPusher) routeMessages(msgChan *chan interfaces.KafkaMessage) {
-	for a.run == true {
-		select {
-		case message := <-*msgChan:
-			if handler, ok := a.MessageHandler[message.Game]; ok {
-				handler.HandleMessages(message)
-			} else {
-				a.Logger.WithFields(logrus.Fields{
-					"method": "routeMessages",
-					"game":   message.Game,
-				}).Error("Game not found")
-			}
-		}
-	}
-}
-
-// Start starts pusher in apns mode
-func (a *APNSPusher) Start() {
-	a.run = true
-	l := a.Logger.WithFields(logrus.Fields{
-		"method":          "start",
-		"certificatePath": a.CertificatePath,
-	})
-	l.Info("starting pusher in apns mode...")
-	go a.routeMessages(a.Queue.MessagesChannel())
-	for _, v := range a.MessageHandler {
-		go v.HandleResponses()
-		go v.LogStats()
-		msgHandler, _ := v.(*extensions.APNSMessageHandler)
-		go msgHandler.CleanMetadataCache()
-	}
-	go a.Queue.ConsumeLoop()
-	go a.reportGoStats()
-
-	sigchan := make(chan os.Signal)
-	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	for a.run == true {
-		select {
-		case sig := <-sigchan:
-			l.Warnf("caught signal %v: terminating\n", sig)
-			a.run = false
-		case <-a.stopChannel:
-			l.Warn("Stop channel closed\n")
-			a.run = false
-		}
-	}
-	a.Queue.StopConsuming()
-	GracefulShutdown(a.Queue.PendingMessagesWaitGroup(), time.Duration(a.GracefulShutdownTimeout)*time.Second)
-}
-
-func (a *APNSPusher) reportGoStats() {
-	for {
-		num := runtime.NumGoroutine()
-		m := &runtime.MemStats{}
-		runtime.ReadMemStats(m)
-		gcTime := m.PauseNs[(m.NumGC+255)%256]
-		for _, statsReporter := range a.StatsReporters {
-			statsReporter.ReportGoStats(
-				num,
-				m.Alloc, m.HeapObjects, m.NextGC,
-				gcTime,
-			)
-		}
-		time.Sleep(30 * time.Second)
-	}
 }

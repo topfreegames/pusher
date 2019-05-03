@@ -27,4 +27,5 @@ type MessageHandler interface {
 	HandleMessages(msg KafkaMessage)
 	HandleResponses()
 	LogStats()
+	CleanMetadataCache()
 }
