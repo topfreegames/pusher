@@ -23,6 +23,7 @@
 package pusher
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -89,6 +90,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	a.MessageHandler = make(map[string]interfaces.MessageHandler)
 	a.Queue = q
 	l.Info("Configuring messageHandler")
+	success := 0
 	for _, k := range strings.Split(a.Config.GetString("apns.apps"), ",") {
 		authKeyPath := a.Config.GetString("apns.certs." + k + ".authKeyPath")
 		keyID := a.Config.GetString("apns.certs." + k + ".keyID")
@@ -112,10 +114,21 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			a.feedbackReporters,
 			nil,
 		)
-		if err != nil {
-			return err
+		if err == nil {
+			success++
+		} else {
+			for _, statsReporter := range a.StatsReporters {
+				statsReporter.InitializeFailure(k, "apns")
+			}
+			l.WithFields(logrus.Fields{
+				"method": "apns",
+				"game":   k,
+			}).Error(err)
 		}
 		a.MessageHandler[k] = handler
+	}
+	if success == 0 {
+		return errors.New("Could not initilize any app")
 	}
 	return nil
 }
