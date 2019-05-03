@@ -1,8 +1,8 @@
 ---
 gracefulShutdownTimeout: 10
 apns:
-  concurrentWorkers: 100
-  connectionPoolSize: 10
+  concurrentWorkers: 300
+  connectionPoolSize: 1
   logStatsInterval: 750
   apps: "game"
   certs:
