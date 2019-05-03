@@ -106,7 +106,7 @@ func (s *StatsD) HandleNotificationFailure(game string, platform string, err *er
 
 //InitializeFailure notifu error when is impossible tho initilizer an app
 func (s *StatsD) InitializeFailure(game string, platform string) {
-	s.Client.Incr("failed", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
+	s.Client.Incr("initialize_failure", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
 }
 
 //ReportGoStats reports go stats in statsd
