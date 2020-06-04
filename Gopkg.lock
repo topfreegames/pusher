@@ -313,17 +313,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:1710f8497e287491a719f21eb51b1068b224c63d31084b3d7121c6d65bc3bebf"
-  name = "golang.org/x/crypto"
-  packages = [
-    "pkcs12",
-    "pkcs12/internal/rc2",
-  ]
-  pruneopts = ""
-  revision = "6914964337150723782436d56b3f21610a74ce7b"
-
-[[projects]]
-  branch = "master"
   digest = "1:3246e12ee1c5003acebbc8ceea757df86cfc23f7a321d70d47f96b9b21462115"
   name = "golang.org/x/net"
   packages = [
@@ -421,7 +410,6 @@
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "github.com/topfreegames/go-gcm",
-    "golang.org/x/crypto/pkcs12",
     "gopkg.in/pg.v5",
     "gopkg.in/pg.v5/types",
   ]
