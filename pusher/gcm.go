@@ -112,10 +112,10 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 			for _, statsReporter := range g.StatsReporters {
 				statsReporter.InitializeFailure(k, "gcm")
 			}
-			l.WithFields(logrus.Fields{
+			l.WithError(err).WithFields(logrus.Fields{
 				"method": "gcm",
 				"game":   k,
-			}).Error(err)
+			}).Error("failed to initialize gcm handler")
 		}
 	}
 	if len(g.MessageHandler) == 0 {

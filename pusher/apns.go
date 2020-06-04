@@ -119,10 +119,10 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			for _, statsReporter := range a.StatsReporters {
 				statsReporter.InitializeFailure(k, "apns")
 			}
-			l.WithFields(logrus.Fields{
+			l.WithError(err).WithFields(logrus.Fields{
 				"method": "apns",
 				"game":   k,
-			}).Error(err)
+			}).Error("failed to initialize apns handler")
 		}
 	}
 	if len(a.MessageHandler) == 0 {
