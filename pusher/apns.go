@@ -90,7 +90,6 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	a.MessageHandler = make(map[string]interfaces.MessageHandler)
 	a.Queue = q
 	l.Info("Configuring messageHandler")
-	success := 0
 	for _, k := range strings.Split(a.Config.GetString("apns.apps"), ",") {
 		authKeyPath := a.Config.GetString("apns.certs." + k + ".authKeyPath")
 		keyID := a.Config.GetString("apns.certs." + k + ".keyID")
@@ -115,19 +114,18 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			nil,
 		)
 		if err == nil {
-			success++
+			a.MessageHandler[k] = handler
 		} else {
 			for _, statsReporter := range a.StatsReporters {
 				statsReporter.InitializeFailure(k, "apns")
 			}
-			l.WithFields(logrus.Fields{
+			l.WithError(err).WithFields(logrus.Fields{
 				"method": "apns",
 				"game":   k,
-			}).Error(err)
+			}).Error("failed to initialize apns handler")
 		}
-		a.MessageHandler[k] = handler
 	}
-	if success == 0 {
+	if len(a.MessageHandler) == 0 {
 		return errors.New("Could not initilize any app")
 	}
 	return nil

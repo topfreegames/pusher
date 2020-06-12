@@ -88,7 +88,6 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 	}
 	g.Queue = q
 	g.MessageHandler = make(map[string]interfaces.MessageHandler)
-	success := 0
 	for _, k := range strings.Split(g.Config.GetString("gcm.apps"), ",") {
 		senderID := g.Config.GetString("gcm.certs." + k + ".senderID")
 		apiKey := g.Config.GetString("gcm.certs." + k + ".apiKey")
@@ -108,19 +107,18 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 			client,
 		)
 		if err == nil {
-			success++
+			g.MessageHandler[k] = handler
 		} else {
 			for _, statsReporter := range g.StatsReporters {
 				statsReporter.InitializeFailure(k, "gcm")
 			}
-			l.WithFields(logrus.Fields{
+			l.WithError(err).WithFields(logrus.Fields{
 				"method": "gcm",
 				"game":   k,
-			}).Error(err)
+			}).Error("failed to initialize gcm handler")
 		}
-		g.MessageHandler[k] = handler
 	}
-	if success == 0 {
+	if len(g.MessageHandler) == 0 {
 		return errors.New("Could not initilize any app")
 	}
 	return nil

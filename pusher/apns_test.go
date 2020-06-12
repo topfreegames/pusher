@@ -92,11 +92,32 @@ var _ = Describe("APNS Pusher", func() {
 					mockPushQueue,
 				)
 				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pusher.MessageHandler)).To(Equal(1))
 				Expect(pusher).NotTo(BeNil())
 				defer func() { pusher.run = false }()
 				go pusher.Start()
 				time.Sleep(50 * time.Millisecond)
 			})
+
+			It("should ignore failed handlers", func() {
+				config.Set("apns.apps", "game,invalidgame")
+				config.Set("apns.certs.invalidgame.authKeyPath", "../tls/authkey_invalid.p8")
+				config.Set("apns.certs.invalidgame.keyID", "oiejowijefiowejf")
+				config.Set("apns.certs.invalidgame.teamID", "aoijeoijfiowejfoij")
+				config.Set("apns.certs.invalidgame.teamID", "com.invalidgame.test")
+
+				pusher, err := NewAPNSPusher(
+					isProduction,
+					config,
+					logger,
+					mockStatsDClient,
+					mockDb,
+					mockPushQueue,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pusher.MessageHandler).To(HaveLen(1))
+			})
 		})
+
 	})
 })
