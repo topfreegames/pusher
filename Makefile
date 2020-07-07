@@ -139,3 +139,7 @@ test-integration integration func: deps test-db-drop test-db-create
 	@echo "=               Integration tests finished.              ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
+
+lint:
+	@env golangci-lint run
+
