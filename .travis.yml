@@ -17,7 +17,7 @@ cache:
   directories:
   - "$HOME/.cache/librdkafka"
 before_install:
-- sudo /bin/bash ./travis_install_kafka.sh
+- sudo /bin/bash ./travis-install-librkafka.sh
 install:
 - make setup-ci
 script:

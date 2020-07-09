@@ -159,7 +159,7 @@ var _ = Describe("PG Extension", func() {
 	})
 
 	Describe("[Integration]", func() {
-		Describe("Creating new client", func() {
+		PDescribe("Creating new client", func() {
 			It("should return connected client", func() {
 				client, err := NewPGClient("push.db", config)
 				Expect(err).NotTo(HaveOccurred())

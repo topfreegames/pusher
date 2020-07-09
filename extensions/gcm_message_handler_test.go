@@ -702,7 +702,7 @@ var _ = Describe("GCM Message Handler", func() {
 			hook.Reset()
 		})
 
-		Describe("Creating new handler", func() {
+		PDescribe("Creating new handler", func() {
 			It("should fail when real client", func() {
 				var err error
 				handler, err = NewGCMMessageHandler(

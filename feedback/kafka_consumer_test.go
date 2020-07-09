@@ -297,7 +297,7 @@ var _ = Describe("Kafka Consumer", func() {
 		})
 	})
 
-	Describe("[Integration2]", func() {
+	Describe("[Integration]", func() {
 		var config *viper.Viper
 		var err error
 
