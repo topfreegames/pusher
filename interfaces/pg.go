@@ -24,7 +24,7 @@ package interfaces
 
 import "gopkg.in/pg.v5/types"
 
-//DB represents the contract for a Postgres DB
+//DB represents the contract for a Postgres DB.
 type DB interface {
 	Exec(interface{}, ...interface{}) (*types.Result, error)
 	ExecOne(interface{}, ...interface{}) (*types.Result, error)

@@ -54,12 +54,12 @@ func configureStatsReporters(config *viper.Viper, logger *logrus.Logger, clientO
 	for _, reporterName := range reporterNames {
 		reporterFunc, ok := AvailableStatsReporters[reporterName]
 		if !ok {
-			return nil, fmt.Errorf("Failed to initialize %s. Stats Reporter not available.", reporterName)
+			return nil, fmt.Errorf("failed to initialize %s. Stats Reporter not available", reporterName)
 		}
 
 		r, err := reporterFunc(config, logger, clientOrNil)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to initialize %s. %s", reporterName, err.Error())
+			return nil, fmt.Errorf("failed to initialize %s. %s", reporterName, err.Error())
 		}
 		reporters = append(reporters, r)
 	}
@@ -68,17 +68,17 @@ func configureStatsReporters(config *viper.Viper, logger *logrus.Logger, clientO
 }
 
 func configureFeedbackReporters(config *viper.Viper, logger *logrus.Logger) ([]interfaces.FeedbackReporter, error) {
-	reporters := []interfaces.FeedbackReporter{}
+	var reporters []interfaces.FeedbackReporter
 	reporterNames := config.GetStringSlice("feedback.reporters")
 	for _, reporterName := range reporterNames {
 		reporterFunc, ok := AvailableFeedbackReporters[reporterName]
 		if !ok {
-			return nil, fmt.Errorf("Failed to initialize %s. Feedback Reporter not available.", reporterName)
+			return nil, fmt.Errorf("failed to initialize %s. Feedback Reporter not available", reporterName)
 		}
 
 		r, err := reporterFunc(config, logger)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to initialize %s. %s", reporterName, err.Error())
+			return nil, fmt.Errorf("failed to initialize %s. %s", reporterName, err.Error())
 		}
 		reporters = append(reporters, r)
 	}

@@ -148,7 +148,7 @@ var _ = Describe("Kafka Extension", func() {
 					Partitions: []kafka.TopicPartition{part},
 				}
 
-				kafkaConsumerClientMock.Error = fmt.Errorf("Failed to assign partition")
+				kafkaConsumerClientMock.Error = fmt.Errorf("failed to assign partition")
 				publishEvent(event)
 				Expect(hook.Entries).To(ContainLogMessage("error assigning partitions"))
 			})
@@ -180,7 +180,7 @@ var _ = Describe("Kafka Extension", func() {
 				kafkaConsumerClientMock.AssignedPartitions = []kafka.TopicPartition{part}
 				Expect(kafkaConsumerClientMock.AssignedPartitions).NotTo(BeEmpty())
 
-				kafkaConsumerClientMock.Error = fmt.Errorf("Failed to unassign partition")
+				kafkaConsumerClientMock.Error = fmt.Errorf("failed to unassign partition")
 				event := kafka.RevokedPartitions{}
 				publishEvent(event)
 				Expect(hook.Entries).To(ContainLogMessage("error revoking partitions"))
@@ -234,7 +234,7 @@ var _ = Describe("Kafka Extension", func() {
 				publishEvent(event)
 
 				Eventually(consumer.run, 5).Should(BeFalse())
-				_, ok := (<-consumer.stopChannel)
+				_, ok := <-consumer.stopChannel
 				Expect(ok).Should(BeFalse())
 				Expect(hook.Entries).To(ContainLogMessage("Error in Kafka connection."))
 			})
@@ -289,7 +289,7 @@ var _ = Describe("Kafka Extension", func() {
 			})
 
 			It("should return error when closing connection to kafka upon cleanup", func() {
-				kafkaConsumerClientMock.Error = fmt.Errorf("Could not close connection")
+				kafkaConsumerClientMock.Error = fmt.Errorf("could not close connection")
 				err := consumer.Cleanup()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal(kafkaConsumerClientMock.Error.Error()))

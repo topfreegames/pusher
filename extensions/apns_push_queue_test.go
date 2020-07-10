@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
-	// . "github.com/topfreegames/pusher/testing"
 	"github.com/topfreegames/pusher/util"
 )
 

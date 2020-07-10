@@ -27,7 +27,7 @@ import (
 	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	raven "github.com/getsentry/raven-go"
+	"github.com/getsentry/raven-go"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
@@ -36,23 +36,23 @@ import (
 
 // KafkaConsumer for getting push requests
 type KafkaConsumer struct {
+	Topics                         []string
 	Brokers                        string
-	Config                         *viper.Viper
 	Consumer                       interfaces.KafkaConsumerClient
 	ConsumerGroup                  string
+	OffsetResetStrategy            string
+	Config                         *viper.Viper
 	ChannelSize                    int
 	Logger                         *logrus.Logger
 	FetchMinBytes                  int
 	FetchWaitMaxMs                 int
 	messagesReceived               int64
 	msgChan                        chan interfaces.KafkaMessage
-	OffsetResetStrategy            string
-	run                            bool
 	SessionTimeout                 int
-	Topics                         []string
 	pendingMessagesWG              *sync.WaitGroup
-	HandleAllMessagesBeforeExiting bool
 	stopChannel                    chan struct{}
+	run                            bool
+	HandleAllMessagesBeforeExiting bool
 }
 
 // NewKafkaConsumer for creating a new KafkaConsumer instance
@@ -195,7 +195,7 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 
 	l.Info("successfully subscribed to topics")
 
-	for q.run == true {
+	for q.run {
 		select {
 		case ev := <-q.Consumer.Events():
 			switch e := ev.(type) {

@@ -123,7 +123,7 @@ func (c *PGClient) WaitForConnection(timeout int) error {
 	}
 
 	if ellapsed() > t {
-		return fmt.Errorf("Timed out waiting for PostgreSQL to connect")
+		return fmt.Errorf("timed out waiting for PostgreSQL to connect")
 	}
 
 	return nil

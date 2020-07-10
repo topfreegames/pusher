@@ -74,12 +74,12 @@ var _ = Describe("InvalidToken Handler", func() {
 			var tokens []*InvalidToken
 			BeforeEach(func() {
 				tokens = []*InvalidToken{
-					&InvalidToken{
+					{
 						Token:    "flushA",
 						Game:     "boomforce",
 						Platform: "apns",
 					},
-					&InvalidToken{
+					{
 						Token:    "flushB",
 						Game:     "boomforce",
 						Platform: "apns",
@@ -196,32 +196,32 @@ var _ = Describe("InvalidToken Handler", func() {
 				handler.Start()
 
 				tokens := []*InvalidToken{
-					&InvalidToken{
+					{
 						Token:    "AAAAAAAAAA",
 						Game:     "boomforce",
 						Platform: "apns",
 					},
-					&InvalidToken{
+					{
 						Token:    "BBBBBBBBBB",
 						Game:     "boomforce",
 						Platform: "apns",
 					},
-					&InvalidToken{
+					{
 						Token:    "CCCCCCCCCC",
 						Game:     "sniper",
 						Platform: "apns",
 					},
-					&InvalidToken{
+					{
 						Token:    "DDDDDDDDDD",
 						Game:     "boomforce",
 						Platform: "gcm",
 					},
-					&InvalidToken{
+					{
 						Token:    "EEEEEEEEEE",
 						Game:     "sniper",
 						Platform: "gcm",
 					},
-					&InvalidToken{
+					{
 						Token:    "FFFFFFFFFF",
 						Game:     "sniper",
 						Platform: "gcm",

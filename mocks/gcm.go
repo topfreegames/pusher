@@ -23,8 +23,8 @@
 package mocks
 
 import (
-	gcm "github.com/topfreegames/go-gcm"
 	uuid "github.com/satori/go.uuid"
+	gcm "github.com/topfreegames/go-gcm"
 )
 
 //GCMClientMock should be used for tests that need to send xmpp messages to GCM

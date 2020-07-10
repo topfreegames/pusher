@@ -26,7 +26,7 @@ import (
 	"time"
 )
 
-// StatsDClient interface
+// StatsDClient interface.
 type StatsDClient interface {
 	Incr(string, []string, float64) error
 	Gauge(string, float64, []string, float64) error

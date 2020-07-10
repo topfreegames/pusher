@@ -24,9 +24,10 @@ package extensions
 
 import (
 	"container/heap"
-	"github.com/spf13/viper"
 	"sync"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 type timeoutNode struct {

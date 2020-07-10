@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	raven "github.com/getsentry/raven-go"
+	"github.com/getsentry/raven-go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
@@ -172,7 +172,7 @@ func (i *InvalidTokenHandler) processMessages() {
 }
 
 // deleteTokens groups tokens by game and platform and deletes them from the
-// database. A DELETE query is fecthed for each pair <game, platform>. A best
+// database. A DELETE query is fetched for each pair <game, platform>. A best
 // effort is applied for each deletion. If there's an error, a log error is
 // written and the next <game,platform> is processed
 func (i *InvalidTokenHandler) deleteTokens(tokens []*InvalidToken) {

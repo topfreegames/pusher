@@ -28,7 +28,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// NewViperWithConfigFile for getting a viper with default configs for the project
+// NewViperWithConfigFile for getting a viper with default configs for the project.
 func NewViperWithConfigFile(configFile string) (*viper.Viper, error) {
 	v := viper.New()
 	v.SetConfigFile(configFile)

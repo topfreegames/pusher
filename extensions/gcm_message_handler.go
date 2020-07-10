@@ -32,7 +32,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	gcm "github.com/topfreegames/go-gcm"
+	"github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
 )
@@ -55,13 +55,14 @@ type CCSMessageWithMetadata struct {
 
 // GCMMessageHandler implements the messagehandler interface
 type GCMMessageHandler struct {
+	feedbackReporters            []interfaces.FeedbackReporter
+	StatsReporters               []interfaces.StatsReporter
 	apiKey                       string
+	GCMClient                    interfaces.GCMClient
+	senderID                     string
 	Config                       *viper.Viper
 	failuresReceived             int64
-	feedbackReporters            []interfaces.FeedbackReporter
-	GCMClient                    interfaces.GCMClient
 	InflightMessagesMetadata     map[string]interface{}
-	IsProduction                 bool
 	Logger                       *log.Logger
 	LogStatsInterval             time.Duration
 	pendingMessages              chan bool
@@ -71,13 +72,11 @@ type GCMMessageHandler struct {
 	PingInterval                 int
 	PingTimeout                  int
 	responsesReceived            int64
-	run                          bool
-	senderID                     string
 	sentMessages                 int64
-	StatsReporters               []interfaces.StatsReporter
 	successesReceived            int64
 	requestsHeap                 *TimeoutHeap
 	CacheCleaningInterval        int
+	IsProduction                 bool
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler

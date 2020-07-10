@@ -38,21 +38,21 @@ var _ = Describe("APNS", func() {
 
 	var config *viper.Viper
 	var mockPushQueue *mocks.APNSPushQueueMock
-	var mockDb *mocks.PGMock
+	var mockDB *mocks.PGMock
 	var mockStatsDClient *mocks.StatsDClientMock
 
 	BeforeEach(func() {
 		var err error
 		config, err = util.NewViperWithConfigFile(cfg)
 		Expect(err).NotTo(HaveOccurred())
-		mockDb = mocks.NewPGMock(0, 1)
+		mockDB = mocks.NewPGMock(0, 1)
 		mockPushQueue = mocks.NewAPNSPushQueueMock()
 		mockStatsDClient = mocks.NewStatsDClientMock()
 	})
 
 	Describe("[Unit]", func() {
 		It("Should return apnsPusher without errors", func() {
-			apnsPusher, err := startApns(false, false, false, config, mockStatsDClient, mockDb, mockPushQueue)
+			apnsPusher, err := startApns(false, false, false, config, mockStatsDClient, mockDB, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
 			Expect(apnsPusher.Config).NotTo(BeNil())
@@ -62,21 +62,21 @@ var _ = Describe("APNS", func() {
 		})
 
 		It("Should set log to json format", func() {
-			apnsPusher, err := startApns(false, true, false, config, mockStatsDClient, mockDb, mockPushQueue)
+			apnsPusher, err := startApns(false, true, false, config, mockStatsDClient, mockDB, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
 			Expect(fmt.Sprintf("%T", apnsPusher.Logger.Formatter)).To(Equal(fmt.Sprintf("%T", &logrus.JSONFormatter{})))
 		})
 
 		It("Should set log to debug", func() {
-			apnsPusher, err := startApns(true, false, false, config, mockStatsDClient, mockDb, mockPushQueue)
+			apnsPusher, err := startApns(true, false, false, config, mockStatsDClient, mockDB, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
 			Expect(apnsPusher.Logger.Level).To(Equal(logrus.DebugLevel))
 		})
 
 		It("Should set log to production", func() {
-			apnsPusher, err := startApns(false, false, true, config, mockStatsDClient, mockDb, mockPushQueue)
+			apnsPusher, err := startApns(false, false, true, config, mockStatsDClient, mockDB, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
 			Expect(apnsPusher.IsProduction).To(BeTrue())

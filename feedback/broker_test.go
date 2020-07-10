@@ -30,7 +30,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/sideshow/apns2"
 	"github.com/spf13/viper"
-	gcm "github.com/topfreegames/go-gcm"
+	"github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/structs"
 	"github.com/topfreegames/pusher/testing"
 

@@ -126,7 +126,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 		}
 	}
 	if len(a.MessageHandler) == 0 {
-		return errors.New("Could not initilize any app")
+		return errors.New("could not initilize any app")
 	}
 	return nil
 }

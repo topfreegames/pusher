@@ -24,7 +24,7 @@ package structs
 
 import "github.com/topfreegames/pusher/errors"
 
-// ResponseWithMetadata is a enriched Response with a Metadata field
+// ResponseWithMetadata is a enriched Response with a Metadata field.
 type ResponseWithMetadata struct {
 	Sent        bool
 	StatusCode  int

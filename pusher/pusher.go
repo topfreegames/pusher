@@ -36,16 +36,16 @@ import (
 
 // Pusher struct for pusher
 type Pusher struct {
-	Config                  *viper.Viper
 	feedbackReporters       []interfaces.FeedbackReporter
+	StatsReporters          []interfaces.StatsReporter
+	Queue                   interfaces.Queue
+	Config                  *viper.Viper
 	GracefulShutdownTimeout int
-	IsProduction            bool
 	Logger                  *logrus.Logger
 	MessageHandler          map[string]interfaces.MessageHandler
-	Queue                   interfaces.Queue
-	run                     bool
-	StatsReporters          []interfaces.StatsReporter
 	stopChannel             chan struct{}
+	IsProduction            bool
+	run                     bool
 }
 
 func (p *Pusher) loadConfigurationDefaults() {
@@ -72,7 +72,7 @@ func (p *Pusher) configureStatsReporters(clientOrNil interfaces.StatsDClient) er
 }
 
 func (p *Pusher) routeMessages(msgChan *chan interfaces.KafkaMessage) {
-	for p.run == true {
+	for p.run {
 		select {
 		case message := <-*msgChan:
 			if handler, ok := p.MessageHandler[message.Game]; ok {
@@ -106,7 +106,7 @@ func (p *Pusher) Start() {
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	for p.run == true {
+	for p.run {
 		select {
 		case sig := <-sigchan:
 			l.Warnf("caught signal %v: terminating\n", sig)

@@ -140,7 +140,7 @@ func (l *Listener) Start() {
 	flushTicker := time.NewTicker(l.statsFlushTime)
 	defer flushTicker.Stop()
 
-	for l.run == true {
+	for l.run {
 		select {
 		case sig := <-sigchan:
 			log.WithField("signal", sig.String()).Warn("terminating due to caught signal")

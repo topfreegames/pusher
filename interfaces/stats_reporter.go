@@ -24,7 +24,7 @@ package interfaces
 
 import "github.com/topfreegames/pusher/errors"
 
-// StatsReporter interface for making stats reporters pluggable easily
+// StatsReporter interface for making stats reporters pluggable easily.
 type StatsReporter interface {
 	InitializeFailure(game string, platform string)
 	HandleNotificationSent(game string, platform string)

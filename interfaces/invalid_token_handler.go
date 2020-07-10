@@ -22,7 +22,7 @@
 
 package interfaces
 
-// InvalidTokenHandler interface for defining functions that handle invalid tokens easily pluggable
+// InvalidTokenHandler interface for defining functions that handle invalid tokens easily pluggable.
 type InvalidTokenHandler interface {
 	HandleToken(token string, game string, platform string) error
 }

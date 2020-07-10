@@ -56,11 +56,11 @@ func sendToFeedbackReporters(feedbackReporters []interfaces.FeedbackReporter, re
 	if err != nil {
 		return err
 	}
-	if feedbackReporters != nil {
-		for _, feedbackReporter := range feedbackReporters {
-			feedbackReporter.SendFeedback(topic.Game, topic.Platform, jres)
-		}
+
+	for _, feedbackReporter := range feedbackReporters {
+		feedbackReporter.SendFeedback(topic.Game, topic.Platform, jres)
 	}
+
 	return nil
 }
 
@@ -76,7 +76,12 @@ func statsReporterHandleNotificationSuccess(statsReporters []interfaces.StatsRep
 	}
 }
 
-func statsReporterHandleNotificationFailure(statsReporters []interfaces.StatsReporter, game string, platform string, err *errors.PushError) {
+func statsReporterHandleNotificationFailure(
+	statsReporters []interfaces.StatsReporter,
+	game string,
+	platform string,
+	err *errors.PushError,
+) {
 	for _, statsReporter := range statsReporters {
 		statsReporter.HandleNotificationFailure(game, platform, err)
 	}

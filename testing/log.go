@@ -25,11 +25,11 @@ package testing
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"github.com/onsi/gomega/types"
+	"github.com/sirupsen/logrus"
 )
 
-//ContainLogMessage validates that the specified log message exists in the given entries
+//ContainLogMessage validates that the specified log message exists in the given entries.
 func ContainLogMessage(expected string) types.GomegaMatcher {
 	return &containLogMessageMatcher{
 		expected: expected,

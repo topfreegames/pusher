@@ -25,11 +25,12 @@ package extensions
 import (
 	"container/heap"
 	"fmt"
+	"sync"
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/topfreegames/pusher/util"
-	"sync"
-	"time"
 )
 
 var _ = Describe("[Unit]", func() {
@@ -40,7 +41,7 @@ var _ = Describe("[Unit]", func() {
 		It("should push a new timeout node to heap", func() {
 			th := NewTimeoutHeap(config)
 
-			var deviceToken string = "string_device"
+			deviceToken := "string_device"
 			th.AddRequest(deviceToken)
 			Ω(th.Len()).Should(Equal(1))
 

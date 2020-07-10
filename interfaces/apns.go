@@ -27,7 +27,7 @@ import (
 	"github.com/topfreegames/pusher/structs"
 )
 
-//APNSPushQueue represents the contract for a APNS Push Queue
+//APNSPushQueue represents the contract for a APNS Push Queue.
 type APNSPushQueue interface {
 	ResponseChannel() chan *structs.ResponseWithMetadata
 	Configure() error

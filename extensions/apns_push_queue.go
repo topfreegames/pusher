@@ -138,7 +138,6 @@ func (p *APNSPushQueue) pushWorker() {
 			DeviceToken: notification.DeviceToken,
 		}
 		p.responseChannel <- newRes
-
 	}
 }
 
