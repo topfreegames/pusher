@@ -47,13 +47,13 @@ var _ = Describe("APNS Pusher", func() {
 	})
 
 	Describe("[Unit]", func() {
-		var mockDb *mocks.PGMock
+		var mockDB *mocks.PGMock
 		var mockPushQueue *mocks.APNSPushQueueMock
 		var mockStatsDClient *mocks.StatsDClientMock
 
 		BeforeEach(func() {
 			mockStatsDClient = mocks.NewStatsDClientMock()
-			mockDb = mocks.NewPGMock(0, 1)
+			mockDB = mocks.NewPGMock(0, 1)
 			mockPushQueue = mocks.NewAPNSPushQueueMock()
 			hook.Reset()
 		})
@@ -65,7 +65,7 @@ var _ = Describe("APNS Pusher", func() {
 					config,
 					logger,
 					mockStatsDClient,
-					mockDb,
+					mockDB,
 					mockPushQueue,
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -88,7 +88,7 @@ var _ = Describe("APNS Pusher", func() {
 					config,
 					logger,
 					mockStatsDClient,
-					mockDb,
+					mockDB,
 					mockPushQueue,
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -111,7 +111,7 @@ var _ = Describe("APNS Pusher", func() {
 					config,
 					logger,
 					mockStatsDClient,
-					mockDb,
+					mockDB,
 					mockPushQueue,
 				)
 				Expect(err).NotTo(HaveOccurred())

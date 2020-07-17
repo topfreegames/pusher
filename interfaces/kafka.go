@@ -24,13 +24,13 @@ package interfaces
 
 import "github.com/confluentinc/confluent-kafka-go/kafka"
 
-// KafkaProducerClient interface
+// KafkaProducerClient interface.
 type KafkaProducerClient interface {
 	Events() chan kafka.Event
 	ProduceChannel() chan *kafka.Message
 }
 
-// KafkaConsumerClient interface
+// KafkaConsumerClient interface.
 type KafkaConsumerClient interface {
 	SubscribeTopics([]string, kafka.RebalanceCb) error
 	Events() chan kafka.Event

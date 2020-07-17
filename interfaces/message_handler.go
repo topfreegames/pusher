@@ -22,7 +22,7 @@
 
 package interfaces
 
-// MessageHandler interface for making message handlers pluggable easily
+// MessageHandler interface for making message handlers pluggable easily.
 type MessageHandler interface {
 	HandleMessages(msg KafkaMessage)
 	HandleResponses()

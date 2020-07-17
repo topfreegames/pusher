@@ -114,7 +114,7 @@ var _ = Describe("Feedback Listener", func() {
 		}
 	})
 
-	Describe("[Integration2]", func() {
+	Describe("[Integration]", func() {
 		Describe("Create a new instance of listener", func() {
 			var logger *logrus.Logger
 

@@ -24,7 +24,7 @@ package interfaces
 
 import gcm "github.com/topfreegames/go-gcm"
 
-//GCMClient represents the contract for a GCM Client
+//GCMClient represents the contract for a GCM Client.
 type GCMClient interface {
 	SendXMPP(gcm.XMPPMessage) (string, int, error)
 	Close() error

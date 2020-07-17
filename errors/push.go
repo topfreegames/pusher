@@ -24,13 +24,13 @@ package errors
 
 import "fmt"
 
-//PushError reports an error sending a Push Message
+//PushError reports an error sending a Push Message.
 type PushError struct {
 	Key         string
 	Description string
 }
 
-//NewPushError creates a new instance
+//NewPushError creates a new instance.
 func NewPushError(key, description string) *PushError {
 	return &PushError{
 		Key:         key,
@@ -38,7 +38,7 @@ func NewPushError(key, description string) *PushError {
 	}
 }
 
-//Error returns a string
+//Error returns a string.
 func (e *PushError) Error() string {
 	return fmt.Sprintf("Sending push notification failed with error %s (%s).", e.Key, e.Description)
 }

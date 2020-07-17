@@ -37,23 +37,23 @@ import (
 
 // KafkaConsumer for getting pusher feedbacks
 type KafkaConsumer struct {
+	Topics                         []string
 	Brokers                        string
-	Config                         *viper.Viper
 	Consumer                       interfaces.KafkaConsumerClient
 	ConsumerGroup                  string
+	OffsetResetStrategy            string
+	Config                         *viper.Viper
 	ChannelSize                    int
 	Logger                         *logrus.Logger
 	FetchMinBytes                  int
 	FetchWaitMaxMs                 int
 	messagesReceived               int64
 	msgChan                        chan QueueMessage
-	OffsetResetStrategy            string
-	run                            bool
 	SessionTimeout                 int
-	Topics                         []string
 	pendingMessagesWG              *sync.WaitGroup
-	HandleAllMessagesBeforeExiting bool
 	stopChannel                    chan struct{}
+	run                            bool
+	HandleAllMessagesBeforeExiting bool
 	AssignedPartition              bool
 }
 
@@ -205,7 +205,7 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 	l.Info("successfully subscribed to topics")
 
 	q.run = true
-	for q.run == true {
+	for q.run {
 		select {
 		case ev, ok := <-q.Consumer.Events():
 			if ok {

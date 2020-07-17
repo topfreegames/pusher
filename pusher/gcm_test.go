@@ -47,12 +47,12 @@ var _ = Describe("GCM Pusher", func() {
 	})
 
 	Describe("[Unit]", func() {
-		var mockDb *mocks.PGMock
+		var mockDB *mocks.PGMock
 		var mockStatsDClient *mocks.StatsDClientMock
 
 		BeforeEach(func() {
 			mockStatsDClient = mocks.NewStatsDClientMock()
-			mockDb = mocks.NewPGMock(0, 1)
+			mockDB = mocks.NewPGMock(0, 1)
 			hook.Reset()
 		})
 
@@ -64,7 +64,7 @@ var _ = Describe("GCM Pusher", func() {
 					config,
 					logger,
 					mockStatsDClient,
-					mockDb,
+					mockDB,
 					client,
 				)
 				Expect(err).NotTo(HaveOccurred())
@@ -87,7 +87,7 @@ var _ = Describe("GCM Pusher", func() {
 					config,
 					logger,
 					mockStatsDClient,
-					mockDb,
+					mockDB,
 					client,
 				)
 				Expect(err).NotTo(HaveOccurred())

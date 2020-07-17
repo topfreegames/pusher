@@ -41,6 +41,12 @@ make build
 
 We're using [Ginkgo](https://onsi.github.io/ginkgo) and [Gomega](https://onsi.github.io/gomega) for testing our code. Since we're making extensive use of interfaces, external dependencies are mocked for all unit tests.
 
+### Linter
+
+```bash
+make lint
+```
+
 #### Unit Tests
 We'll try to keep testing coverage as high as possible. To run unit tests simply use:
 
@@ -69,6 +75,9 @@ To run integration tests run:
 ```
 make integration
 ```
+
+If you are running integration tests locally with the most recent librdkafka version (such as installed by brew) some of them will fail due to incompatible librdkafka version. 
+Tests should work for librdkafka v0.11.5
 
 ### Benchmark
 

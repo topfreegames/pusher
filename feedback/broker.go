@@ -26,7 +26,7 @@ import (
 	"encoding/json"
 	"sync"
 
-	gcm "github.com/topfreegames/go-gcm"
+	"github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/structs"
 
@@ -35,7 +35,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Message is a struct that will decode an apns or gcm feedback message
+// Message is a struct that will decode an apns or gcm feedback message.
 type Message struct {
 	From             string                 `json:"from"`
 	MessageID        string                 `json:"message_id"`
@@ -50,18 +50,17 @@ type Message struct {
 }
 
 // Broker receives kafka messages in its InChan, unmarshal them according to the
-// platform and routes them to the correct out channel after examining their content
+// platform and routes them to the correct out channel after examining their content.
 type Broker struct {
+	StatsReporters      []interfaces.StatsReporter
 	Logger              *log.Logger
 	Config              *viper.Viper
-	StatsReporters      []interfaces.StatsReporter
 	InChan              chan QueueMessage
 	pendingMessagesWG   *sync.WaitGroup
-	InvalidTokenEnabled bool
 	InvalidTokenOutChan chan *InvalidToken
-
-	run         bool
-	stopChannel chan struct{}
+	stopChannel         chan struct{}
+	InvalidTokenEnabled bool
+	run                 bool
 }
 
 // NewBroker creates a new Broker instance
@@ -96,7 +95,7 @@ func (b *Broker) configure() {
 	b.InvalidTokenOutChan = make(chan *InvalidToken, b.Config.GetInt("feedbackListeners.broker.invalidTokenChan.size"))
 }
 
-// Start starts a routine to process the Broker in channel
+// Start starts a routine to process the Broker in channel.
 func (b *Broker) Start() {
 	l := b.Logger.WithField(
 		"method", "start",
@@ -107,7 +106,7 @@ func (b *Broker) Start() {
 	go b.processMessages()
 }
 
-// Stop stops all routines from processing the in channel and closes all output channels
+// Stop stops all routines from processing the in channel and closes all output channels.
 func (b *Broker) Stop() {
 	b.run = false
 	close(b.stopChannel)
@@ -116,10 +115,10 @@ func (b *Broker) Stop() {
 
 func (b *Broker) processMessages() {
 	l := b.Logger.WithField(
-		"method`", "processMessages",
+		"method", "processMessages",
 	)
 
-	for b.run == true {
+	for b.run {
 		select {
 		case msg, ok := <-b.InChan:
 			if ok {
@@ -147,7 +146,6 @@ func (b *Broker) processMessages() {
 		case <-b.stopChannel:
 			break
 		}
-
 	}
 
 	l.Info("stop processing Broker's in channel")

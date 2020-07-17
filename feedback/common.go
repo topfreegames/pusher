@@ -44,7 +44,7 @@ func configureStatsReporters(
 	config *viper.Viper, logger *logrus.Logger,
 	clientOrNil interfaces.StatsDClient,
 ) ([]interfaces.StatsReporter, error) {
-	reporters := []interfaces.StatsReporter{}
+	var reporters []interfaces.StatsReporter
 	reporterNames := config.GetStringSlice("stats.reporters")
 	for _, reporterName := range reporterNames {
 		reporterFunc, ok := AvailableStatsReporters[reporterName]

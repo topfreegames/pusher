@@ -27,13 +27,13 @@ import (
 	"github.com/topfreegames/pusher/structs"
 )
 
-//APNSPushQueueMock should be used for tests that need to send pushs to APNS
+//APNSPushQueueMock should be used for tests that need to send pushs to APNS.
 type APNSPushQueueMock struct {
 	responseChannel chan *structs.ResponseWithMetadata
 	Closed          bool
 }
 
-//NewAPNSPushQueueMock creates a new instance
+//NewAPNSPushQueueMock creates a new instance.
 func NewAPNSPushQueueMock() *APNSPushQueueMock {
 	return &APNSPushQueueMock{
 		responseChannel: make(chan *structs.ResponseWithMetadata),

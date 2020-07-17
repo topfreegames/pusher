@@ -32,8 +32,6 @@ import (
 	"github.com/topfreegames/pusher/util"
 )
 
-var app string
-
 func startApns(
 	debug, json, production bool,
 	config *viper.Viper,

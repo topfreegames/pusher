@@ -119,7 +119,7 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 		}
 	}
 	if len(g.MessageHandler) == 0 {
-		return errors.New("Could not initilize any app")
+		return errors.New("could not initilize any app")
 	}
 	return nil
 }

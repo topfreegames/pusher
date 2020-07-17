@@ -24,7 +24,7 @@ package extensions
 
 import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	raven "github.com/getsentry/raven-go"
+	"github.com/getsentry/raven-go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
@@ -116,7 +116,6 @@ func (q *KafkaProducer) listenForKafkaResponses() {
 					"offset":    m.TopicPartition.Offset,
 				}).Debug("delivered feedback to topic")
 			}
-			break
 		default:
 			l.WithField("event", ev).Warn("ignored kafka response event")
 		}

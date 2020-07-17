@@ -30,7 +30,6 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/sideshow/apns2"
-	token "github.com/sideshow/apns2/token"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/errors"
@@ -40,7 +39,7 @@ import (
 
 var apnsResMutex sync.Mutex
 
-// Notification is the notification base struct
+// Notification is the notification base struct.
 type Notification struct {
 	DeviceToken string
 	Payload     interface{}
@@ -48,36 +47,33 @@ type Notification struct {
 	PushExpiry  int64                  `json:"push_expiry,omitempty"`
 }
 
-// APNSMessageHandler implements the messagehandler interface
+// APNSMessageHandler implements the messagehandler interface.
 type APNSMessageHandler struct {
+	feedbackReporters            []interfaces.FeedbackReporter
+	StatsReporters               []interfaces.StatsReporter
 	authKeyPath                  string
 	keyID                        string
 	teamID                       string
-	token                        *token.Token
 	appName                      string
+	PushQueue                    interfaces.APNSPushQueue
+	Topic                        string
 	Config                       *viper.Viper
-	clients                      chan *apns2.Client
 	failuresReceived             int64
-	feedbackReporters            []interfaces.FeedbackReporter
 	InflightMessagesMetadata     map[string]interface{}
-	IsProduction                 bool
 	Logger                       *log.Logger
 	LogStatsInterval             time.Duration
 	pendingMessagesWG            *sync.WaitGroup
 	inflightMessagesMetadataLock *sync.Mutex
-	PushQueue                    interfaces.APNSPushQueue
 	responsesReceived            int64
-	run                          bool
 	sentMessages                 int64
 	ignoredMessages              int64
-	StatsReporters               []interfaces.StatsReporter
 	successesReceived            int64
-	Topic                        string
 	requestsHeap                 *TimeoutHeap
 	CacheCleaningInterval        int
+	IsProduction                 bool
 }
 
-// NewAPNSMessageHandler returns a new instance of a APNSMessageHandler
+// NewAPNSMessageHandler returns a new instance of a APNSMessageHandler.
 func NewAPNSMessageHandler(
 	authKeyPath, keyID, teamID, topic, appName string,
 	isProduction bool,
@@ -200,14 +196,14 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 	return nil
 }
 
-// HandleResponses from apns
+// HandleResponses from apns.
 func (a *APNSMessageHandler) HandleResponses() {
 	for response := range a.PushQueue.ResponseChannel() {
 		a.handleAPNSResponse(response)
 	}
 }
 
-// CleanMetadataCache clears expired requests from memory
+// CleanMetadataCache clears expired requests from memory.
 func (a *APNSMessageHandler) CleanMetadataCache() {
 	var deviceToken string
 	var hasIndeed bool
@@ -230,7 +226,7 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 	}
 }
 
-// HandleMessages get messages from msgChan and send to APNS
+// HandleMessages get messages from msgChan and send to APNS.
 func (a *APNSMessageHandler) HandleMessages(message interfaces.KafkaMessage) {
 	a.sendMessage(message)
 }
@@ -327,7 +323,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 	return nil
 }
 
-// LogStats from time to time
+// LogStats from time to time.
 func (a *APNSMessageHandler) LogStats() {
 	l := a.Logger.WithFields(log.Fields{
 		"method":       "logStats",
@@ -414,7 +410,7 @@ func (a *APNSMessageHandler) mapErrorReason(reason string) string {
 	}
 }
 
-//Cleanup closes connections to APNS
+//Cleanup closes connections to APNS.
 func (a *APNSMessageHandler) Cleanup() error {
 	a.PushQueue.Close()
 	return nil

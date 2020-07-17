@@ -23,9 +23,9 @@
 package pusher
 
 import (
-	"github.com/sirupsen/logrus/hooks/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/util"
@@ -57,7 +57,7 @@ var _ = Describe("Reporters", func() {
 				config.Set("stats.reporters", []string{"notAvailable"})
 				handlers, err := configureStatsReporters(config, logger, mockClient)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Failed to initialize notAvailable. Stats Reporter not available."))
+				Expect(err.Error()).To(Equal("failed to initialize notAvailable. Stats Reporter not available"))
 				Expect(handlers).To(BeNil())
 			})
 		})
@@ -74,7 +74,7 @@ var _ = Describe("Reporters", func() {
 				config.Set("feedback.reporters", []string{"notAvailable"})
 				handlers, err := configureFeedbackReporters(config, logger)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Failed to initialize notAvailable. Feedback Reporter not available."))
+				Expect(err.Error()).To(Equal("failed to initialize notAvailable. Feedback Reporter not available"))
 				Expect(handlers).To(BeNil())
 			})
 		})

@@ -47,4 +47,19 @@ linters:
     - gomnd
     - interfacer
     - wsl
+    - depguard
+    - errcheck
+    - goerr113
+    - dupl
+    - gosec
+    - prealloc
+    - lll
+    - godot
+    - scopelint
+    - goconst
+    - unparam
+    - staticcheck
+    - stylecheck
+    - gosimple
+    - testpackage
 

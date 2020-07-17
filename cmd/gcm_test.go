@@ -40,21 +40,21 @@ var _ = Describe("GCM", func() {
 
 	var config *viper.Viper
 	var mockClient *mocks.GCMClientMock
-	var mockDb *mocks.PGMock
+	var mockDB *mocks.PGMock
 	var mockStatsDClient *mocks.StatsDClientMock
 
 	BeforeEach(func() {
 		var err error
 		config, err = util.NewViperWithConfigFile(cfg)
 		Expect(err).NotTo(HaveOccurred())
-		mockDb = mocks.NewPGMock(0, 1)
+		mockDB = mocks.NewPGMock(0, 1)
 		mockClient = mocks.NewGCMClientMock()
 		mockStatsDClient = mocks.NewStatsDClientMock()
 	})
 
 	Describe("[Unit]", func() {
 		It("Should return gcmPusher without errors", func() {
-			gcmPusher, err := startGcm(false, false, false, senderID, apiKey, config, mockStatsDClient, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, false, false, senderID, apiKey, config, mockStatsDClient, mockDB, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(gcmPusher.Config).NotTo(BeNil())
@@ -64,21 +64,21 @@ var _ = Describe("GCM", func() {
 		})
 
 		It("Should set log to json format", func() {
-			gcmPusher, err := startGcm(false, true, false, senderID, apiKey, config, mockStatsDClient, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, true, false, senderID, apiKey, config, mockStatsDClient, mockDB, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(fmt.Sprintf("%T", gcmPusher.Logger.Formatter)).To(Equal(fmt.Sprintf("%T", &logrus.JSONFormatter{})))
 		})
 
 		It("Should set log to debug", func() {
-			gcmPusher, err := startGcm(true, false, false, senderID, apiKey, config, mockStatsDClient, mockDb, mockClient)
+			gcmPusher, err := startGcm(true, false, false, senderID, apiKey, config, mockStatsDClient, mockDB, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(gcmPusher.Logger.Level).To(Equal(logrus.DebugLevel))
 		})
 
 		It("Should set log to production", func() {
-			gcmPusher, err := startGcm(false, false, true, senderID, apiKey, config, mockStatsDClient, mockDb, mockClient)
+			gcmPusher, err := startGcm(false, false, true, senderID, apiKey, config, mockStatsDClient, mockDB, mockClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(gcmPusher).NotTo(BeNil())
 			Expect(gcmPusher.IsProduction).To(BeTrue())
