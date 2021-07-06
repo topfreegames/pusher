@@ -45,6 +45,7 @@ type Notification struct {
 	Payload     interface{}
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	PushExpiry  int64                  `json:"push_expiry,omitempty"`
+	CollapseID  string                 `json:"collapse_id,omitempty"`
 }
 
 // APNSMessageHandler implements the messagehandler interface.
@@ -171,6 +172,7 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 		DeviceToken: n.DeviceToken,
 		Payload:     payload,
 		ApnsID:      deviceIdentifier,
+		CollapseID:  n.CollapseID,
 	})
 	if n.Metadata == nil {
 		n.Metadata = map[string]interface{}{}
