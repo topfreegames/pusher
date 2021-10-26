@@ -237,7 +237,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 		case "INVALID_JSON":
 			l.WithFields(log.Fields{
 				"category":   "JsonError",
-				log.ErrorKey: cm.Error,
+				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
 			}).Debug("received an error")
 		case "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR":
 			l.WithFields(log.Fields{
