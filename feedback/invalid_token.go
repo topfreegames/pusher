@@ -197,6 +197,8 @@ func splitTokens(tokens []*InvalidToken) map[string]map[string][]string {
 	return m
 }
 
+// deleteTokensFromGame deletes all given tokens from the database's table named after the passed
+// game and platform. There is no retry mechanism on error.
 func (i *InvalidTokenHandler) deleteTokensFromGame(tokens []string, game, platform string) error {
 	l := i.Logger.WithFields(log.Fields{
 		"method":   "deleteTokensFromGame",
@@ -240,22 +242,22 @@ func (i *InvalidTokenHandler) deleteTokensFromGame(tokens []string, game, platfo
 			MetricsTokensDeleteNonexistent, int64(len(tokens)),
 			game, platform)
 
-		return nil
+		return err
 	}
 
-	if res.RowsAffected() != len(tokens) {
+	if res.RowsAffected() < len(tokens) {
 		statsReporterReportMetricCount(i.StatsReporter,
 			MetricsTokensDeleteNonexistent, int64(len(tokens)-res.RowsAffected()),
 			game, platform)
-
-		statsReporterReportMetricCount(i.StatsReporter,
-			MetricsTokensDeleteSuccess, int64(res.RowsAffected()), game, platform)
-
-		return nil
 	}
 
+	// The case where 'res.RowsAffected() > len(tokens)' can occur when two different
+	// user_ids use the same token which seems to be problematic from the point of view
+	// of push notifications business logic but it is correctly handled by the code,
+	// i.e., tokens are deleted successfully.
+
 	statsReporterReportMetricCount(i.StatsReporter,
-		MetricsTokensDeleteSuccess, int64(len(tokens)), game, platform)
+		MetricsTokensDeleteSuccess, int64(res.RowsAffected()), game, platform)
 
 	return nil
 }
