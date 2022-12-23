@@ -24,6 +24,7 @@ package feedback
 
 import (
 	"encoding/json"
+	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -46,7 +47,10 @@ var _ = Describe("Broker", func() {
 	var config *viper.Viper
 	var err error
 
-	configFile := "../config/test.yaml"
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
 
 	BeforeEach(func() {
 		logger, hook = test.NewNullLogger()

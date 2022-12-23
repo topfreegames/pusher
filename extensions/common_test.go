@@ -23,6 +23,8 @@
 package extensions
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
@@ -39,7 +41,10 @@ var _ = Describe("Common", func() {
 	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
 	var feedbackClients []interfaces.FeedbackReporter
 
-	configFile := "../config/test.yaml"
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
 	logger, hook := test.NewNullLogger()
 	logger.Level = logrus.DebugLevel
 

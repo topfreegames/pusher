@@ -34,14 +34,14 @@ import (
 type statsReporterInitializer func(*viper.Viper, *logrus.Logger, interfaces.StatsDClient) (interfaces.StatsReporter, error)
 type feedbackReporterInitializer func(*viper.Viper, *logrus.Logger) (interfaces.FeedbackReporter, error)
 
-//AvailableStatsReporters contains functions to initialize all stats reporters
+// AvailableStatsReporters contains functions to initialize all stats reporters
 var AvailableStatsReporters = map[string]statsReporterInitializer{
 	"statsd": func(config *viper.Viper, logger *logrus.Logger, clientOrNil interfaces.StatsDClient) (interfaces.StatsReporter, error) {
 		return extensions.NewStatsD(config, logger, clientOrNil)
 	},
 }
 
-//AvailableFeedbackReporters contains functions to initialize all feedback reporters
+// AvailableFeedbackReporters contains functions to initialize all feedback reporters
 var AvailableFeedbackReporters = map[string]feedbackReporterInitializer{
 	"kafka": func(config *viper.Viper, logger *logrus.Logger) (interfaces.FeedbackReporter, error) {
 		return extensions.NewKafkaProducer(config, logger)
@@ -68,7 +68,7 @@ func configureStatsReporters(config *viper.Viper, logger *logrus.Logger, clientO
 }
 
 func configureFeedbackReporters(config *viper.Viper, logger *logrus.Logger) ([]interfaces.FeedbackReporter, error) {
-	var reporters []interfaces.FeedbackReporter
+	reporters := []interfaces.FeedbackReporter{}
 	reporterNames := config.GetStringSlice("feedback.reporters")
 	for _, reporterName := range reporterNames {
 		reporterFunc, ok := AvailableFeedbackReporters[reporterName]

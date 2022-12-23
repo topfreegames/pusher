@@ -23,6 +23,8 @@
 package extensions
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
@@ -33,7 +35,10 @@ import (
 var _ = Describe("APNS Message Handler", func() {
 	var queue *APNSPushQueue
 
-	configFile := "../config/test.yaml"
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
 	config, _ := util.NewViperWithConfigFile(configFile)
 	authKeyPath := "../tls/authkey.p8"
 	keyID := "ABC123DEFG"

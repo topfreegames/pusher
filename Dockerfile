@@ -18,9 +18,9 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-FROM golang:1.10-alpine
+FROM golang:1.10-alpine AS dependencies
 
-MAINTAINER TFG Co <backend@tfgco.com>
+Label MAINTAINER="TFG Co <backend@tfgco.com>"
 
 ENV LIBRDKAFKA_VERSION 0.11.5
 ENV CPLUS_INCLUDE_PATH /usr/local/include
@@ -37,11 +37,11 @@ RUN apk add --no-cache make git g++ bash python wget pkgconfig && \
     go get -u github.com/golang/dep/cmd/dep && \
     mkdir -p /go/src/github.com/topfreegames/pusher
 
-
 ADD . /go/src/github.com/topfreegames/pusher
 
 RUN dep ensure && \
-    export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH && make build && \
+    export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH && \
+    make build && \
     mkdir /app && \
     mv /go/src/github.com/topfreegames/pusher/bin/pusher /app/pusher && \
     mv /go/src/github.com/topfreegames/pusher/config /app/config && \

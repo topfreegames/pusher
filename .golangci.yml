@@ -2,64 +2,60 @@
 # See https://github.com/golangci/golangci-lint#config-file for reference.
 
 run:
-  # TODO(skeleton): Configure build tags, if any
-  build-tags: {}
+  go: "1.10"
   skip-dirs:
-    - protogen/
+    - .github
+    - bench
+    - config
+    - db
+    - mocks
+    - tls
+    - vendor
 
 linters-settings:
-  depguard:
-    list-type: blacklist
-    include-go-root: true
-    packages:
-      - log                         # prefer go.uber.org/zap
-      - github.com/gogo/protobuf    # prefer github.com/golang/protobuf
-      - github.com/pkg/errors       # prefer golang.org/x/xerrors
-      - github.com/sirupsen/logrus  # prefer go.uber.org/zap
-      - golang.org/x/xerrors        # prefer fmt.Errorf with error wrapping
+  errcheck:
+    check-blank: true
   gocyclo:
-    # minimal code complexity to report, 30 by default (but we recommend 10-20)
     min-complexity: 20
-  golint:
-    # minimal confidence for issues, default is 0.8
-    min-confidence: 0
+  gosimple:
+    go: "1.10"
   govet:
-    # report about shadowed variables
-    check-shadowing: false
+    check-shadowing: true
+    enable:
+      - assign
+      - atomic
+      - bool
+      - composites
+      - copylocks
+      - lostcancel
+      - nilfunc
+      - printf
+      - rangeloops
+      - shift
+      - unreachable
+      - unusedresult
   lll:
     line-length: 140
     tab-width: 4
-  maligned:
-    # print struct with more effective memory layout or not, false by default
-    suggest-new: true
   misspell:
     locale: US
+  stylecheck:
+    go: "1.10"
 
 linters:
-  enable-all: true
-  disable:
-    - funlen
-    - gochecknoglobals
-    - gochecknoinits
-    - gocognit
-    - gocyclo
-    - godox
-    - gomnd
-    - interfacer
-    - wsl
-    - depguard
-    - errcheck
-    - goerr113
+  enable:
     - dupl
-    - gosec
-    - prealloc
-    - lll
-    - godot
-    - scopelint
     - goconst
-    - unparam
-    - staticcheck
+    - gocyclo
+    - goimports
+    - lll
+    - misspell
+    - prealloc
     - stylecheck
-    - gosimple
-    - testpackage
+    - unconvert
 
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - dupl

@@ -195,6 +195,7 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 
 	l.Info("successfully subscribed to topics")
 
+	//nolint[:gosimple]
 	for q.run {
 		select {
 		case ev := <-q.Consumer.Events():
@@ -325,7 +326,7 @@ func (q *KafkaConsumer) handleUnrecognized(ev kafka.Event) {
 	l.Warn("Kafka event not recognized.")
 }
 
-//Cleanup closes kafka consumer connection
+// Cleanup closes kafka consumer connection
 func (q *KafkaConsumer) Cleanup() error {
 	if q.run {
 		q.StopConsuming()

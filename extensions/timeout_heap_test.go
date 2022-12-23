@@ -25,6 +25,7 @@ package extensions
 import (
 	"container/heap"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -34,7 +35,10 @@ import (
 )
 
 var _ = Describe("[Unit]", func() {
-	configFile := "../config/test.yaml"
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
 	config, _ := util.NewViperWithConfigFile(configFile)
 
 	Describe("TimeoutHeap", func() {

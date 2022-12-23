@@ -24,6 +24,7 @@ package feedback
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -44,7 +45,10 @@ var _ = Describe("InvalidToken Handler", func() {
 	var statsReporters []interfaces.StatsReporter
 	var err error
 
-	configFile := "../config/test.yaml"
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
 
 	BeforeEach(func() {
 		config, err = util.NewViperWithConfigFile(configFile)
