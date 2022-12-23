@@ -24,6 +24,7 @@ package extensions
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -300,9 +301,13 @@ var _ = Describe("Kafka Extension", func() {
 	Describe("[Integration]", func() {
 		var config *viper.Viper
 		var err error
+		configFile := os.Getenv("CONFIG_FILE")
+		if configFile == "" {
+			configFile = "../config/test.yaml"
+		}
 
 		BeforeEach(func() {
-			config, err = util.NewViperWithConfigFile("../config/test.yaml")
+			config, err = util.NewViperWithConfigFile(configFile)
 			Expect(err).NotTo(HaveOccurred())
 		})
 

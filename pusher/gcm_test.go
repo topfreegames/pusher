@@ -23,6 +23,7 @@
 package pusher
 
 import (
+	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -35,7 +36,10 @@ import (
 
 var _ = Describe("GCM Pusher", func() {
 	var config *viper.Viper
-	configFile := "../config/test.yaml"
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
 	isProduction := false
 	logger, hook := test.NewNullLogger()
 

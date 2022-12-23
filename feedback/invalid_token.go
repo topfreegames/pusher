@@ -229,20 +229,21 @@ func (i *InvalidTokenHandler) deleteTokensFromGame(tokens []string, game, platfo
 			"version": util.Version,
 			"handler": "invalidToken",
 		})
-
 		l.WithError(err).Error("error deleting tokens")
 		statsReporterReportMetricCount(i.StatsReporter,
 			MetricsTokensDeleteError, int64(len(tokens)), game, platform)
-
 		return err
 	}
 
 	if err != nil && err.Error() == "pg: no rows in result set" {
+		l.WithError(err).Warn("none of the provided tokens exists")
 		statsReporterReportMetricCount(i.StatsReporter,
 			MetricsTokensDeleteNonexistent, int64(len(tokens)),
 			game, platform)
-
-		return err
+		// No need to return error here since non existing tokens can only occur due to
+		// manual intervention or due to an unexpected retry attempt that calls this
+		// method with the same arguments.
+		return nil
 	}
 
 	if res.RowsAffected() < len(tokens) {

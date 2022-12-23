@@ -72,6 +72,7 @@ func (p *Pusher) configureStatsReporters(clientOrNil interfaces.StatsDClient) er
 }
 
 func (p *Pusher) routeMessages(msgChan *chan interfaces.KafkaMessage) {
+	//nolint[:gosimple]
 	for p.run {
 		select {
 		case message := <-*msgChan:
@@ -100,6 +101,7 @@ func (p *Pusher) Start() {
 		go v.LogStats()
 		go v.CleanMetadataCache()
 	}
+	//nolint[:errcheck]
 	go p.Queue.ConsumeLoop()
 	go p.reportGoStats()
 

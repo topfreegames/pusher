@@ -23,6 +23,8 @@
 package pusher
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -38,7 +40,11 @@ var _ = Describe("Reporters", func() {
 
 	BeforeEach(func() {
 		var err error
-		config, err = util.NewViperWithConfigFile("../config/test.yaml")
+		configFile := os.Getenv("CONFIG_FILE")
+		if configFile == "" {
+			configFile = "../config/test.yaml"
+		}
+		config, err = util.NewViperWithConfigFile(configFile)
 		Expect(err).NotTo(HaveOccurred())
 		mockClient = mocks.NewStatsDClientMock()
 		hook.Reset()

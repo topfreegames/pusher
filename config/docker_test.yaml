@@ -1,0 +1,93 @@
+---
+gracefulShutdownTimeout: 10
+apns:
+  concurrentWorkers: 300
+  connectionPoolSize: 1
+  logStatsInterval: 750
+  apps: "game"
+  certs:
+    game:
+      authKeyPath: ../tls/authkey.p8
+      keyID: "ABC123DEFG"
+      teamID: "ABC123DEFG"
+      topic: "com.game.test"
+gcm:
+  pingInterval: 30
+  pingTimeout: 10
+  maxPendingMessages: 3
+  logStatsInterval: 750
+  apps: "game"
+  certs:
+    game:
+      apiKey: game-api-key
+      senderID: "1233456789"
+queue:
+  topics:
+    - "^push-[^-_]+_(apns|gcm)[_-](single|massive)"
+  brokers: "kafka:9092"
+  group: testGroup
+  sessionTimeout: 6000
+  fetch.min.bytes: 1
+  fetch.wait.max.ms: 100
+  offsetResetStrategy: latest
+  handleAllMessagesBeforeExiting: true
+feedback:
+  reporters:
+    - kafka
+  kafka:
+    topics: "com.games.test.feedbacks"
+    brokers: "kafka:9092"
+  cache:
+    requestTimeout: 100
+    cleaningInterval: 20
+stats:
+  reporters:
+    - statsd
+  flush:
+    s: 5
+  statsd:
+    host: "statsd:8125"
+    prefix: "push"
+    flushIntervalMs: 5000
+invalidToken:
+  handlers:
+    - pg
+  pg:
+    host: postgres
+    port: 5432
+    user: pusher_user
+    pass: ""
+    poolSize: 20
+    maxRetries: 3
+    database: push
+    connectionTimeout: 100
+feedbackListeners:
+  queue:
+      topics:
+        - "^push-[^-_]+-(apns|gcm)-feedbacks"
+      brokers: "kafka:9092"
+      group: testGroup
+      sessionTimeout: 6000
+      fetch.min.bytes: 1
+      fetch.wait.max.ms: 100
+      offsetResetStrategy: latest
+      handleAllMessagesBeforeExiting: true
+  broker:
+    invalidTokenChan:
+      size: 999
+  invalidToken:
+    flush:
+      time:
+        ms: 2000
+    buffer:
+      size: 99
+    pg:
+      host: postgres
+      port: 5432
+      user: pusher_user
+      pass: ""
+      poolSize: 20
+      maxRetries: 3
+      database: push
+      connectionTimeout: 100
+

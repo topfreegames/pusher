@@ -24,6 +24,7 @@ package extensions
 
 import (
 	"fmt"
+	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -33,10 +34,14 @@ import (
 
 var _ = Describe("PG Extension", func() {
 	var config *viper.Viper
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
 
 	BeforeEach(func() {
 		config = viper.New()
-		config.SetConfigFile("../config/test.yaml")
+		config.SetConfigFile(configFile)
 		Expect(config.ReadInConfig()).NotTo(HaveOccurred())
 	})
 

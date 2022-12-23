@@ -24,6 +24,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -34,7 +35,10 @@ import (
 )
 
 var _ = Describe("GCM", func() {
-	cfg := "../config/test.yaml"
+	cfg := os.Getenv("CONFIG_FILE")
+	if cfg == "" {
+		cfg = "../config/test.yaml"
+	}
 	apiKey := "api-key"
 	senderID := "sender-id"
 

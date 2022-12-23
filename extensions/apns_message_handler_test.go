@@ -50,7 +50,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 	var mockStatsDClient *mocks.StatsDClientMock
 	var statsClients []interfaces.StatsReporter
 
-	configFile := "../config/test.yaml"
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
 	config, _ := util.NewViperWithConfigFile(configFile)
 	authKeyPath := "../tls/authkey.p8"
 	keyID := "ABC123DEFG"

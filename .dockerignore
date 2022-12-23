@@ -1,7 +1,10 @@
 Dockerfile
+Dockerfile.local
 bench
+bin
 .git
 .gitignore
+.github
 README.md
 LICENSE
 docker-compose.yml

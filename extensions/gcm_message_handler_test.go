@@ -47,7 +47,10 @@ var _ = Describe("GCM Message Handler", func() {
 	var mockStatsDClient *mocks.StatsDClientMock
 	var statsClients []interfaces.StatsReporter
 
-	configFile := "../config/test.yaml"
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
 	config, _ := util.NewViperWithConfigFile(configFile)
 	senderID := "sender-id"
 	apiKey := "api-key"

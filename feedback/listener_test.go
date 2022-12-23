@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 /*
@@ -27,6 +28,7 @@ package feedback
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -45,7 +47,10 @@ import (
 )
 
 var _ = Describe("Feedback Listener", func() {
-	configFile := "../config/test.yaml"
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
 	var config *viper.Viper
 	var db interfaces.DB
 	var game1, game2 string

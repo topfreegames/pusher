@@ -18,9 +18,6 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-OS=`uname -s`
-MY_IP=`ifconfig | grep --color=none -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep --color=none -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | head -n 1`
-
 build:
 	@mkdir -p bin
 	@go build -o bin/pusher main.go
@@ -42,13 +39,13 @@ wait-for-pg:
 deps: start-deps wait-for-pg
 
 start-deps:
-	@echo "Starting dependencies using HOST IP of ${MY_IP}..."
-	@env MY_IP=${MY_IP} docker-compose --project-name pusher up -d
+	@echo "Starting dependencies..."
+	@docker-compose --project-name pusher up -d
 	@while [ "`echo "health" | nc 127.0.0.1 40002`" != "health: up" ]; do echo "Waiting for StatsD to come up..." && sleep 1; done
 	@echo "Dependencies started successfully."
 
 stop-deps:
-	@env MY_IP=${MY_IP} docker-compose --project-name pusher down
+	@docker-compose --project-name pusher down
 
 rtfd:
 	@rm -rf docs/_build
@@ -65,7 +62,7 @@ apns:
 	@go run main.go apns --certificate=./tls/_fixtures/certificate-valid.pem
 
 local-deps:
-	@env MY_IP=${MY_IP} docker-compose --project-name pusher up -d
+	@docker-compose --project-name pusher up -d
 
 setup:
 	# Ensuring librdkafka is installed in Mac OS
@@ -113,13 +110,13 @@ test-db-drop:
 test-db-create:
 	@psql -U postgres -h localhost -p 8585 -f db/create-test.sql > /dev/null
 
-test-unit unit: stop-deps
+test-unit unit:
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo "=                  Running unit tests...                 ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
-	@env MY_IP=${MY_IP} ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
+	@ginkgo -v -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
 	@$(MAKE) test-coverage-func
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
@@ -127,19 +124,42 @@ test-unit unit: stop-deps
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
 
-test-integration integration func: deps test-db-drop test-db-create
+run-integration-test:
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo "=               Running integration tests...             ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
-	@env MY_IP=${MY_IP} ginkgo -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
+	@ginkgo -v -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo "=               Integration tests finished.              ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
 
-lint:
-	@env golangci-lint run
+test-integration integration func: deps test-db-drop test-db-create run-integration-test
 
+lint:
+	@golangci-lint run
+
+build-image-dev:
+	@docker build -f Dockerfile.local -t pusher:local .
+
+lint-container-dev: build-image-dev
+	@docker run -t -i pusher:local golangci-lint run
+
+build-container-dev: build-image-dev
+	@docker run -t -i pusher:local make build
+
+unit-test-container-dev: build-image-dev
+	@docker run -t -i pusher:local make unit
+
+start-deps-container-dev:
+	@echo "Starting dependencies..."
+	@docker-compose -f docker-compose-container-dev.yml --project-name pusher up -d
+	@while [ "`echo "health" | nc 127.0.0.1 40002`" != "health: up" ]; do echo "Waiting for StatsD to come up..." && sleep 1; done
+	@$(MAKE) wait-for-pg
+	@echo "Dependencies started successfully."
+
+integration-test-container-dev: build-image-dev start-deps-container-dev test-db-drop test-db-create
+	@docker run -t -i --network pusher_default -e CONFIG_FILE="../config/docker_test.yaml" pusher:local make run-integration-test
