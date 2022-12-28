@@ -29,6 +29,8 @@ ENV GOLANGCI_LINT_VERSION 1.15.0
 ENV GINKGO_VERSION 1.4.0
 
 RUN apt-get install make git g++ bash python wget pkg-config
+RUN apt update
+RUN apt install -y postgresql
 RUN export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
 RUN wget --no-check-certificate -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
     tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \

@@ -1,0 +1,77 @@
+name: Integration Tests
+on:
+  push:
+    branches: 
+      - master
+  pull_request:
+    branches:
+      - master
+    paths:
+      - '**.go'
+      - 'Gopkg.lock'
+      - 'Gopkg.toml'
+      - 'Dockerfile.ci-test'
+      - '.dockerignore'
+      - '.github/workflows/*-tests.yaml'
+      - config
+      - db
+jobs:
+  test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    container:
+      image: tfgco/pusher:ci-test
+    services:
+      zookeeper:
+        image: wurstmeister/zookeeper
+      kafka:
+        image: wurstmeister/kafka:0.10.1.0-2
+        env:
+          KAFKA_ADVERTISED_HOST_NAME: kafka
+          KAFKA_ADVERTISED_PORT: 9092
+          KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+          KAFKA_NUM_PARTITIONS: 5
+          KAFKA_CREATE_TOPICS: "com.games.test:5:1"
+      postgres:
+        image: postgres:9.5
+        env:
+          POSTGRES_HOST_AUTH_METHOD: "trust"
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      statsd:
+        image: hopsoft/graphite-statsd
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up go vendor cache
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-build-${{ hashFiles('Gopkg.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ hashFiles('Gopkg.lock') }}
+            ${{ runner.os }}-build-
+      - name: Copy checked source code to the proper container's working directory
+        run: |
+          rm -rf /go/src/github.com/topfreegames/pusher
+          cp -r . /go/src/github.com/topfreegames/pusher
+      - name: Install dependencies
+        run: |
+          cd /go/src/github.com/topfreegames/pusher
+          dep ensure
+      - name: Initialize DB for testing
+        run: |
+          cd /go/src/github.com/topfreegames/pusher
+          psql -U postgres -h postgres -p 5432 -f db/create-test.sql
+      - name: Test
+        run: |
+          cd /go/src/github.com/topfreegames/pusher
+          export CONFIG_FILE=${PWD}/config/docker_test.yaml
+          export GOPATH=${PWD}/vendor:${GOPATH}
+          ginkgo -v -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
+      - name: Relocate vendor directory for caching
+        run: |
+          rm -rf vendor
+          cp -r /go/src/github.com/topfreegames/pusher/vendor .
