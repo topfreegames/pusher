@@ -326,8 +326,6 @@ var _ = Describe("Kafka Consumer", func() {
 		})
 
 		Describe("ConsumeLoop", func() {
-			//This test fails while running locally due to incompatible librdkafka version
-			// it should work in Travis for librdkafka v0.11.5
 			It("should consume message and add it to msgChan", func() {
 				logger, hook := test.NewNullLogger()
 				logger.Level = logrus.DebugLevel

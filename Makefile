@@ -163,3 +163,4 @@ start-deps-container-dev:
 
 integration-test-container-dev: build-image-dev start-deps-container-dev test-db-drop test-db-create
 	@docker run -t -i --network pusher_default -e CONFIG_FILE="../config/docker_test.yaml" pusher:local make run-integration-test
+	@$(MAKE) stop-deps
