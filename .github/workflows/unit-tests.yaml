@@ -1,6 +1,8 @@
 name: Build, Unit Tests and Linter
 on:
   push:
+    branches:
+      - '**'
     paths:
       - '**.go'
       - 'Gopkg.lock'
