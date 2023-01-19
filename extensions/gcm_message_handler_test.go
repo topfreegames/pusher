@@ -371,6 +371,50 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(len(handler.pendingMessages)).To(Equal(1))
 			})
 
+			It("should forward nested metadata content on GCM request", func() {
+				ttl := uint(0)
+				metadata := map[string]interface{}{
+					"some": "metadata",
+				}
+				msg := &KafkaGCMMessage{
+					XMPPMessage: gcm.XMPPMessage{
+						TimeToLive:               &ttl,
+						DeliveryReceiptRequested: false,
+						DryRun:                   true,
+						To:                       uuid.NewV4().String(),
+						Data: map[string]interface{}{
+							"nested": map[string]interface{}{
+								"some": "data",
+							},
+						},
+					},
+					Metadata:   metadata,
+					PushExpiry: makeTimestamp() + int64(1000000),
+				}
+				msgBytes, err := json.Marshal(msg)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_gcm",
+					Value: msgBytes,
+				})
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(handler.sentMessages).To(Equal(int64(1)))
+				Expect(hook.LastEntry().Message).To(Equal("sent message"))
+				Expect(mockClient.MessagesSent).To(HaveLen(1))
+
+				sentMessage := mockClient.MessagesSent[0]
+				Expect(sentMessage).NotTo(BeNil())
+				Expect(sentMessage.Data["nested"]).NotTo(BeNil())
+
+				nestedContent := sentMessage.Data["nested"].(map[string]interface{})
+				Expect(nestedContent).NotTo(BeNil())
+				Expect(nestedContent["some"]).To(Equal("data"))
+
+				Expect(len(handler.pendingMessages)).To(Equal(1))
+			})
+
 			It("should wait to send message if maxPendingMessages limit is reached", func() {
 				ttl := uint(0)
 				msg := &gcm.XMPPMessage{
