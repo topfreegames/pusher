@@ -209,7 +209,9 @@ var _ = Describe("GCM Message Handler", func() {
 						DeliveryReceiptRequested: false,
 						DryRun:                   true,
 						To:                       uuid.NewV4().String(),
-						Data:                     map[string]interface{}{},
+						Data: map[string]interface{}{
+							"title": "notification",
+						},
 					},
 					Metadata:   metadata,
 					PushExpiry: makeTimestamp() + int64(1000000),
@@ -280,7 +282,9 @@ var _ = Describe("GCM Message Handler", func() {
 					DeliveryReceiptRequested: false,
 					DryRun:                   true,
 					To:                       uuid.NewV4().String(),
-					Data:                     map[string]interface{}{},
+					Data: map[string]interface{}{
+						"title": "notification",
+					},
 				}
 				msgBytes, err := json.Marshal(msg)
 				Expect(err).NotTo(HaveOccurred())
@@ -310,7 +314,9 @@ var _ = Describe("GCM Message Handler", func() {
 						DeliveryReceiptRequested: false,
 						DryRun:                   true,
 						To:                       uuid.NewV4().String(),
-						Data:                     map[string]interface{}{},
+						Data: map[string]interface{}{
+							"title": "notification",
+						},
 					},
 					Metadata:   metadata,
 					PushExpiry: makeTimestamp() + int64(1000000),
@@ -326,6 +332,42 @@ var _ = Describe("GCM Message Handler", func() {
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 				Expect(hook.LastEntry().Message).To(Equal("sent message"))
 				Expect(mockClient.MessagesSent).To(HaveLen(1))
+				Expect(len(handler.pendingMessages)).To(Equal(1))
+			})
+
+			It("should forward metadata content on GCM request", func() {
+				ttl := uint(0)
+				metadata := map[string]interface{}{
+					"some": "metadata",
+				}
+				msg := &KafkaGCMMessage{
+					XMPPMessage: gcm.XMPPMessage{
+						TimeToLive:               &ttl,
+						DeliveryReceiptRequested: false,
+						DryRun:                   true,
+						To:                       uuid.NewV4().String(),
+						Data: map[string]interface{}{
+							"title": "notification",
+						},
+					},
+					Metadata:   metadata,
+					PushExpiry: makeTimestamp() + int64(1000000),
+				}
+				msgBytes, err := json.Marshal(msg)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_gcm",
+					Value: msgBytes,
+				})
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(handler.sentMessages).To(Equal(int64(1)))
+				Expect(hook.LastEntry().Message).To(Equal("sent message"))
+				Expect(mockClient.MessagesSent).To(HaveLen(1))
+				sentMessage := mockClient.MessagesSent[0]
+				Expect(sentMessage).NotTo(BeNil())
+				Expect(sentMessage.Data["some"]).To(Equal("metadata"))
 				Expect(len(handler.pendingMessages)).To(Equal(1))
 			})
 

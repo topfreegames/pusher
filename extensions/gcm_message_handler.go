@@ -297,6 +297,19 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 		}
 		return nil
 	}
+
+	if km.Metadata != nil {
+		if km.XMPPMessage.Data == nil {
+			km.XMPPMessage.Data = map[string]interface{}{}
+		}
+
+		for k, v := range km.Metadata {
+			if km.XMPPMessage.Data[k] == nil {
+				km.XMPPMessage.Data[k] = v
+			}
+		}
+	}
+
 	l.WithField("message", km).Debug("sending message to gcm")
 	var messageID string
 	var bytes int
@@ -395,7 +408,7 @@ func (g *GCMMessageHandler) LogStats() {
 	}
 }
 
-//Cleanup closes connections to GCM
+// Cleanup closes connections to GCM
 func (g *GCMMessageHandler) Cleanup() error {
 	err := g.GCMClient.Close()
 	if err != nil {
