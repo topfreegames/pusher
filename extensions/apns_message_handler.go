@@ -24,6 +24,7 @@ package extensions
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -147,15 +148,11 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 	deviceIdentifier := uuid.NewV4().String()
 	l := a.Logger.WithField("method", "sendMessage")
 	l.WithField("message", message).Debug("sending message to apns")
+
 	n := &Notification{}
-	json.Unmarshal(message.Value, n)
-	payload, err := json.Marshal(n.Payload)
+	err := json.Unmarshal(message.Value, n)
 	if err != nil {
-		l.WithError(err).Error("error marshaling message payload")
-		a.ignoredMessages++
-		if a.pendingMessagesWG != nil {
-			a.pendingMessagesWG.Done()
-		}
+		l.WithError(err).Error("Error unmarshaling message.")
 		return err
 	}
 	if n.PushExpiry > 0 && n.PushExpiry < makeTimestamp() {
@@ -166,7 +163,19 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 		}
 		return nil
 	}
-	statsReporterHandleNotificationSent(a.StatsReporters, a.appName, "apns")
+
+	addMetadataToPayload(n)
+
+	payload, err := json.Marshal(n.Payload)
+	if err != nil {
+		l.WithError(err).Error("error marshaling message payload")
+		a.ignoredMessages++
+		if a.pendingMessagesWG != nil {
+			a.pendingMessagesWG.Done()
+		}
+		return err
+	}
+
 	a.PushQueue.Push(&apns2.Notification{
 		Topic:       a.Topic,
 		DeviceToken: n.DeviceToken,
@@ -174,6 +183,8 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 		ApnsID:      deviceIdentifier,
 		CollapseID:  n.CollapseID,
 	})
+	statsReporterHandleNotificationSent(a.StatsReporters, a.appName, "apns")
+
 	if n.Metadata == nil {
 		n.Metadata = map[string]interface{}{}
 	}
@@ -412,7 +423,34 @@ func (a *APNSMessageHandler) mapErrorReason(reason string) string {
 	}
 }
 
-//Cleanup closes connections to APNS.
+func addMetadataToPayload(notification *Notification) {
+	if notification.Metadata == nil {
+		return
+	}
+
+	if notification.Payload == nil {
+		notification.Payload = map[string]interface{}{}
+	}
+
+	if p, ok := notification.Payload.(map[string]interface{}); ok {
+		if p["M"] == nil {
+			p["M"] = map[string]interface{}{}
+		}
+
+		m, ok := p["M"].(map[string]interface{})
+		if !ok{
+			fmt.Println("Could not cast M")
+		}
+
+		for k, v := range notification.Metadata {
+			if m[k] == nil {
+				m[k] = v
+			}
+		}
+	}
+}
+
+// Cleanup closes connections to APNS.
 func (a *APNSMessageHandler) Cleanup() error {
 	a.PushQueue.Close()
 	return nil

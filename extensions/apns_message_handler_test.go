@@ -268,11 +268,89 @@ var _ = FDescribe("APNS Message Handler", func() {
 
 		Describe("Send message", func() {
 			It("should add message to push queue and increment sentMessages", func() {
-				handler.sendMessage(interfaces.KafkaMessage{
+				err := handler.sendMessage(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
-					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
+					Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" } }, "Metadata": { "some": "data" } }`),
 				})
+
+				Expect(err).To(BeNil())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
+			})
+
+			It("should have metadata on message sent to push queue", func() {
+				err := handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_apns",
+					Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" } }, "Metadata": { "some": "data" } }`),
+				})
+
+				Expect(err).To(BeNil())
+				Expect(handler.sentMessages).To(Equal(int64(1)))
+
+				sentMessage := mockPushQueue.PushedNotification
+				bytes, ok := sentMessage.Payload.([]byte)
+				Expect(ok).To(BeTrue())
+				var payload map[string]interface{}
+				json.Unmarshal(bytes, &payload)
+
+				Expect(payload).NotTo(BeNil())
+				Expect(payload["M"]).NotTo(BeNil())
+
+				metadata, ok := payload["M"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(metadata).NotTo(BeNil())
+				Expect(metadata["some"]).To(Equal("data"))
+			})
+
+			It("should merge metadata on message sent to push queue", func() {
+				err := handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_apns",
+					Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" }, "M": { "metadata": "received" } }, "Metadata": { "some": "data" } }`),
+				})
+
+				Expect(err).To(BeNil())
+				Expect(handler.sentMessages).To(Equal(int64(1)))
+
+				sentMessage := mockPushQueue.PushedNotification
+				bytes, ok := sentMessage.Payload.([]byte)
+				Expect(ok).To(BeTrue())
+				var payload map[string]interface{}
+				json.Unmarshal(bytes, &payload)
+
+				Expect(payload).NotTo(BeNil())
+				Expect(payload["M"]).NotTo(BeNil())
+
+				metadata, ok := payload["M"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(metadata).NotTo(BeNil())
+				Expect(metadata["metadata"]).To(Equal("received"))
+				Expect(metadata["some"]).To(Equal("data"))
+			})
+
+			It("should have nested metadata on message sent to push queue", func() {
+				err := handler.sendMessage(interfaces.KafkaMessage{
+					Topic: "push-game_apns",
+					Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" }, "M": { "metadata": "received" } }, "Metadata": { "nested": { "some": "data"} } }`),
+				})
+
+				Expect(err).To(BeNil())
+				Expect(handler.sentMessages).To(Equal(int64(1)))
+
+				sentMessage := mockPushQueue.PushedNotification
+				bytes, ok := sentMessage.Payload.([]byte)
+				Expect(ok).To(BeTrue())
+				var payload map[string]interface{}
+				json.Unmarshal(bytes, &payload)
+
+				Expect(payload).NotTo(BeNil())
+				Expect(payload["M"]).NotTo(BeNil())
+
+				metadata, ok := payload["M"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(metadata).NotTo(BeNil())
+				Expect(metadata["metadata"]).To(Equal("received"))
+				nestedMetadata, ok := metadata["nested"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(nestedMetadata["some"]).To(Equal("data"))
 			})
 		})
 
