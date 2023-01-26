@@ -24,7 +24,6 @@ package extensions
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -439,7 +438,7 @@ func addMetadataToPayload(notification *Notification) {
 
 		m, ok := p["M"].(map[string]interface{})
 		if !ok{
-			fmt.Println("Could not cast M")
+			return
 		}
 
 		for k, v := range notification.Metadata {
