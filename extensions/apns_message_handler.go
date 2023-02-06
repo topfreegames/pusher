@@ -175,6 +175,7 @@ func (a *APNSMessageHandler) sendMessage(message interfaces.KafkaMessage) error 
 		return err
 	}
 
+	l.WithField("notification", n).Debug("adding notification to apns push queue")
 	a.PushQueue.Push(&apns2.Notification{
 		Topic:       a.Topic,
 		DeviceToken: n.DeviceToken,
