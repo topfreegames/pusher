@@ -54,6 +54,7 @@ var _ = Describe("GCM Message Handler", func() {
 	config, _ := util.NewViperWithConfigFile(configFile)
 	senderID := "sender-id"
 	apiKey := "api-key"
+	game := "sonica monic"
 	isProduction := false
 	logger, hook := test.NewNullLogger()
 	logger.Level = logrus.DebugLevel
@@ -77,6 +78,7 @@ var _ = Describe("GCM Message Handler", func() {
 			handler, err = NewGCMMessageHandler(
 				senderID,
 				apiKey,
+				game,
 				isProduction,
 				config,
 				logger,
@@ -94,6 +96,7 @@ var _ = Describe("GCM Message Handler", func() {
 			It("should return configured handler", func() {
 				Expect(handler).NotTo(BeNil())
 				Expect(handler.apiKey).To(Equal(apiKey))
+				Expect(handler.game).To(Equal(game))
 				Expect(handler.Config).NotTo(BeNil())
 				Expect(handler.IsProduction).To(Equal(isProduction))
 				Expect(handler.senderID).To(Equal(senderID))
@@ -590,6 +593,7 @@ var _ = Describe("GCM Message Handler", func() {
 				handler, err = NewGCMMessageHandler(
 					senderID,
 					apiKey,
+					game,
 					isProduction,
 					config,
 					logger,
@@ -778,6 +782,7 @@ var _ = Describe("GCM Message Handler", func() {
 			handler, err = NewGCMMessageHandler(
 				senderID,
 				apiKey,
+				game,
 				isProduction,
 				config,
 				logger,
@@ -797,6 +802,7 @@ var _ = Describe("GCM Message Handler", func() {
 				handler, err = NewGCMMessageHandler(
 					senderID,
 					apiKey,
+					game,
 					isProduction,
 					config,
 					logger,

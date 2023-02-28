@@ -91,13 +91,11 @@ func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, sta
 	for _, k := range strings.Split(g.Config.GetString("gcm.apps"), ",") {
 		senderID := g.Config.GetString("gcm.certs." + k + ".senderID")
 		apiKey := g.Config.GetString("gcm.certs." + k + ".apiKey")
-		l.Infof(
-			"Configuring messageHandler for game %s with senderID %s and apiKey %s",
-			k, senderID, apiKey,
-		)
+		l.Infof("Configuring messageHandler for game %s", k)
 		handler, err := extensions.NewGCMMessageHandler(
 			senderID,
 			apiKey,
+			k,
 			g.IsProduction,
 			g.Config,
 			g.Logger,

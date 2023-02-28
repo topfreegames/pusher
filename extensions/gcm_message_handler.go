@@ -58,12 +58,13 @@ type GCMMessageHandler struct {
 	feedbackReporters            []interfaces.FeedbackReporter
 	StatsReporters               []interfaces.StatsReporter
 	apiKey                       string
+	game                         string
 	GCMClient                    interfaces.GCMClient
 	senderID                     string
 	Config                       *viper.Viper
 	failuresReceived             int64
 	InflightMessagesMetadata     map[string]interface{}
-	Logger                       *log.Logger
+	Logger                       *log.Entry
 	LogStatsInterval             time.Duration
 	pendingMessages              chan bool
 	pendingMessagesWG            *sync.WaitGroup
@@ -81,7 +82,7 @@ type GCMMessageHandler struct {
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
 func NewGCMMessageHandler(
-	senderID, apiKey string,
+	senderID, apiKey, game string,
 	isProduction bool,
 	config *viper.Viper,
 	logger *log.Logger,
@@ -90,21 +91,22 @@ func NewGCMMessageHandler(
 	feedbackReporters []interfaces.FeedbackReporter,
 	client interfaces.GCMClient,
 ) (*GCMMessageHandler, error) {
-	l := logger.WithFields(log.Fields{
-		"method":       "NewGCMMessageHandler",
-		"senderID":     senderID,
-		"apiKey":       apiKey,
+	log := logger.WithFields(log.Fields{
+		"game":         game,
 		"isProduction": isProduction,
 	})
+	l := log.WithField("method", "NewGCMMessageHandler")
+	config.SetDefault("gcm.client.initialization.retries", 3)
 
 	g := &GCMMessageHandler{
+		game:                         game,
 		apiKey:                       apiKey,
 		Config:                       config,
 		failuresReceived:             0,
 		feedbackReporters:            feedbackReporters,
 		InflightMessagesMetadata:     map[string]interface{}{},
 		IsProduction:                 isProduction,
-		Logger:                       logger,
+		Logger:                       log,
 		pendingMessagesWG:            pendingMessagesWG,
 		ignoredMessages:              0,
 		inflightMessagesMetadataLock: &sync.Mutex{},
@@ -117,7 +119,7 @@ func NewGCMMessageHandler(
 	}
 	err := g.configure(client)
 	if err != nil {
-		l.Error("Failed to create a new GCM Message handler.")
+		l.WithError(err).Error("Failed to create a new GCM Message handler.")
 		return nil, err
 	}
 	return g, nil
@@ -131,7 +133,6 @@ func (g *GCMMessageHandler) configure(client interfaces.GCMClient) error {
 	g.CacheCleaningInterval = g.Config.GetInt("feedback.cache.cleaningInterval")
 	var err error
 	if client != nil {
-		err = nil
 		g.GCMClient = client
 	} else {
 		err = g.configureGCMClient()
@@ -151,9 +152,7 @@ func (g *GCMMessageHandler) loadConfigurationDefaults() {
 }
 
 func (g *GCMMessageHandler) configureGCMClient() error {
-	l := g.Logger.WithFields(log.Fields{
-		"method": "configureGCMClient",
-	})
+	l := g.Logger.WithField("method", "configureGCMClient")
 	g.PingInterval = g.Config.GetInt("gcm.pingInterval")
 	g.PingTimeout = g.Config.GetInt("gcm.pingTimeout")
 	gcmConfig := &gcm.Config{
@@ -166,9 +165,17 @@ func (g *GCMMessageHandler) configureGCMClient() error {
 		PingTimeout:       g.PingTimeout,
 	}
 	var err error
-	cl, err := gcm.NewClient(gcmConfig, g.handleGCMResponse)
+	var cl interfaces.GCMClient
+	for retries := g.Config.GetInt("gcm.client.initialization.retries"); retries > 0; retries-- {
+		cl, err = gcm.NewClient(gcmConfig, g.handleGCMResponse)
+		if err != nil && retries-1 != 0 {
+			l.WithError(err).Warnf("failed to create gcm client. %d attempts left.", retries-1)
+		} else {
+			break
+		}
+	}
 	if err != nil {
-		l.Error("Failed to create gcm client.")
+		l.WithError(err).Error("failed to create gcm client.")
 		return err
 	}
 	g.GCMClient = cl
