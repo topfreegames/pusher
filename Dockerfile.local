@@ -24,16 +24,24 @@ ENV LIBRDKAFKA_VERSION 0.11.5
 ENV CPLUS_INCLUDE_PATH /usr/local/include
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
-ENV KAFKA_DEV_VERSION 3.3.1
+ENV KAFKA_DEV_VERSION 3.3.2
 ENV KAFKA_SCRIPTS_VERSION 2.13-${KAFKA_DEV_VERSION}
 ENV GOLANGCI_LINT_VERSION 1.15.0
+ENV GINKGO_VERSION 1.4.0
 
-RUN apt-get install make git g++ bash python wget pkg-config
+RUN apt-get install \
+    make \
+    git \
+    g++ \
+    bash \
+    python \
+    wget \
+    pkg-config
 RUN export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-RUN wget --no-check-certificate -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
-    tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
-    cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
-    ./configure && make && make install && make clean && ./configure --clean
+RUN wget --no-check-certificate -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz \
+    && tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root \
+    && cd /root/librdkafka-${LIBRDKAFKA_VERSION} \
+    && ./configure && make && make install && make clean && ./configure --clean
 
 RUN apt update
 
@@ -42,17 +50,26 @@ RUN apt install -y postgresql
 
 # kafka bin to test kafka connection, available at /root/kafka/bin/<script_name>
 RUN apt install -y openjdk-8-jdk
-RUN wget --no-check-certificate -O /root/kafka_${KAFKA_SCRIPTS_VERSION}.tgz https://dlcdn.apache.org/kafka/${KAFKA_DEV_VERSION}/kafka_${KAFKA_SCRIPTS_VERSION}.tgz && \
-    tar -xzf /root/kafka_${KAFKA_SCRIPTS_VERSION}.tgz -C /root && \
-    mv /root/kafka_${KAFKA_SCRIPTS_VERSION} /root/kafka && \
-    rm /root/kafka_${KAFKA_SCRIPTS_VERSION}.tgz
+RUN wget --no-check-certificate -O /root/kafka_${KAFKA_SCRIPTS_VERSION}.tgz https://dlcdn.apache.org/kafka/${KAFKA_DEV_VERSION}/kafka_${KAFKA_SCRIPTS_VERSION}.tgz \
+    && tar -xzf /root/kafka_${KAFKA_SCRIPTS_VERSION}.tgz -C /root \
+    && mv /root/kafka_${KAFKA_SCRIPTS_VERSION} /root/kafka \
+    && rm /root/kafka_${KAFKA_SCRIPTS_VERSION}.tgz
 
 # golangci-lint
-RUN wget -O /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz && \
-    tar -xzf /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz -C /go/bin && \
-    mv /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64/golangci-lint /go/bin/ && \
-    rm -rf /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64 && \
-    rm /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz
+RUN wget -O /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz \
+    && tar -xzf /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz -C /go/bin \
+    && mv /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64/golangci-lint /go/bin/ \
+    && rm -rf /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64 \
+    && rm /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz
+
+# ginkgo
+RUN wget -O /ginkgo-v${GINKGO_VERSION}.tar.gz https://github.com/onsi/ginkgo/archive/refs/tags/v${GINKGO_VERSION}.tar.gz \
+    && mkdir -p /go/src/github.com/onsi \
+    && tar -xzf /ginkgo-v${GINKGO_VERSION}.tar.gz -C /go/src/github.com/onsi \
+    && mv /go/src/github.com/onsi/ginkgo-${GINKGO_VERSION} /go/src/github.com/onsi/ginkgo \
+    && cd /go/src/github.com/onsi/ginkgo/ginkgo \
+    && go build -o /go/bin/ginkgo . \
+    && rm -rf /ginkgo-v${GINKGO_VERSION}.tar.gz
 
 # vim to ease development
 RUN apt install -y vim
@@ -61,12 +78,4 @@ RUN go get -u github.com/golang/dep/cmd/dep
 
 WORKDIR /go/src/github.com/topfreegames/pusher
 
-# for development, it is recommended to create a volume here
-# ex.: `docker run -i -t -v $PWD:/go/src/github.com/topfreegames/pusher pusher:local bash`
-# if you do so, remember to run 
-ADD . /go/src/github.com/topfreegames/pusher
-
-RUN dep ensure
-
-# build ginkgo cli to run tests
-RUN go build -o /go/bin/ginkgo github.com/topfreegames/pusher/vendor/github.com/onsi/ginkgo/ginkgo/
+CMD bash

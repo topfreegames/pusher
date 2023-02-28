@@ -146,13 +146,19 @@ build-image-dev:
 	@docker build -f Dockerfile.local -t pusher:local .
 
 lint-container-dev: build-image-dev
-	@docker run -t -i pusher:local golangci-lint run
+	@docker run \
+		--volume "${PWD}":/go/src/github.com/topfreegames/pusher \
+		pusher:local golangci-lint run
 
 build-container-dev: build-image-dev
-	@docker run -t -i pusher:local make build
+	@docker run \
+		--volume "${PWD}":/go/src/github.com/topfreegames/pusher \
+		pusher:local bash -c 'dep ensure && make build'
 
 unit-test-container-dev: build-image-dev
-	@docker run -t -i pusher:local make unit
+	@docker run \
+		--volume "${PWD}":/go/src/github.com/topfreegames/pusher \
+		pusher:local bash -c 'dep ensure && make unit'
 
 start-deps-container-dev:
 	@echo "Starting dependencies..."
