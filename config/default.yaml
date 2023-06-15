@@ -61,15 +61,15 @@ invalidToken:
     connectionTimeout: 100
 feedbackListeners:
   queue:
-      topics:
-        - "^push-[^-_]+-(apns|gcm)-feedbacks"
-      brokers: "localhost:9941"
-      group: testGroup
-      sessionTimeout: 6000
-      fetch.min.bytes: 1
-      fetch.wait.max.ms: 100
-      offsetResetStrategy: latest
-      handleAllMessagesBeforeExiting: true
+    topics:
+      - "^push-[^-_]+-(apns|gcm)-feedbacks"
+    brokers: "localhost:9941"
+    group: testGroup
+    sessionTimeout: 6000
+    fetch.min.bytes: 1
+    fetch.wait.max.ms: 100
+    offsetResetStrategy: latest
+    handleAllMessagesBeforeExiting: true
   broker:
     invalidTokenChan:
       size: 999
