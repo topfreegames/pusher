@@ -256,7 +256,7 @@ make integration
 ```
 
 If you are running integration tests locally with the most recent librdkafka version (such as installed by brew) some of them will fail due to incompatible librdkafka version. 
-Tests should work for librdkafka v0.11.5.
+Tests should work for librdkafka v1.4.2.
 
 ### Benchmark
 

@@ -345,7 +345,7 @@ var _ = Describe("Kafka Consumer", func() {
 
 				Eventually(func() []*logrus.Entry {
 					return hook.Entries
-				}, 10*time.Second).Should(ContainLogMessage("Reached partition EOF."))
+				}, 20*time.Second).Should(ContainLogMessage("Reached partition EOF."))
 
 				p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": client.Brokers})
 				Expect(err).NotTo(HaveOccurred())

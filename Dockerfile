@@ -22,7 +22,7 @@ FROM golang:1.10-alpine AS dependencies
 
 Label MAINTAINER="TFG Co <backend@tfgco.com>"
 
-ENV LIBRDKAFKA_VERSION 0.11.5
+ENV LIBRDKAFKA_VERSION 1.4.2
 ENV CPLUS_INCLUDE_PATH /usr/local/include
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
@@ -30,7 +30,7 @@ ENV LD_LIBRARY_PATH /usr/local/lib
 WORKDIR /go/src/github.com/topfreegames/pusher
 
 RUN apk add --no-cache make git g++ bash python wget pkgconfig && \
-    wget -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
+    wget -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/confluentinc/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
     tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
     cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
     ./configure && make && make install && make clean && ./configure --clean && \

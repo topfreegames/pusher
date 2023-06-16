@@ -607,7 +607,7 @@ var _ = Describe("Feedback Listener", func() {
 						}
 					}
 
-					msgs := make([]*kafka.Message, 0, len(feedbacks[game1])+len(feedbacks[game2]))
+					msgs := []*kafka.Message{}
 					for _, game := range []string{game1, game2} {
 						topic := topics[game]
 						for _, msg := range feedbacks[game] {

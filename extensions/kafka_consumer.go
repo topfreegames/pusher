@@ -130,8 +130,7 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 		"go.application.rebalance.enable": true,
 		"enable.auto.commit":              true,
 		"default.topic.config": kafka.ConfigMap{
-			"auto.offset.reset":  q.OffsetResetStrategy,
-			"auto.commit.enable": true,
+			"auto.offset.reset": q.OffsetResetStrategy,
 		},
 		"topics": q.Topics,
 	})
@@ -151,11 +150,37 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 				"auto.offset.reset":  q.OffsetResetStrategy,
 				"auto.commit.enable": true,
 			},
+			"log_level":              int(uint32(q.Logger.Level) + 2),
+			"go.logs.channel.enable": true,
 		})
 		if err != nil {
-			l.WithError(err).Error("error configuring kafka queue")
+			l.WithError(err).Error("error configuring kafka consumer")
 			return err
 		}
+
+		go func() {
+			kl := l.WithFields(logrus.Fields{
+				"method": "logLoop",
+			})
+			for logEvent := range c.Logs() {
+				tkl := kl.WithFields(logrus.Fields{
+					"client.name": logEvent.Name,
+					"tag":         logEvent.Tag,
+					"time":        logEvent.Timestamp.Format("2023-06-15T21:47:29Z"),
+				})
+				switch logEvent.Level {
+				case 7:
+					tkl.Debug(logEvent.Message)
+				case 6, 5, 4:
+					tkl.Info(logEvent.Message)
+				case 3, 2, 1, 0:
+					tkl.Error(logEvent.Message)
+				default:
+					tkl.Info(logEvent.Message)
+				}
+			}
+		}()
+
 		q.Consumer = c
 	} else {
 		q.Consumer = client

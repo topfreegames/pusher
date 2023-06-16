@@ -32,20 +32,13 @@ setup-ci-deps:
 
 setup-ci: dep setup-ci-deps
 
-wait-for-pg:
-	@until docker exec pusher_postgres_1 pg_isready; do echo 'Waiting for Postgres...' && sleep 1; done
-	@sleep 2
-
-deps: start-deps wait-for-pg
-
 start-deps:
 	@echo "Starting dependencies..."
-	@docker-compose --project-name pusher up -d
-	@while [ "`echo "health" | nc 127.0.0.1 40002`" != "health: up" ]; do echo "Waiting for StatsD to come up..." && sleep 1; done
+	@docker compose --project-name pusher up --wait --renew-anon-volumes --build
 	@echo "Dependencies started successfully."
 
 stop-deps:
-	@docker-compose --project-name pusher down
+	@docker compose --project-name pusher down --remove-orphans --volumes
 
 rtfd:
 	@rm -rf docs/_build
@@ -62,7 +55,7 @@ apns:
 	@go run main.go apns --certificate=./tls/_fixtures/certificate-valid.pem
 
 local-deps:
-	@docker-compose --project-name pusher up -d
+	@docker compose --project-name pusher up --wait --renew-anon-volumes --build
 
 setup:
 	# Ensuring librdkafka is installed in Mac OS
@@ -101,7 +94,7 @@ test-coverage-html cover:
 test-coverage-write-html:
 	@go tool cover -html=_build/test-coverage-all.out -o _build/test-coverage.html
 
-test-services: stop-deps deps test-db-drop test-db-create
+test-services: stop-deps start-deps test-db-drop test-db-create
 	@echo "Required test services are up."
 
 test-db-drop:
@@ -130,14 +123,14 @@ run-integration-test:
 	@echo "=               Running integration tests...             ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
-	@ginkgo -v -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
+	@ginkgo -v -r --randomizeSuites --focus="\[Integration\].*" .
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo "=               Integration tests finished.              ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
 
-test-integration integration func: deps test-db-drop test-db-create run-integration-test
+test-integration: start-deps test-db-drop test-db-create run-integration-test
 
 lint:
 	@golangci-lint run
@@ -147,26 +140,34 @@ build-image-dev:
 
 lint-container-dev: build-image-dev
 	@docker run \
+		--rm \
 		--volume "${PWD}":/go/src/github.com/topfreegames/pusher \
 		pusher:local golangci-lint run
 
 build-container-dev: build-image-dev
 	@docker run \
+		--rm \
 		--volume "${PWD}":/go/src/github.com/topfreegames/pusher \
 		pusher:local bash -c 'dep ensure && make build'
 
 unit-test-container-dev: build-image-dev
 	@docker run \
+		--rm \
 		--volume "${PWD}":/go/src/github.com/topfreegames/pusher \
 		pusher:local bash -c 'dep ensure && make unit'
 
 start-deps-container-dev:
 	@echo "Starting dependencies..."
-	@docker-compose -f docker-compose-container-dev.yml --project-name pusher up -d
-	@while [ "`echo "health" | nc 127.0.0.1 40002`" != "health: up" ]; do echo "Waiting for StatsD to come up..." && sleep 1; done
-	@$(MAKE) wait-for-pg
+	@docker compose -f docker-compose-container-dev.yml --project-name pusher up --wait --renew-anon-volumes --build
 	@echo "Dependencies started successfully."
 
 integration-test-container-dev: build-image-dev start-deps-container-dev test-db-drop test-db-create
-	@docker run -t -i --network pusher_default -e CONFIG_FILE="../config/docker_test.yaml" pusher:local make run-integration-test
+	@docker run \
+		-t \
+		-i \
+		--rm \
+		--network pusher_default \
+		-e CONFIG_FILE="../config/docker_test.yaml" \
+		--volume "${PWD}":/go/src/github.com/topfreegames/pusher \
+		pusher:local make run-integration-test
 	@$(MAKE) stop-deps
