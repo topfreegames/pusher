@@ -178,7 +178,7 @@ Since the current Go version used by Pusher is 1.10, an obsolete version, it is 
 ## Dependencies
 
 * Go 1.10.
-* Kafka >= 0.9.0 using [librdkafka](https://github.com/edenhill/librdkafka).
+* Kafka >= 0.9.0 using [librdkafka](https://github.com/confluentinc/librdkafka).
 * Postgres >= 9.5.
 * StatsD.
 

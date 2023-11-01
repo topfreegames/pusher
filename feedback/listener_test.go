@@ -31,7 +31,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
@@ -188,14 +188,10 @@ var _ = Describe("Feedback Listener", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 					defer p.Close()
-
-					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
 
 					// wait consumer start to consume message before send it
-					for listener.Queue.(*KafkaConsumer).AssignedPartition == false {
-						time.Sleep(10 * time.Millisecond)
-					}
+					Eventually(listener.Queue.(*KafkaConsumer).Ready(), 10*time.Second).Should(BeClosed())
 
 					game := game1
 					topic := "push-" + game + "-" + platform + "-feedbacks"
@@ -227,7 +223,7 @@ var _ = Describe("Feedback Listener", func() {
 						WHERE token = ?0`, game, platform), deviceToken)
 						Expect(err).NotTo(HaveOccurred())
 						return res.RowsReturned()
-					}, 15*time.Second).Should(Equal(0))
+					}, 15*time.Second, time.Second).Should(Equal(0))
 
 					close(listener.stopChannel)
 				})
@@ -252,14 +248,10 @@ var _ = Describe("Feedback Listener", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 					defer p.Close()
-
-					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
 
 					// wait consumer start to consume message before send it
-					for listener.Queue.(*KafkaConsumer).AssignedPartition == false {
-						time.Sleep(10 * time.Millisecond)
-					}
+					Eventually(listener.Queue.(*KafkaConsumer).Ready(), 10*time.Second).Should(BeClosed())
 
 					game := game1
 					topic := "push-" + game + "-" + platform + "-feedbacks"
@@ -300,7 +292,7 @@ var _ = Describe("Feedback Listener", func() {
 							WHERE token = ?0`, game, platform), deviceToken)
 							Expect(err).NotTo(HaveOccurred())
 							return res.RowsReturned()
-						}, 15*time.Second).Should(Equal(0))
+						}, 15*time.Second, time.Second).Should(Equal(0))
 					}
 
 					close(listener.stopChannel)
@@ -326,14 +318,10 @@ var _ = Describe("Feedback Listener", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 					defer p.Close()
-
-					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
 
 					// wait consumer start to consume message before send it
-					for listener.Queue.(*KafkaConsumer).AssignedPartition == false {
-						time.Sleep(10 * time.Millisecond)
-					}
+					Eventually(listener.Queue.(*KafkaConsumer).Ready(), 10*time.Second).Should(BeClosed())
 
 					topics := make(map[string]string)
 					topics[game1] = "push-" + game1 + "-" + platform + "-feedbacks"
@@ -375,7 +363,9 @@ var _ = Describe("Feedback Listener", func() {
 					}
 
 					for _, game := range []string{game1, game2} {
+						game := game
 						for _, msg := range feedbacks[game] {
+							msg := msg
 							deviceToken := msg.From
 
 							Eventually(func() int {
@@ -383,7 +373,7 @@ var _ = Describe("Feedback Listener", func() {
 								WHERE token = ?0`, game, platform), deviceToken)
 								Expect(err).NotTo(HaveOccurred())
 								return res.RowsReturned()
-							}, 30*time.Second).Should(Equal(0))
+							}, 30*time.Second, time.Second).Should(Equal(0))
 						}
 					}
 
@@ -444,14 +434,10 @@ var _ = Describe("Feedback Listener", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 					defer p.Close()
-
-					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
 
 					// wait consumer start to consume message before send it
-					for listener.Queue.(*KafkaConsumer).AssignedPartition == false {
-						time.Sleep(10 * time.Millisecond)
-					}
+					Eventually(listener.Queue.(*KafkaConsumer).Ready(), 10*time.Second).Should(BeClosed())
 
 					game := game1
 					topic := "push-" + game + "-" + platform + "-feedbacks"
@@ -483,7 +469,7 @@ var _ = Describe("Feedback Listener", func() {
 						WHERE token = ?0`, game, platform), deviceToken)
 						Expect(err).NotTo(HaveOccurred())
 						return res.RowsReturned()
-					}, 15*time.Second).Should(Equal(0))
+					}, 15*time.Second, time.Second).Should(Equal(0))
 
 					close(listener.stopChannel)
 				})
@@ -508,14 +494,10 @@ var _ = Describe("Feedback Listener", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 					defer p.Close()
-
-					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
 
 					// wait consumer start to consume message before send it
-					for listener.Queue.(*KafkaConsumer).AssignedPartition == false {
-						time.Sleep(10 * time.Millisecond)
-					}
+					Eventually(listener.Queue.(*KafkaConsumer).Ready(), 10*time.Second).Should(BeClosed())
 
 					game := game1
 					topic := "push-" + game + "-" + platform + "-feedbacks"
@@ -555,7 +537,7 @@ var _ = Describe("Feedback Listener", func() {
 							WHERE token = ?0`, game, platform), deviceToken)
 							Expect(err).NotTo(HaveOccurred())
 							return res.RowsReturned()
-						}, 15*time.Second).Should(Equal(0))
+						}, 15*time.Second, time.Second).Should(Equal(0))
 					}
 
 					close(listener.stopChannel)
@@ -581,14 +563,10 @@ var _ = Describe("Feedback Listener", func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 					defer p.Close()
-
-					listener.Queue.(*KafkaConsumer).AssignedPartition = false
 					go listener.Start()
 
 					// wait consumer start to consume message before send it
-					for listener.Queue.(*KafkaConsumer).AssignedPartition == false {
-						time.Sleep(10 * time.Millisecond)
-					}
+					Eventually(listener.Queue.(*KafkaConsumer).Ready(), 10*time.Second).Should(BeClosed())
 
 					topics := make(map[string]string)
 					topics[game1] = "push-" + game1 + "-" + platform + "-feedbacks"
@@ -638,7 +616,7 @@ var _ = Describe("Feedback Listener", func() {
 								WHERE token = ?0`, game, platform), deviceToken)
 								Expect(err).NotTo(HaveOccurred())
 								return res.RowsReturned()
-							}, 30*time.Second).Should(Equal(0))
+							}, 30*time.Second, time.Second).Should(Equal(0))
 						}
 					}
 

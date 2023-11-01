@@ -1,25 +1,66 @@
 services:
   zookeeper:
-    image: wurstmeister/zookeeper
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok"
     ports:
       - "2288:2181"
+    restart: unless-stopped
+    healthcheck:
+      test: |
+        IFS= read ret << EOF
+        $$(echo ruok | nc localhost 2181)
+        EOF
+        if [ "$$ret" = "imok" ]
+        then
+          exit 0
+        fi
+        exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   kafka:
-    image: wurstmeister/kafka:0.10.1.0-2
-    ports:
-      - "9941:9092"
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      zookeeper:
+        condition: service_healthy
     environment:
-      KAFKA_ADVERTISED_HOST_NAME: localhost
-      KAFKA_ADVERTISED_PORT: 9941
-      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_NUM_PARTITIONS: 5
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9941
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_CREATE_TOPICS: "com.games.test:5:1"
+    restart: unless-stopped
+    healthcheck:
+      test: kafka-topics --list --bootstrap-server localhost:9941
+      interval: 25s
+      timeout: 20s
+      retries: 15
+
   postgres:
-    image: postgres:9.5
+    image: postgres:13
+    container_name: postgres
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "8585:5432"
-    environment:
-      POSTGRES_HOST_AUTH_METHOD: "trust"
-    container_name: pusher_postgres_1
+    restart: unless-stopped
+    healthcheck:
+      test: pg_isready
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   statsd:
     image: hopsoft/graphite-statsd
     ports:
@@ -28,3 +69,17 @@ services:
       - "2023-2024:2023-2024"
       - "40001:8125/udp"
       - "40002:8126"
+    restart: unless-stopped
+    healthcheck:
+      test: |
+        IFS= read ret << EOF
+        $$(echo health | nc localhost 8126)
+        EOF
+        if [ "$$ret" != "health: up" ]
+        then
+          exit 0
+        fi
+        exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10

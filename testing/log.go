@@ -29,7 +29,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//ContainLogMessage validates that the specified log message exists in the given entries.
+// ContainLogMessage validates that the specified log message exists in the given entries.
 func ContainLogMessage(expected string) types.GomegaMatcher {
 	return &containLogMessageMatcher{
 		expected: expected,
@@ -41,7 +41,7 @@ type containLogMessageMatcher struct {
 }
 
 func (matcher *containLogMessageMatcher) Match(actual interface{}) (success bool, err error) {
-	entries := actual.([]*logrus.Entry)
+	entries := actual.([]logrus.Entry)
 	for _, entry := range entries {
 		if entry.Message == matcher.expected {
 			return true, nil

@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2016 TFG Co <backend@tfgco.com>
 # Author: TFG Co <backend@tfgco.com>
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18,31 +17,33 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-FROM golang:1.10-alpine AS dependencies
+FROM golang:1.21 AS dependencies
 
-Label MAINTAINER="TFG Co <backend@tfgco.com>"
-
-ENV LIBRDKAFKA_VERSION 0.11.5
+ENV LIBRDKAFKA_VERSION 2.2.0
 ENV CPLUS_INCLUDE_PATH /usr/local/include
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
 WORKDIR /go/src/github.com/topfreegames/pusher
 
-RUN apk add --no-cache make git g++ bash python wget pkgconfig && \
-    wget -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
-    tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
-    cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
-    ./configure && make && make install && make clean && ./configure --clean && \
-    go get -u github.com/golang/dep/cmd/dep && \
-    mkdir -p /go/src/github.com/topfreegames/pusher
+# RUN apk add --no-cache make git g++ bash python wget pkgconfig && \
+#     wget -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/confluentinc/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
+#     tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
+#     cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
+#     ./configure && make && make install && make clean && ./configure --clean && \
+#     mkdir -p /go/src/github.com/topfreegames/pusher
+
+RUN apt update && \
+    apt install -y wget && \
+    wget -qO - https://packages.confluent.io/deb/7.5/archive.key | apt-key add - && \
+    apt update && \
+    apt install -y librdkafka-dev
+
+RUN mkdir -p /go/src/github.com/topfreegames/pusher/app
 
 ADD . /go/src/github.com/topfreegames/pusher
 
-RUN dep ensure && \
-    export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH && \
-    make build && \
-    mkdir /app && \
+RUN make build && \
     mv /go/src/github.com/topfreegames/pusher/bin/pusher /app/pusher && \
     mv /go/src/github.com/topfreegames/pusher/config /app/config && \
     mv /go/src/github.com/topfreegames/pusher/tls /app/tls && \

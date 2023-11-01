@@ -22,7 +22,11 @@
 
 package interfaces
 
-import "github.com/confluentinc/confluent-kafka-go/kafka"
+import (
+	"time"
+
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+)
 
 // KafkaProducerClient interface.
 type KafkaProducerClient interface {
@@ -33,8 +37,9 @@ type KafkaProducerClient interface {
 // KafkaConsumerClient interface.
 type KafkaConsumerClient interface {
 	SubscribeTopics([]string, kafka.RebalanceCb) error
-	Events() chan kafka.Event
-	Assign([]kafka.TopicPartition) error
-	Unassign() error
+	ReadMessage(timeout time.Duration) (*kafka.Message, error)
 	Close() error
+	Pause([]kafka.TopicPartition) error
+	Resume([]kafka.TopicPartition) error
+	Assignment() ([]kafka.TopicPartition, error)
 }

@@ -70,7 +70,7 @@ var _ = Describe("Broker", func() {
 
 			close(inChan)
 			broker.Stop()
-			Eventually(func() []*logrus.Entry { return hook.Entries }).
+			Eventually(func() []logrus.Entry { return hook.Entries }).
 				Should(testing.ContainLogMessage("stop processing Broker's in channel"))
 		})
 

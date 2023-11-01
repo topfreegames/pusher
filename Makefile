@@ -18,34 +18,23 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+MOCKGENERATE := go run github.com/golang/mock/mockgen@v1.7.0-rc.1
+
 build:
 	@mkdir -p bin
 	@go build -o bin/pusher main.go
 
-dep:
-	@go get -u github.com/golang/dep/cmd/dep
-
-setup-ci-deps:
+setup-ci:
 	@go get github.com/mattn/goveralls
 	@go get github.com/onsi/ginkgo/ginkgo
-	@dep ensure
 
-setup-ci: dep setup-ci-deps
-
-wait-for-pg:
-	@until docker exec pusher_postgres_1 pg_isready; do echo 'Waiting for Postgres...' && sleep 1; done
-	@sleep 2
-
-deps: start-deps wait-for-pg
-
-start-deps:
+deps:
 	@echo "Starting dependencies..."
-	@docker-compose --project-name pusher up -d
-	@while [ "`echo "health" | nc 127.0.0.1 40002`" != "health: up" ]; do echo "Waiting for StatsD to come up..." && sleep 1; done
+	@docker compose --project-name pusher up --wait --renew-anon-volumes
 	@echo "Dependencies started successfully."
 
 stop-deps:
-	@docker-compose --project-name pusher down
+	@docker compose --project-name pusher down --remove-orphans --volumes
 
 rtfd:
 	@rm -rf docs/_build
@@ -62,17 +51,15 @@ apns:
 	@go run main.go apns --certificate=./tls/_fixtures/certificate-valid.pem
 
 local-deps:
-	@docker-compose --project-name pusher up -d
+	@docker compose --project-name pusher up --wait --renew-anon-volumes
 
 setup:
 	# Ensuring librdkafka is installed in Mac OS
 	@/bin/bash -c '[ "`uname -s`" == "Darwin" ] && [ "`which brew`" != "" ] && [ ! -d "/usr/local/Cellar/librdkafka" ] && echo "librdkafka was not found. Installing with brew..." && brew install librdkafka; exit 0'
 	# Ensuring librdkafka is installed in Debian and Ubuntu
 	@/bin/bash -c '[ "`uname -s`" == "Linux" ] && [ "`which apt-get`" != "" ] && echo "Ensuring librdkafka is installed..." && ./debian-install-librdkafka.sh; exit 0'
-	@go get -u github.com/golang/dep/cmd/dep
 	@go get -u github.com/onsi/ginkgo/ginkgo
 	@go get github.com/gordonklaus/ineffassign
-	@dep ensure
 
 test: test-unit test-integration
 
@@ -110,13 +97,13 @@ test-db-drop:
 test-db-create:
 	@psql -U postgres -h localhost -p 8585 -f db/create-test.sql > /dev/null
 
-test-unit unit:
+test-unit:
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo "=                  Running unit tests...                 ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
-	@ginkgo -v -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
+	@ginkgo -trace -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
 	@$(MAKE) test-coverage-func
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
@@ -130,14 +117,15 @@ run-integration-test:
 	@echo "=               Running integration tests...             ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
-	@ginkgo -v -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
+	@ginkgo -trace -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
+# [Integration] Listener Use From GCM [It] should delete a single token from a game
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo "=               Integration tests finished.              ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
 
-test-integration integration func: deps test-db-drop test-db-create run-integration-test
+test-integration: deps test-db-drop test-db-create run-integration-test
 
 lint:
 	@golangci-lint run
@@ -147,26 +135,40 @@ build-image-dev:
 
 lint-container-dev: build-image-dev
 	@docker run \
+		--rm \
+		--name pusher-lint \
 		--volume "${PWD}":/go/src/github.com/topfreegames/pusher \
 		pusher:local golangci-lint run
 
 build-container-dev: build-image-dev
 	@docker run \
+		--rm \
+		--name pusher-build \
 		--volume "${PWD}":/go/src/github.com/topfreegames/pusher \
-		pusher:local bash -c 'dep ensure && make build'
+		pusher:local make build
 
 unit-test-container-dev: build-image-dev
 	@docker run \
+		--rm \
+		--name pusher-test-unit \
 		--volume "${PWD}":/go/src/github.com/topfreegames/pusher \
-		pusher:local bash -c 'dep ensure && make unit'
+		pusher:local make test-unit
 
 start-deps-container-dev:
 	@echo "Starting dependencies..."
-	@docker-compose -f docker-compose-container-dev.yml --project-name pusher up -d
-	@while [ "`echo "health" | nc 127.0.0.1 40002`" != "health: up" ]; do echo "Waiting for StatsD to come up..." && sleep 1; done
-	@$(MAKE) wait-for-pg
+	@docker compose -f docker-compose-container-dev.yml --project-name pusher up --wait --renew-anon-volumes
 	@echo "Dependencies started successfully."
 
 integration-test-container-dev: build-image-dev start-deps-container-dev test-db-drop test-db-create
-	@docker run -t -i --network pusher_default -e CONFIG_FILE="../config/docker_test.yaml" pusher:local make run-integration-test
+	@docker run \
+		--rm \
+		--name pusher-test-integration \
+		--network pusher_default \
+		--volume "${PWD}":/go/src/github.com/topfreegames/pusher \
+		-e CONFIG_FILE="../config/docker_test.yaml" \
+		pusher:local make run-integration-test
 	@$(MAKE) stop-deps
+
+# .PHONY: mocks
+# mocks:
+# 	$(MOCKGENERATE) -package=mocks -source=interfaces/apns.go -destination=mocks/apns.go

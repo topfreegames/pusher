@@ -27,7 +27,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
@@ -59,11 +59,18 @@ var _ = Describe("Kafka Extension", func() {
 			time.Sleep(5 * time.Millisecond)
 		}
 
-		publishEvent := func(ev kafka.Event) {
-			consumer.Consumer.Events() <- ev
+		publishEvent := func(ev *kafka.Message) {
+			consumer.Consumer.(*mocks.KafkaConsumerClientMock).MessagesChan <- ev
 			//This time.sleep is necessary to allow go's goroutines to perform work
 			//Please do not remove
 			time.Sleep(5 * time.Millisecond)
+		}
+
+		publishError := func(err error) (resetError func()) {
+			consumer.Consumer.(*mocks.KafkaConsumerClientMock).Error = err
+			return func() {
+				consumer.Consumer.(*mocks.KafkaConsumerClientMock).Error = nil
+			}
 		}
 
 		BeforeEach(func() {
@@ -117,76 +124,6 @@ var _ = Describe("Kafka Extension", func() {
 				Eventually(kafkaConsumerClientMock.SubscribedTopics, 5).Should(HaveKey("com.games.test"))
 			})
 
-			It("should assign partition", func() {
-				topic := consumer.Config.GetStringSlice("queue.topics")[0]
-				startConsuming()
-				defer consumer.StopConsuming()
-				part := kafka.TopicPartition{
-					Topic:     &topic,
-					Partition: 1,
-				}
-
-				event := kafka.AssignedPartitions{
-					Partitions: []kafka.TopicPartition{part},
-				}
-				publishEvent(event)
-				Eventually(kafkaConsumerClientMock.AssignedPartitions, 5).Should(ContainElement(part))
-			})
-
-			It("should log error if fails to assign partition", func() {
-				topic := consumer.Config.GetStringSlice("queue.topics")[0]
-				startConsuming()
-				defer consumer.StopConsuming()
-
-				time.Sleep(5 * time.Millisecond)
-
-				part := kafka.TopicPartition{
-					Topic:     &topic,
-					Partition: 1,
-				}
-
-				event := kafka.AssignedPartitions{
-					Partitions: []kafka.TopicPartition{part},
-				}
-
-				kafkaConsumerClientMock.Error = fmt.Errorf("failed to assign partition")
-				publishEvent(event)
-				Expect(hook.Entries).To(ContainLogMessage("error assigning partitions"))
-			})
-
-			It("should revoke partitions", func() {
-				topic := consumer.Config.GetStringSlice("queue.topics")[0]
-				startConsuming()
-				defer consumer.StopConsuming()
-				part := kafka.TopicPartition{
-					Topic:     &topic,
-					Partition: 1,
-				}
-				kafkaConsumerClientMock.AssignedPartitions = []kafka.TopicPartition{part}
-				Expect(kafkaConsumerClientMock.AssignedPartitions).NotTo(BeEmpty())
-
-				event := kafka.RevokedPartitions{}
-				publishEvent(event)
-				Eventually(kafkaConsumerClientMock.AssignedPartitions, 5).Should(BeEmpty())
-			})
-
-			It("should stop loop if fails to revoke partitions", func() {
-				topic := consumer.Config.GetStringSlice("queue.topics")[0]
-				startConsuming()
-				defer consumer.StopConsuming()
-				part := kafka.TopicPartition{
-					Topic:     &topic,
-					Partition: 1,
-				}
-				kafkaConsumerClientMock.AssignedPartitions = []kafka.TopicPartition{part}
-				Expect(kafkaConsumerClientMock.AssignedPartitions).NotTo(BeEmpty())
-
-				kafkaConsumerClientMock.Error = fmt.Errorf("failed to unassign partition")
-				event := kafka.RevokedPartitions{}
-				publishEvent(event)
-				Expect(hook.Entries).To(ContainLogMessage("error revoking partitions"))
-			})
-
 			It("should receive message", func() {
 				topic := "push-games_apns-single"
 				startConsuming()
@@ -207,47 +144,15 @@ var _ = Describe("Kafka Extension", func() {
 				Expect(consumer.messagesReceived).To(BeEquivalentTo(1000))
 			})
 
-			It("should handle partition EOF", func() {
-				startConsuming()
-				defer consumer.StopConsuming()
-
-				event := kafka.PartitionEOF{}
-				publishEvent(event)
-
-				Expect(hook.Entries).To(ContainLogMessage("Reached partition EOF."))
-			})
-
-			It("should handle offsets committed", func() {
-				startConsuming()
-				defer consumer.StopConsuming()
-
-				event := kafka.OffsetsCommitted{}
-				publishEvent(event)
-
-				Expect(hook.Entries).To(ContainLogMessage("Offsets committed successfully."))
-			})
-
 			It("should handle error", func() {
 				startConsuming()
 				defer consumer.StopConsuming()
-
-				event := kafka.Error{}
-				publishEvent(event)
-
-				Eventually(consumer.run, 5).Should(BeFalse())
+				resetError := publishError(kafka.Error{})
+				defer resetError()
 				_, ok := <-consumer.stopChannel
+				Eventually(consumer.run, 5).Should(BeFalse())
 				Expect(ok).Should(BeFalse())
 				Expect(hook.Entries).To(ContainLogMessage("Error in Kafka connection."))
-			})
-
-			It("should handle unexpected message", func() {
-				startConsuming()
-				defer consumer.StopConsuming()
-
-				event := &mocks.MockEvent{}
-				publishEvent(event)
-
-				Expect(hook.Entries).To(ContainLogMessage("Kafka event not recognized."))
 			})
 		})
 
@@ -332,10 +237,8 @@ var _ = Describe("Kafka Extension", func() {
 				Expect(client).NotTo(BeNil())
 				defer client.StopConsuming()
 				go client.ConsumeLoop()
+				Eventually(client.Ready(), 10*time.Second).Should(BeClosed())
 
-				Eventually(func() []*logrus.Entry {
-					return hook.Entries
-				}, 10*time.Second).Should(ContainLogMessage("reached EOF at com.games.teste[0]@0(Broker: No more messages)"))
 				p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": client.Brokers})
 				Expect(err).NotTo(HaveOccurred())
 				err = p.Produce(
