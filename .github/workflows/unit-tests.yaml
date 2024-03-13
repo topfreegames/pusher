@@ -42,8 +42,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-build-${{ hashFiles('Gopkg.lock') }}
             ${{ runner.os }}-build-
-      - name: Install dependencies
-        run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test dep ensure
       - name: Build
         run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test go build -v -o bin/pusher main.go
       - name: Test
