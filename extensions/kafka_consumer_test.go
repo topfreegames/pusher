@@ -65,13 +65,6 @@ var _ = Describe("Kafka Extension", func() {
 			time.Sleep(5 * time.Millisecond)
 		}
 
-		publishError := func(err error) (resetError func()) {
-			consumer.Consumer.(*mocks.KafkaConsumerClientMock).Error = err
-			return func() {
-				consumer.Consumer.(*mocks.KafkaConsumerClientMock).Error = nil
-			}
-		}
-
 		BeforeEach(func() {
 			kafkaConsumerClientMock = mocks.NewKafkaConsumerClientMock()
 			config := viper.New()
