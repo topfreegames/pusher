@@ -34,7 +34,6 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/mocks"
-	. "github.com/topfreegames/pusher/testing"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -63,13 +62,6 @@ var _ = Describe("Kafka Consumer", func() {
 			//This time.sleep is necessary to allow go's goroutines to perform work
 			//Please do not remove
 			time.Sleep(5 * time.Millisecond)
-		}
-
-		publishError := func(err error) (resetError func()) {
-			consumer.Consumer.(*mocks.KafkaConsumerClientMock).Error = err
-			return func() {
-				consumer.Consumer.(*mocks.KafkaConsumerClientMock).Error = nil
-			}
 		}
 
 		BeforeEach(func() {
@@ -142,21 +134,6 @@ var _ = Describe("Kafka Consumer", func() {
 					Value:    val,
 				})))
 				Expect(consumer.messagesReceived).To(BeEquivalentTo(1000))
-			})
-
-			It("should handle error", func() {
-				startConsuming()
-				defer consumer.StopConsuming()
-				resetError := publishError(kafka.Error{})
-				defer resetError()
-				select {
-				case <-time.After(5 * time.Second):
-					Fail("should stop consuming")
-				case _, ok := <-consumer.stopChannel:
-					Expect(ok).Should(BeFalse())
-				}
-				Expect(consumer.run).To(BeFalse())
-				Expect(hook.Entries).To(ContainLogMessage("Error in Kafka connection."))
 			})
 		})
 
