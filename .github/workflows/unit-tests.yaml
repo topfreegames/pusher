@@ -11,6 +11,9 @@ on:
       - 'Dockerfile.ci-test'
       - '.dockerignore'
       - '.github/workflows/*-tests.yaml'
+  pull_request:
+    branches:
+      - '**'
 jobs:
   test:
     name: Build, Unit Tests and Linter
