@@ -19,6 +19,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 MOCKGENERATE := go run github.com/golang/mock/mockgen@v1.7.0-rc.1
+GINKGO := go run github.com/onsi/ginkgo/ginkgo@v1.16.5
 
 build:
 	@mkdir -p bin
@@ -103,7 +104,7 @@ test-unit:
 	@echo "=                  Running unit tests...                 ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
-	@ginkgo -trace -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
+	@$(GINKGO) -trace -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
 	@$(MAKE) test-coverage-func
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="

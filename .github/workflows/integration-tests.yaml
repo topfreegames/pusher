@@ -60,7 +60,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd /go/src/github.com/topfreegames/pusher
-          dep ensure
+          go mod tidy
       - name: Initialize DB for testing
         run: |
           cd /go/src/github.com/topfreegames/pusher
