@@ -291,7 +291,6 @@ func (q *KafkaConsumer) handleError(err error) {
 		"extension": "kafka-consumer",
 	})
 	l.WithError(err).Error("Error in Kafka connection.")
-	close(q.stopChannel)
 }
 
 // Cleanup closes kafka consumer connection

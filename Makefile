@@ -104,6 +104,7 @@ test-unit:
 	@echo "=                  Running unit tests...                 ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
+	@export ACK_GINKGO_RC=true
 	@$(GINKGO) -trace -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
 	@$(MAKE) test-coverage-func
 	@echo
@@ -118,6 +119,7 @@ run-integration-test:
 	@echo "=               Running integration tests...             ="
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
+	@export ACK_GINKGO_RC=true
 	@ginkgo -trace -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
 # [Integration] Listener Use From GCM [It] should delete a single token from a game
 	@echo

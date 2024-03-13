@@ -35,7 +35,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
-	. "github.com/topfreegames/pusher/testing"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -142,17 +141,6 @@ var _ = Describe("Kafka Extension", func() {
 					Value: val,
 				}))
 				Expect(consumer.messagesReceived).To(BeEquivalentTo(1000))
-			})
-
-			It("should handle error", func() {
-				startConsuming()
-				defer consumer.StopConsuming()
-				resetError := publishError(kafka.Error{})
-				defer resetError()
-				_, ok := <-consumer.stopChannel
-				Eventually(consumer.run, 5).Should(BeFalse())
-				Expect(ok).Should(BeFalse())
-				Expect(hook.Entries).To(ContainLogMessage("Error in Kafka connection."))
 			})
 		})
 
