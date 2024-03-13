@@ -133,7 +133,7 @@ func (a *APNSMessageHandler) configure() error {
 	a.LogStatsInterval = time.Duration(interval) * time.Millisecond
 	a.CacheCleaningInterval = a.Config.GetInt("feedback.cache.cleaningInterval")
 	a.retryInterval = a.Config.GetDuration("apns.retry.interval")
-	a.maxRetryAttempts = a.Config.GetUint("apns.retry.maxAttempts")
+	a.maxRetryAttempts = a.Config.GetUint("apns.retry.maxRetryAttempts")
 	if a.PushQueue == nil {
 		a.PushQueue = NewAPNSPushQueue(
 			a.authKeyPath,
@@ -156,7 +156,7 @@ func (a *APNSMessageHandler) loadConfigurationDefaults() {
 	a.Config.SetDefault("apns.logStatsInterval", 5000)
 	a.Config.SetDefault("feedback.cache.cleaningInterval", 300000)
 	a.Config.SetDefault("apns.retry.interval", "1s")
-	a.Config.SetDefault("apns.retry.maxAttempts", 3)
+	a.Config.SetDefault("apns.retry.maxRetryAttempts", 3)
 }
 
 // HandleResponses from apns.
