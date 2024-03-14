@@ -170,6 +170,11 @@ PassedPartitionsLoop:
 	return nil
 }
 
+func (k *KafkaConsumerClientMock) Assign(partitions []kafka.TopicPartition) error {
+	k.Assignments = partitions
+	return nil
+}
+
 func (k *KafkaConsumerClientMock) Assignment() ([]kafka.TopicPartition, error) {
 	return k.Assignments, nil
 }

@@ -39,13 +39,16 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_CREATE_TOPICS: "com.games.test:5:1"
+      KAFKA_CREATE_TOPICS: "push-mygame_apns-single"
     restart: unless-stopped
+    ports:
+      - "9092:9092"
+      - "9941:9941"
     healthcheck:
       test: kafka-topics --list --bootstrap-server localhost:9941
-      interval: 25s
+      interval: 5s
       timeout: 20s
-      retries: 15
+      retries: 10
 
   postgres:
     image: postgres:13
@@ -83,3 +86,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  kafka-ui:
+    image: docker.redpanda.com/vectorized/console:latest
+    ports:
+      - 9000:8080
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+     KAFKA_BROKERS: kafka:9092

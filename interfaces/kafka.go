@@ -42,4 +42,5 @@ type KafkaConsumerClient interface {
 	Pause([]kafka.TopicPartition) error
 	Resume([]kafka.TopicPartition) error
 	Assignment() ([]kafka.TopicPartition, error)
+	Assign(partitions []kafka.TopicPartition) (err error)
 }

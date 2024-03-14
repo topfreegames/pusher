@@ -120,7 +120,7 @@ run-integration-test:
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
 	@export ACK_GINKGO_RC=true
-	@ginkgo -trace -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
+	@$(GINKGO) -trace -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
 # [Integration] Listener Use From GCM [It] should delete a single token from a game
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="

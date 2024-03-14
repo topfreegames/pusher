@@ -220,20 +220,18 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 		"topics": q.Topics,
 	})
 
-	err := q.Consumer.SubscribeTopics(q.Topics, func(c *kafka.Consumer, e kafka.Event) error {
-		if _, ok := e.(kafka.AssignedPartitions); ok {
-			q.readyOnce.Do(func() {
-				close(q.readyChan)
-			})
-		}
-		return nil
-	})
+	err := q.Consumer.SubscribeTopics(q.Topics, nil)
+
 	if err != nil {
 		l.WithError(err).Error("error subscribing to topics")
 		return err
 	}
 
 	l.Info("successfully subscribed to topics")
+
+	q.readyOnce.Do(func() {
+		close(q.readyChan)
+	})
 
 	//nolint[:gosimple]
 	for q.run {
