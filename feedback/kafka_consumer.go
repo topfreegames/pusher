@@ -23,7 +23,6 @@
 package feedback
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -54,8 +53,6 @@ type KafkaConsumer struct {
 	stopChannel                    chan struct{}
 	run                            bool
 	HandleAllMessagesBeforeExiting bool
-	readyChan                      chan bool
-	readyOnce                      sync.Once
 }
 
 // NewKafkaConsumer for creating a new KafkaConsumer instance
@@ -71,7 +68,6 @@ func NewKafkaConsumer(
 		messagesReceived:  0,
 		pendingMessagesWG: nil,
 		stopChannel:       *stopChannel,
-		readyChan:         make(chan bool),
 	}
 
 	var client interfaces.KafkaConsumerClient
@@ -193,16 +189,7 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 		"topics": q.Topics,
 	})
 
-	err := q.Consumer.SubscribeTopics(q.Topics, func(c *kafka.Consumer, e kafka.Event) error {
-		if _, ok := e.(kafka.AssignedPartitions); ok {
-			fmt.Println("SONIA: ready")
-			q.readyOnce.Do(func() {
-				close(q.readyChan)
-			})
-		}
-		fmt.Println("SONIA: event arrived")
-		return nil
-	})
+	err := q.Consumer.SubscribeTopics(q.Topics, nil)
 	if err != nil {
 		l.WithError(err).Error("error subscribing to topics")
 		return err
@@ -224,10 +211,6 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 	}
 
 	return nil
-}
-
-func (q *KafkaConsumer) Ready() <-chan bool {
-	return q.readyChan
 }
 
 func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, value []byte) {

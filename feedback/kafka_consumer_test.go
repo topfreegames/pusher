@@ -228,7 +228,9 @@ var _ = Describe("Kafka Consumer", func() {
 				Expect(client).NotTo(BeNil())
 				defer client.StopConsuming()
 				go client.ConsumeLoop()
-				Eventually(client.Ready(), 30*time.Second).Should(BeClosed())
+
+				// Required to assure the consumer to be ready before producing a message
+				time.Sleep(5 * time.Second)
 
 				p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": client.Brokers})
 				Expect(err).NotTo(HaveOccurred())

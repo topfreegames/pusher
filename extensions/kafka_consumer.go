@@ -53,8 +53,6 @@ type KafkaConsumer struct {
 	stopChannel                    chan struct{}
 	run                            bool
 	HandleAllMessagesBeforeExiting bool
-	readyChan                      chan bool
-	readyOnce                      sync.Once
 }
 
 // NewKafkaConsumer for creating a new KafkaConsumer instance
@@ -70,7 +68,6 @@ func NewKafkaConsumer(
 		messagesReceived:  0,
 		pendingMessagesWG: nil,
 		stopChannel:       *stopChannel,
-		readyChan:         make(chan bool),
 	}
 	var client interfaces.KafkaConsumerClient
 	if len(clientOrNil) == 1 {
@@ -131,8 +128,7 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 		"fetch.wait.max.ms":  q.FetchWaitMaxMs,
 		"enable.auto.commit": true,
 		"default.topic.config": kafka.ConfigMap{
-			"auto.offset.reset":  q.OffsetResetStrategy,
-			"enable.auto.commit": true,
+			"auto.offset.reset": q.OffsetResetStrategy,
 		},
 		"topics": q.Topics,
 	})
@@ -229,10 +225,6 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 
 	l.Info("successfully subscribed to topics")
 
-	q.readyOnce.Do(func() {
-		close(q.readyChan)
-	})
-
 	//nolint[:gosimple]
 	for q.run {
 		message, err := q.Consumer.ReadMessage(100)
@@ -247,10 +239,6 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 	}
 
 	return nil
-}
-
-func (q *KafkaConsumer) Ready() <-chan bool {
-	return q.readyChan
 }
 
 func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, value []byte) {
