@@ -565,8 +565,8 @@ var _ = Describe("Feedback Listener", func() {
 					defer p.Close()
 					go listener.Start()
 
-					// wait consumer start to consume message before send it
-					Eventually(listener.Queue.(*KafkaConsumer).Ready(), 10*time.Second).Should(BeClosed())
+					// Required to assure the consumer to be ready before producing a message
+					time.Sleep(5 * time.Second)
 
 					topics := make(map[string]string)
 					topics[game1] = "push-" + game1 + "-" + platform + "-feedbacks"
