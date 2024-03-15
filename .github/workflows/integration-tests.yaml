@@ -61,6 +61,7 @@ jobs:
         run: |
           cd /go/src/github.com/topfreegames/pusher
           go mod tidy
+          go mod vendor
       - name: Initialize DB for testing
         run: |
           cd /go/src/github.com/topfreegames/pusher
