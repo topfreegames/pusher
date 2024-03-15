@@ -33,17 +33,18 @@ WORKDIR /go/src/github.com/topfreegames/pusher
 #     ./configure && make && make install && make clean && ./configure --clean && \
 #     mkdir -p /go/src/github.com/topfreegames/pusher
 
-RUN apt update && \
+RUN apt update &&  \
     apt install -y wget && \
     wget -qO - https://packages.confluent.io/deb/7.5/archive.key | apt-key add - && \
     apt update && \
     apt install -y librdkafka-dev
 
-RUN mkdir -p /go/src/github.com/topfreegames/pusher/app
+RUN mkdir -p /go/src/github.com/topfreegames/pusher
 
 ADD . /go/src/github.com/topfreegames/pusher
 
-RUN make build && \
+RUN make build
+RUN mkdir /app && \
     mv /go/src/github.com/topfreegames/pusher/bin/pusher /app/pusher && \
     mv /go/src/github.com/topfreegames/pusher/config /app/config && \
     mv /go/src/github.com/topfreegames/pusher/tls /app/tls && \
