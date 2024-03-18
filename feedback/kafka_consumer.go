@@ -242,7 +242,8 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 
 func (q *KafkaConsumer) handleError(err error) {
 	l := q.Logger.WithFields(logrus.Fields{
-		"method": "handleError",
+		"method":  "feedback.handleError",
+		"brokers": q.Brokers,
 	})
 	raven.CaptureError(err, map[string]string{
 		"version":   util.Version,
