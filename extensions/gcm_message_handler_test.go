@@ -527,7 +527,7 @@ var _ = Describe("GCM Message Handler", func() {
 				handler.failuresReceived = 30
 				handler.ignoredMessages = 10
 				Expect(func() { go handler.LogStats() }).ShouldNot(Panic())
-				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("flushing stats"))
+				Eventually(func() []logrus.Entry { return hook.Entries }).Should(ContainLogMessage("flushing stats"))
 				Eventually(func() int64 { return handler.sentMessages }).Should(Equal(int64(0)))
 				Eventually(func() int64 { return handler.responsesReceived }).Should(Equal(int64(0)))
 				Eventually(func() int64 { return handler.successesReceived }).Should(Equal(int64(0)))

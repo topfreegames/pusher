@@ -23,10 +23,9 @@
 package feedback
 
 import (
-	"fmt"
 	"sync"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	raven "github.com/getsentry/raven-go"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -54,7 +53,6 @@ type KafkaConsumer struct {
 	stopChannel                    chan struct{}
 	run                            bool
 	HandleAllMessagesBeforeExiting bool
-	AssignedPartition              bool
 }
 
 // NewKafkaConsumer for creating a new KafkaConsumer instance
@@ -126,18 +124,16 @@ func (q *KafkaConsumer) configure(client interfaces.KafkaConsumerClient) error {
 
 func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient) error {
 	l := q.Logger.WithFields(logrus.Fields{
-		"method":                          "configureConsumer",
-		"bootstrap.servers":               q.Brokers,
-		"group.id":                        q.ConsumerGroup,
-		"session.timeout.ms":              q.SessionTimeout,
-		"fetch.min.bytes":                 q.FetchMinBytes,
-		"fetch.wait.max.ms":               q.FetchWaitMaxMs,
-		"go.events.channel.enable":        true,
-		"go.application.rebalance.enable": true,
-		"enable.auto.commit":              true,
+		"method":             "configureConsumer",
+		"bootstrap.servers":  q.Brokers,
+		"group.id":           q.ConsumerGroup,
+		"session.timeout.ms": q.SessionTimeout,
+		"fetch.min.bytes":    q.FetchMinBytes,
+		"fetch.wait.max.ms":  q.FetchWaitMaxMs,
+		"enable.auto.commit": true,
 		"default.topic.config": kafka.ConfigMap{
 			"auto.offset.reset":  q.OffsetResetStrategy,
-			"auto.commit.enable": true,
+			"enable.auto.commit": true,
 		},
 		"topics": q.Topics,
 	})
@@ -145,17 +141,15 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 
 	if client == nil {
 		c, err := kafka.NewConsumer(&kafka.ConfigMap{
-			"bootstrap.servers":               q.Brokers,
-			"group.id":                        q.ConsumerGroup,
-			"fetch.min.bytes":                 q.FetchMinBytes,
-			"fetch.wait.max.ms":               q.FetchWaitMaxMs,
-			"session.timeout.ms":              q.SessionTimeout,
-			"go.events.channel.enable":        true,
-			"go.application.rebalance.enable": true,
-			"enable.auto.commit":              true,
+			"bootstrap.servers":  q.Brokers,
+			"group.id":           q.ConsumerGroup,
+			"fetch.min.bytes":    q.FetchMinBytes,
+			"fetch.wait.max.ms":  q.FetchWaitMaxMs,
+			"session.timeout.ms": q.SessionTimeout,
+			"enable.auto.commit": true,
 			"default.topic.config": kafka.ConfigMap{
 				"auto.offset.reset":  q.OffsetResetStrategy,
-				"auto.commit.enable": true,
+				"enable.auto.commit": true,
 			},
 		})
 
@@ -163,7 +157,6 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 			l.WithError(err).Error("error configuring kafka queue")
 			return err
 		}
-
 		q.Consumer = c
 	} else {
 		q.Consumer = client
@@ -206,72 +199,17 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 
 	q.run = true
 	for q.run {
-		select {
-		case ev, ok := <-q.Consumer.Events():
-			if ok {
-				switch e := ev.(type) {
-				case kafka.AssignedPartitions:
-					err = q.assignPartitions(e.Partitions)
-					if err != nil {
-						l.WithError(err).Error("error assigning partitions")
-					}
-				case kafka.RevokedPartitions:
-					err = q.unassignPartitions()
-					if err != nil {
-						l.WithError(err).Error("error revoking partitions")
-					}
-				case *kafka.Message:
-					q.receiveMessage(e.TopicPartition, e.Value)
-				case kafka.PartitionEOF:
-					q.handlePartitionEOF(ev)
-				case kafka.OffsetsCommitted:
-					q.handleOffsetsCommitted(ev)
-				case kafka.Error:
-					q.handleError(ev)
-					q.StopConsuming()
-					close(q.stopChannel)
-					return e
-				default:
-					q.handleUnrecognized(e)
-				}
-			}
+		message, err := q.Consumer.ReadMessage(100)
+		if message == nil && err.(kafka.Error).IsTimeout() {
+			continue
 		}
+		if err != nil {
+			q.handleError(err)
+			continue
+		}
+		q.receiveMessage(message.TopicPartition, message.Value)
 	}
 
-	return nil
-}
-
-func (q *KafkaConsumer) assignPartitions(partitions []kafka.TopicPartition) error {
-	l := q.Logger.WithFields(logrus.Fields{
-		"method":     "assignPartitions",
-		"partitions": fmt.Sprintf("%v", partitions),
-	})
-
-	l.Debug("Assigning partitions...")
-	err := q.Consumer.Assign(partitions)
-	if err != nil {
-		l.WithError(err).Error("Failed to assign partitions.")
-		return err
-	}
-
-	l.Info("Partitions assigned.")
-	q.AssignedPartition = true
-	return nil
-}
-
-func (q *KafkaConsumer) unassignPartitions() error {
-	l := q.Logger.WithFields(logrus.Fields{
-		"method": "unassignPartitions",
-	})
-
-	l.Debug("Unassigning partitions...")
-	err := q.Consumer.Unassign()
-	if err != nil {
-		l.WithError(err).Error("Failed to unassign partitions.")
-		return err
-	}
-
-	l.Info("Partitions unassigned.")
 	return nil
 }
 
@@ -302,29 +240,11 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 	l.Debug("Received message processed.")
 }
 
-func (q *KafkaConsumer) handlePartitionEOF(ev kafka.Event) {
+func (q *KafkaConsumer) handleError(err error) {
 	l := q.Logger.WithFields(logrus.Fields{
-		"method":    "handlePartitionEOF",
-		"partition": fmt.Sprintf("%v", ev),
+		"method":  "feedback.handleError",
+		"brokers": q.Brokers,
 	})
-
-	l.Debug("Reached partition EOF.")
-}
-
-func (q *KafkaConsumer) handleOffsetsCommitted(ev kafka.Event) {
-	l := q.Logger.WithFields(logrus.Fields{
-		"method":    "handleOffsetsCommitted",
-		"partition": fmt.Sprintf("%v", ev),
-	})
-
-	l.Debug("Offsets committed successfully.")
-}
-
-func (q *KafkaConsumer) handleError(ev kafka.Event) {
-	l := q.Logger.WithFields(logrus.Fields{
-		"method": "handleError",
-	})
-	err := ev.(error)
 	raven.CaptureError(err, map[string]string{
 		"version":   util.Version,
 		"extension": "kafka-consumer",
@@ -332,15 +252,7 @@ func (q *KafkaConsumer) handleError(ev kafka.Event) {
 	l.WithError(err).Error("Error in Kafka connection.")
 }
 
-func (q *KafkaConsumer) handleUnrecognized(ev kafka.Event) {
-	l := q.Logger.WithFields(logrus.Fields{
-		"method": "handleUnrecognized",
-		"event":  fmt.Sprintf("%v", ev),
-	})
-	l.Warn("Kafka event not recognized.")
-}
-
-//Cleanup closes kafka consumer connection
+// Cleanup closes kafka consumer connection
 func (q *KafkaConsumer) Cleanup() error {
 	if q.run {
 		q.StopConsuming()

@@ -118,7 +118,7 @@ var _ = Describe("InvalidToken Handler", func() {
 					inChan <- t
 				}
 
-				Eventually(func() []*logrus.Entry { return hook.Entries }).
+				Eventually(func() []logrus.Entry { return hook.Entries }).
 					Should(testing.ContainLogMessage("buffer is full"))
 
 				Eventually(func() int64 {
@@ -161,7 +161,7 @@ var _ = Describe("InvalidToken Handler", func() {
 					inChan <- t
 				}
 
-				Eventually(func() []*logrus.Entry { return hook.Entries }).
+				Eventually(func() []logrus.Entry { return hook.Entries }).
 					Should(testing.ContainLogMessage("flush ticker"))
 
 				Eventually(func() int64 {
@@ -302,7 +302,7 @@ var _ = Describe("InvalidToken Handler", func() {
 					Game:     "sniper",
 					Platform: "apns",
 				}
-				Consistently(func() []*logrus.Entry { return hook.Entries }).
+				Consistently(func() []logrus.Entry { return hook.Entries }).
 					ShouldNot(testing.ContainLogMessage("error deleting tokens"))
 
 				Eventually(func() int64 {
@@ -353,7 +353,7 @@ var _ = Describe("InvalidToken Handler", func() {
 					time.Sleep(10 * time.Millisecond)
 				}
 
-				Eventually(func() []*logrus.Entry {
+				Eventually(func() []logrus.Entry {
 					return hook.Entries
 				}).Should(testing.ContainLogMessage("error deleting tokens"))
 

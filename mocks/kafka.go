@@ -22,11 +22,17 @@
 
 package mocks
 
-import "github.com/confluentinc/confluent-kafka-go/kafka"
+import (
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+)
 
 // KafkaProducerClientMock  should be used for tests that need to send messages to Kafka
 type KafkaProducerClientMock struct {
-	EventsChan   chan kafka.Event
+	MessagesChan chan kafka.Event
 	ProduceChan  chan *kafka.Message
 	SentMessages int
 }
@@ -36,7 +42,7 @@ type MockEvent struct {
 	Message *kafka.Message
 }
 
-//String returns string
+// String returns string
 func (m *MockEvent) String() string {
 	return string(m.Message.Value)
 }
@@ -44,7 +50,7 @@ func (m *MockEvent) String() string {
 // NewKafkaProducerClientMock creates a new instance
 func NewKafkaProducerClientMock() *KafkaProducerClientMock {
 	k := &KafkaProducerClientMock{
-		EventsChan:   make(chan kafka.Event),
+		MessagesChan: make(chan kafka.Event),
 		ProduceChan:  make(chan *kafka.Message),
 		SentMessages: 0,
 	}
@@ -56,14 +62,14 @@ func (k *KafkaProducerClientMock) StartConsumingMessagesInProduceChannel() {
 	go func() {
 		for msg := range k.ProduceChan {
 			k.SentMessages++
-			k.EventsChan <- msg
+			k.MessagesChan <- msg
 		}
 	}()
 }
 
 // Events returns the mock events channel
 func (k *KafkaProducerClientMock) Events() chan kafka.Event {
-	return k.EventsChan
+	return k.MessagesChan
 }
 
 // ProduceChannel returns the mock produce channel
@@ -73,11 +79,12 @@ func (k *KafkaProducerClientMock) ProduceChannel() chan *kafka.Message {
 
 // KafkaConsumerClientMock  should be used for tests that need to send messages to Kafka
 type KafkaConsumerClientMock struct {
-	SubscribedTopics   map[string]interface{}
-	EventsChan         chan kafka.Event
-	AssignedPartitions []kafka.TopicPartition
-	Closed             bool
-	Error              error
+	SubscribedTopics map[string]interface{}
+	MessagesChan     chan *kafka.Message
+	Closed           bool
+	Error            error
+	pausedPartitions map[string]kafka.TopicPartition
+	Assignments      []kafka.TopicPartition
 }
 
 // NewKafkaConsumerClientMock creates a new instance
@@ -87,16 +94,15 @@ func NewKafkaConsumerClientMock(errorOrNil ...error) *KafkaConsumerClientMock {
 		err = errorOrNil[0]
 	}
 	k := &KafkaConsumerClientMock{
-		SubscribedTopics:   map[string]interface{}{},
-		EventsChan:         make(chan kafka.Event),
-		AssignedPartitions: []kafka.TopicPartition{},
-		Closed:             false,
-		Error:              err,
+		SubscribedTopics: map[string]interface{}{},
+		MessagesChan:     make(chan *kafka.Message),
+		Closed:           false,
+		Error:            err,
 	}
 	return k
 }
 
-//SubscribeTopics mock
+// SubscribeTopics mock
 func (k *KafkaConsumerClientMock) SubscribeTopics(topics []string, callback kafka.RebalanceCb) error {
 	if k.Error != nil {
 		return k.Error
@@ -107,34 +113,68 @@ func (k *KafkaConsumerClientMock) SubscribeTopics(topics []string, callback kafk
 	return nil
 }
 
-//Events mock
-func (k *KafkaConsumerClientMock) Events() chan kafka.Event {
-	return k.EventsChan
-}
-
-//Assign mock
-func (k *KafkaConsumerClientMock) Assign(partitions []kafka.TopicPartition) error {
+func (k *KafkaConsumerClientMock) ReadMessage(timeout time.Duration) (*kafka.Message, error) {
 	if k.Error != nil {
-		return k.Error
+		return nil, k.Error
 	}
-	k.AssignedPartitions = partitions
-	return nil
+	select {
+	case msg := <-k.MessagesChan:
+		return msg, nil
+	case <-time.After(timeout):
+		return nil, kafka.NewError(kafka.ErrTimedOut, "", false)
+	}
 }
 
-//Unassign mock
-func (k *KafkaConsumerClientMock) Unassign() error {
-	if k.Error != nil {
-		return k.Error
-	}
-	k.AssignedPartitions = []kafka.TopicPartition{}
-	return nil
-}
-
-//Close mock
+// Close mock
 func (k *KafkaConsumerClientMock) Close() error {
 	if k.Error != nil {
 		return k.Error
 	}
 	k.Closed = true
 	return nil
+}
+
+func (k *KafkaConsumerClientMock) Pause(topicPartitions []kafka.TopicPartition) error {
+	ptpm := map[string]kafka.TopicPartition{}
+PassedPartitionsLoop:
+	for _, tp := range topicPartitions {
+		for _, atp := range k.Assignments {
+			if *tp.Topic == *atp.Topic && tp.Partition == atp.Partition {
+				ptpm[fmt.Sprintf("%s%s", *atp.Topic, strconv.Itoa(int(atp.Partition)))] = atp
+				continue PassedPartitionsLoop
+			}
+		}
+		tp.Error = fmt.Errorf("passed TopicPartition not assigned: %+v", tp)
+	}
+	for key, v := range ptpm {
+		k.pausedPartitions[key] = v
+	}
+	return nil
+}
+
+func (k *KafkaConsumerClientMock) Resume(topicPartitions []kafka.TopicPartition) error {
+	ptpm := map[string]kafka.TopicPartition{}
+PassedPartitionsLoop:
+	for _, tp := range topicPartitions {
+		for key, v := range k.pausedPartitions {
+			if *tp.Topic == *v.Topic && tp.Partition == v.Partition {
+				ptpm[key] = v
+				continue PassedPartitionsLoop
+			}
+		}
+		tp.Error = fmt.Errorf("passed TopicPartition not paused: %+v", tp)
+	}
+	for key := range ptpm {
+		delete(k.pausedPartitions, key)
+	}
+	return nil
+}
+
+func (k *KafkaConsumerClientMock) Assign(partitions []kafka.TopicPartition) error {
+	k.Assignments = partitions
+	return nil
+}
+
+func (k *KafkaConsumerClientMock) Assignment() ([]kafka.TopicPartition, error) {
+	return k.Assignments, nil
 }

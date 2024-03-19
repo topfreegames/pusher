@@ -94,6 +94,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				statsClients,
 				feedbackClients,
 				mockPushQueue,
+				nil,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			db.(*mocks.PGMock).RowsReturned = 0
@@ -113,9 +114,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 
 		Describe("Handle APNS response", func() {
 			It("if response has nil error", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 200,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 				}
 				handler.handleAPNSResponse(res)
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
@@ -123,9 +132,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ReasonUnregistered", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonUnregistered,
 				}
 				handler.handleAPNSResponse(res)
@@ -134,9 +151,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ErrBadDeviceToken", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonBadDeviceToken,
 				}
 				handler.handleAPNSResponse(res)
@@ -145,9 +170,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ErrBadCertificate", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 403,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonBadCertificate,
 				}
 				handler.handleAPNSResponse(res)
@@ -156,9 +189,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ErrBadCertificateEnvironment", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 403,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonBadCertificateEnvironment,
 				}
 				handler.handleAPNSResponse(res)
@@ -167,9 +208,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ErrForbidden", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 403,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonForbidden,
 				}
 				handler.handleAPNSResponse(res)
@@ -178,9 +227,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ErrMissingTopic", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonMissingTopic,
 				}
 				handler.handleAPNSResponse(res)
@@ -189,9 +246,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ErrTopicDisallowed", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonTopicDisallowed,
 				}
 				handler.handleAPNSResponse(res)
@@ -200,9 +265,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ErrDeviceTokenNotForTopic", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonDeviceTokenNotForTopic,
 				}
 				handler.handleAPNSResponse(res)
@@ -211,9 +284,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ErrIdleTimeout", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonIdleTimeout,
 				}
 				handler.handleAPNSResponse(res)
@@ -222,9 +303,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ErrShutdown", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 503,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonShutdown,
 				}
 				handler.handleAPNSResponse(res)
@@ -233,9 +322,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ErrInternalServerError", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 500,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonInternalServerError,
 				}
 				handler.handleAPNSResponse(res)
@@ -244,9 +341,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has error push.ErrServiceUnavailable", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 503,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonServiceUnavailable,
 				}
 				handler.handleAPNSResponse(res)
@@ -255,9 +360,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("if response has untracked error", func() {
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 405,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 					Reason:     apns2.ReasonMethodNotAllowed,
 				}
 				handler.handleAPNSResponse(res)
@@ -266,25 +379,27 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 		})
 
-		Describe("Send message", func() {
-			It("should add message to push queue and increment sentMessages", func() {
-				err := handler.sendMessage(interfaces.KafkaMessage{
+		Describe("Send notification", func() {
+			It("should add message to push queue", func() {
+				n, err := handler.buildNotification(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" } }, "Metadata": { "some": "data" } }`),
 				})
-
 				Expect(err).To(BeNil())
-				Expect(handler.sentMessages).To(Equal(int64(1)))
+
+				err = handler.sendNotification(n)
+				Expect(err).To(BeNil())
 			})
 
 			It("should have metadata on message sent to push queue", func() {
-				err := handler.sendMessage(interfaces.KafkaMessage{
+				n, err := handler.buildNotification(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" } }, "Metadata": { "some": "data" } }`),
 				})
-
 				Expect(err).To(BeNil())
-				Expect(handler.sentMessages).To(Equal(int64(1)))
+
+				err = handler.sendNotification(n)
+				Expect(err).To(BeNil())
 
 				sentMessage := mockPushQueue.PushedNotification
 				bytes, ok := sentMessage.Payload.([]byte)
@@ -302,13 +417,14 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("should merge metadata on message sent to push queue", func() {
-				err := handler.sendMessage(interfaces.KafkaMessage{
+				n, err := handler.buildNotification(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" }, "M": { "metadata": "received" } }, "Metadata": { "some": "data" } }`),
 				})
-
 				Expect(err).To(BeNil())
-				Expect(handler.sentMessages).To(Equal(int64(1)))
+
+				err = handler.sendNotification(n)
+				Expect(err).To(BeNil())
 
 				sentMessage := mockPushQueue.PushedNotification
 				bytes, ok := sentMessage.Payload.([]byte)
@@ -327,13 +443,14 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("should have nested metadata on message sent to push queue", func() {
-				err := handler.sendMessage(interfaces.KafkaMessage{
+				n, err := handler.buildNotification(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" }, "M": { "metadata": "received" } }, "Metadata": { "nested": { "some": "data"} } }`),
 				})
-
 				Expect(err).To(BeNil())
-				Expect(handler.sentMessages).To(Equal(int64(1)))
+
+				err = handler.sendNotification(n)
+				Expect(err).To(BeNil())
 
 				sentMessage := mockPushQueue.PushedNotification
 				bytes, ok := sentMessage.Payload.([]byte)
@@ -356,18 +473,18 @@ var _ = FDescribe("APNS Message Handler", func() {
 
 		Describe("Clean Cache", func() {
 			It("should remove from push queue after timeout", func() {
-				handler.sendMessage(interfaces.KafkaMessage{
+				handler.HandleMessages(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
 				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
 				time.Sleep(500 * time.Millisecond)
 				Expect(*handler.requestsHeap).To(BeEmpty())
-				Expect(handler.InflightMessagesMetadata).To(BeEmpty())
+				Expect(handler.InFlightNotificationsMap).To(BeEmpty())
 			})
 
 			It("should not panic if a request got a response", func() {
-				handler.sendMessage(interfaces.KafkaMessage{
+				handler.HandleMessages(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
@@ -380,14 +497,14 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.handleAPNSResponse(res)
 				time.Sleep(500 * time.Millisecond)
 				Expect(*handler.requestsHeap).To(BeEmpty())
-				Expect(handler.InflightMessagesMetadata).To(BeEmpty())
+				Expect(handler.InFlightNotificationsMap).To(BeEmpty())
 			})
 
 			It("should handle all responses or remove them after timeout", func() {
 				var n int = 10
 				sendRequests := func() {
 					for i := 0; i < n; i++ {
-						handler.sendMessage(interfaces.KafkaMessage{
+						handler.HandleMessages(interfaces.KafkaMessage{
 							Topic: "push-game_apns",
 							Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 						})
@@ -412,7 +529,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				time.Sleep(500 * time.Millisecond)
 
 				Expect(*handler.requestsHeap).To(BeEmpty())
-				Expect(handler.InflightMessagesMetadata).To(BeEmpty())
+				Expect(handler.InFlightNotificationsMap).To(BeEmpty())
 			})
 		})
 
@@ -423,7 +540,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.successesReceived = 60
 				handler.failuresReceived = 30
 				Expect(func() { go handler.LogStats() }).ShouldNot(Panic())
-				Eventually(func() []*logrus.Entry { return hook.Entries }).Should(ContainLogMessage("flushing stats"))
+				Eventually(func() []logrus.Entry { return hook.Entries }).Should(ContainLogMessage("flushing stats"))
 				Eventually(func() int64 { return handler.sentMessages }).Should(Equal(int64(0)))
 				Eventually(func() int64 { return handler.responsesReceived }).Should(Equal(int64(0)))
 				Eventually(func() int64 { return handler.successesReceived }).Should(Equal(int64(0)))
@@ -440,8 +557,8 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Topic: "push-game_apns",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				}
-				handler.sendMessage(kafkaMessage)
-				handler.sendMessage(kafkaMessage)
+				handler.HandleMessages(kafkaMessage)
+				handler.HandleMessages(kafkaMessage)
 
 				Expect(mockStatsDClient.Counts["sent"]).To(Equal(int64(2)))
 			})
@@ -450,9 +567,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Expect(handler).NotTo(BeNil())
 				Expect(handler.StatsReporters).To(Equal(statsClients))
 
+				apnsID := uuid.NewV4().String()
+				handler.InFlightNotificationsMap[apnsID] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 200,
-					ApnsID:     uuid.NewV4().String(),
+					ApnsID:     apnsID,
 				}
 
 				handler.handleAPNSResponse(res)
@@ -500,6 +625,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 					statsClients,
 					feedbackClients,
 					mockPushQueue,
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -515,7 +641,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 					"game":      "game",
 					"platform":  "apns",
 				}
-				handler.InflightMessagesMetadata["idTest1"] = metadata
+				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 200,
 					ApnsID:     "idTest1",
@@ -537,7 +663,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 					"game":      "game",
 					"platform":  "apns",
 				}
-				handler.InflightMessagesMetadata["idTest1"] = metadata
+				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 200,
 					ApnsID:     "idTest1",
@@ -552,6 +678,13 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("should send feedback if success and metadata is not present", func() {
+				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{
+					notification: &Notification{
+						Metadata: map[string]interface{}{
+							"timestamp": int64(0),
+						},
+					},
+				}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 200,
 					ApnsID:     "idTest1",
@@ -573,7 +706,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 					"game":      "game",
 					"platform":  "apns",
 				}
-				handler.InflightMessagesMetadata["idTest1"] = metadata
+				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
 					ApnsID:     "idTest1",
@@ -597,7 +730,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 					"game":      "game",
 					"platform":  "apns",
 				}
-				handler.InflightMessagesMetadata["idTest1"] = metadata
+				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
 					ApnsID:     "idTest1",
@@ -656,6 +789,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				nil,
 				nil,
 				nil,
+				nil,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			hook.Reset()
@@ -663,11 +797,11 @@ var _ = FDescribe("APNS Message Handler", func() {
 
 		Describe("Send message", func() {
 			It("should add message to push queue and increment sentMessages", func() {
-				err := handler.sendMessage(interfaces.KafkaMessage{
+				handler.HandleMessages(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(handler.ignoredMessages).To(Equal(int64(0)))
 				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).Should(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 			})
@@ -675,7 +809,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 
 		Describe("PushExpiry", func() {
 			It("should not send message if PushExpiry is in the past", func() {
-				handler.sendMessage(interfaces.KafkaMessage{
+				handler.HandleMessages(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d }`, makeTimestamp()-int64(100))),
 				})
@@ -684,7 +818,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Expect(handler.ignoredMessages).To(Equal(int64(1)))
 			})
 			It("should send message if PushExpiry is in the future", func() {
-				handler.sendMessage(interfaces.KafkaMessage{
+				handler.HandleMessages(interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d}`, makeTimestamp()+int64(100))),
 				})

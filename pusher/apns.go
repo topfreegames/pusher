@@ -112,6 +112,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			a.StatsReporters,
 			a.feedbackReporters,
 			nil,
+			interfaces.ConsumptionManager(q),
 		)
 		if err == nil {
 			a.MessageHandler[k] = handler
