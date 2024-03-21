@@ -77,7 +77,7 @@ var _ = Describe("APNS Pusher", func() {
 				Expect(pusher.IsProduction).To(Equal(isProduction))
 				Expect(pusher.run).To(BeFalse())
 				Expect(pusher.Queue).NotTo(BeNil())
-				Expect(pusher.Config).NotTo(BeNil())
+				Expect(pusher.ViperConfig).NotTo(BeNil())
 				Expect(pusher.MessageHandler).NotTo(BeNil())
 
 				Expect(pusher.StatsReporters).To(HaveLen(1))

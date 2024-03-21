@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Config", func() {
+var _ = Describe("ViperConfig", func() {
 	Describe("[Unit]", func() {
 		Describe("New viper with config file", func() {
 			It("should return config if path is valid", func() {

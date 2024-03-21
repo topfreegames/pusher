@@ -23,6 +23,7 @@
 package extensions
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -79,6 +80,8 @@ type APNSMessageHandler struct {
 	retryInterval                time.Duration
 	maxRetryAttempts             uint
 }
+
+var _ interfaces.MessageHandler = &APNSMessageHandler{}
 
 // NewAPNSMessageHandler returns a new instance of a APNSMessageHandler.
 func NewAPNSMessageHandler(
@@ -190,7 +193,7 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 }
 
 // HandleMessages get messages from msgChan and send to APNS.
-func (a *APNSMessageHandler) HandleMessages(message interfaces.KafkaMessage) {
+func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfaces.KafkaMessage) {
 	a.Logger.WithField("message", message).Debug("received message to send to apns")
 	notification, err := a.buildNotification(message)
 	if err != nil {
@@ -239,7 +242,7 @@ func (a *APNSMessageHandler) buildNotification(message interfaces.KafkaMessage) 
 
 func (a *APNSMessageHandler) sendNotification(notification *Notification) error {
 	l := a.Logger.WithField("method", "sendNotification")
-	if notification.PushExpiry > 0 && notification.PushExpiry < makeTimestamp() {
+	if notification.PushExpiry > 0 && notification.PushExpiry < MakeTimestamp() {
 		l.Warnf("ignoring push message because it has expired: %s", notification.Payload)
 		a.ignoredMessages++
 		if a.pendingMessagesWG != nil {

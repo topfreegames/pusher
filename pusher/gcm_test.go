@@ -73,7 +73,7 @@ var _ = Describe("GCM Pusher", func() {
 				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
-				Expect(pusher.Config).NotTo(BeNil())
+				Expect(pusher.ViperConfig).NotTo(BeNil())
 				Expect(pusher.IsProduction).To(Equal(isProduction))
 				Expect(pusher.MessageHandler).NotTo(BeNil())
 				Expect(pusher.Queue).NotTo(BeNil())

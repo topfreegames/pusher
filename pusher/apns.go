@@ -48,7 +48,7 @@ func NewAPNSPusher(
 ) (*APNSPusher, error) {
 	a := &APNSPusher{
 		Pusher: Pusher{
-			Config:       config,
+			ViperConfig:  config,
 			IsProduction: isProduction,
 			Logger:       logger,
 			stopChannel:  make(chan struct{}),
@@ -71,7 +71,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 		"method": "configure",
 	})
 	a.loadConfigurationDefaults()
-	a.GracefulShutdownTimeout = a.Config.GetInt("gracefulShutdownTimeout")
+	a.GracefulShutdownTimeout = a.ViperConfig.GetInt("gracefulShutdownTimeout")
 	if err = a.configureStatsReporters(statsdClientOrNil); err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	}
 
 	q, err := extensions.NewKafkaConsumer(
-		a.Config,
+		a.ViperConfig,
 		a.Logger,
 		&a.stopChannel,
 	)
@@ -90,11 +90,11 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	a.MessageHandler = make(map[string]interfaces.MessageHandler)
 	a.Queue = q
 	l.Info("Configuring messageHandler")
-	for _, k := range strings.Split(a.Config.GetString("apns.apps"), ",") {
-		authKeyPath := a.Config.GetString("apns.certs." + k + ".authKeyPath")
-		keyID := a.Config.GetString("apns.certs." + k + ".keyID")
-		teamID := a.Config.GetString("apns.certs." + k + ".teamID")
-		topic := a.Config.GetString("apns.certs." + k + ".topic")
+	for _, k := range strings.Split(a.ViperConfig.GetString("apns.apps"), ",") {
+		authKeyPath := a.ViperConfig.GetString("apns.certs." + k + ".authKeyPath")
+		keyID := a.ViperConfig.GetString("apns.certs." + k + ".keyID")
+		teamID := a.ViperConfig.GetString("apns.certs." + k + ".teamID")
+		topic := a.ViperConfig.GetString("apns.certs." + k + ".topic")
 		l.Infof(
 			"Configuring messageHandler for game %s with key: %s",
 			k, authKeyPath,
@@ -106,7 +106,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			topic,
 			k,
 			a.IsProduction,
-			a.Config,
+			a.ViperConfig,
 			a.Logger,
 			a.Queue.PendingMessagesWaitGroup(),
 			a.StatsReporters,

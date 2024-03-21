@@ -146,7 +146,7 @@ func (p *APNSPushQueue) Push(notification *apns2.Notification) {
 	p.pushChannel <- notification
 }
 
-// Close close all the open channels
+// Close closes all the open channels
 func (p *APNSPushQueue) Close() {
 	close(p.pushChannel)
 	close(p.responseChannel)

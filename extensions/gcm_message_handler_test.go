@@ -23,454 +23,511 @@
 package extensions
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/spf13/viper"
+	"github.com/stretchr/testify/suite"
+	"github.com/topfreegames/pusher/config"
 	"os"
+	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
-	. "github.com/topfreegames/pusher/testing"
-	"github.com/topfreegames/pusher/util"
 )
 
-var _ = Describe("GCM Message Handler", func() {
-	var feedbackClients []interfaces.FeedbackReporter
-	var handler *GCMMessageHandler
-	var mockClient *mocks.GCMClientMock
-	var mockKafkaProducerClient *mocks.KafkaProducerClientMock
-	var mockStatsDClient *mocks.StatsDClientMock
-	var statsClients []interfaces.StatsReporter
+type GCMMessageHandlerTestSuite struct {
+	suite.Suite
 
+	config  *config.Config
+	vConfig *viper.Viper
+	game    string
+	logger  *logrus.Logger
+	hooks   *test.Hook
+
+	mockClient        *mocks.GCMClientMock
+	mockStatsdClient  *mocks.StatsDClientMock
+	mockKafkaProducer *mocks.KafkaProducerClientMock
+
+	handler *GCMMessageHandler
+}
+
+func TestGCMMessageHandlerSuite(t *testing.T) {
+	suite.Run(t, new(GCMMessageHandlerTestSuite))
+}
+
+func (s *GCMMessageHandlerTestSuite) SetupSuite() {
 	configFile := os.Getenv("CONFIG_FILE")
 	if configFile == "" {
 		configFile = "../config/test.yaml"
 	}
-	config, _ := util.NewViperWithConfigFile(configFile)
-	senderID := "sender-id"
-	apiKey := "api-key"
-	game := "sonica monic"
-	isProduction := false
-	logger, hook := test.NewNullLogger()
-	logger.Level = logrus.DebugLevel
+	c, vConfig, err := config.NewConfigAndViper(configFile)
+	s.Require().NoError(err)
 
-	Describe("[Unit]", func() {
-		BeforeEach(func() {
-			var err error
+	s.config = c
+	s.vConfig = vConfig
+	s.game = "game"
+}
 
-			mockStatsDClient = mocks.NewStatsDClientMock()
-			mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
-			mockKafkaProducerClient.StartConsumingMessagesInProduceChannel()
-			c, err := NewStatsD(config, logger, mockStatsDClient)
-			Expect(err).NotTo(HaveOccurred())
+func (s *GCMMessageHandlerTestSuite) SetupSubTest() {
+	s.logger, s.hooks = test.NewNullLogger()
 
-			kc, err := NewKafkaProducer(config, logger, mockKafkaProducerClient)
-			Expect(err).NotTo(HaveOccurred())
-			statsClients = []interfaces.StatsReporter{c}
-			feedbackClients = []interfaces.FeedbackReporter{kc}
+	s.mockClient = mocks.NewGCMClientMock()
 
-			mockClient = mocks.NewGCMClientMock()
-			handler, err = NewGCMMessageHandler(
-				senderID,
-				apiKey,
-				game,
-				isProduction,
-				config,
-				logger,
-				nil,
-				statsClients,
-				feedbackClients,
-				mockClient,
-			)
-			Expect(err).NotTo(HaveOccurred())
+	s.mockStatsdClient = mocks.NewStatsDClientMock()
+	statsD, err := NewStatsD(s.vConfig, s.logger, s.mockStatsdClient)
+	s.Require().NoError(err)
 
-			hook.Reset()
+	s.mockKafkaProducer = mocks.NewKafkaProducerClientMock()
+	kc, err := NewKafkaProducer(s.vConfig, s.logger, s.mockKafkaProducer)
+	s.Require().NoError(err)
+
+	statsClients := []interfaces.StatsReporter{statsD}
+	feedbackClients := []interfaces.FeedbackReporter{kc}
+
+	handler, err := NewGCMMessageHandlerWithClient(
+		s.game,
+		false,
+		s.vConfig,
+		s.logger,
+		nil,
+		statsClients,
+		feedbackClients,
+		s.mockClient,
+	)
+	s.NoError(err)
+	s.Require().NotNil(handler)
+	s.Equal(s.game, handler.game)
+	s.NotNil(handler.ViperConfig)
+	s.False(handler.IsProduction)
+	s.Equal(int64(0), handler.responsesReceived)
+	s.Equal(int64(0), handler.sentMessages)
+	s.Len(s.mockClient.MessagesSent, 0)
+
+	s.handler = handler
+}
+
+func (s *GCMMessageHandlerTestSuite) TestConfigureHandler() {
+	s.Run("should fail if invalid credentials", func() {
+		handler, err := NewGCMMessageHandler(
+			s.game,
+			false,
+			s.vConfig,
+			s.logger,
+			nil,
+			[]interfaces.StatsReporter{},
+			[]interfaces.FeedbackReporter{},
+		)
+		s.Error(err)
+		s.Nil(handler)
+		s.Equal("error connecting gcm xmpp client: auth failure: not-authorized", err.Error())
+	})
+}
+
+func (s *GCMMessageHandlerTestSuite) TestHandleGCMResponse() {
+	s.Run("should succeed if response has no error", func() {
+		res := gcm.CCSMessage{}
+		err := s.handler.handleGCMResponse(res)
+		s.NoError(err)
+		s.Equal(int64(1), s.handler.responsesReceived)
+		s.Equal(int64(1), s.handler.successesReceived)
+	})
+
+	s.Run("if response has error DEVICE_UNREGISTERED", func() {
+		res := gcm.CCSMessage{
+			Error: "DEVICE_UNREGISTERED",
+		}
+		err := s.handler.handleGCMResponse(res)
+		s.Error(err)
+		s.Equal(int64(1), s.handler.responsesReceived)
+		s.Equal(int64(1), s.handler.failuresReceived)
+	})
+
+	s.Run("if response has error BAD_REGISTRATION", func() {
+		res := gcm.CCSMessage{
+			Error: "BAD_REGISTRATION",
+		}
+		err := s.handler.handleGCMResponse(res)
+		s.Error(err)
+		s.Equal(int64(1), s.handler.responsesReceived)
+		s.Equal(int64(1), s.handler.failuresReceived)
+	})
+
+	s.Run("if response has error INVALID_JSON", func() {
+		res := gcm.CCSMessage{
+			Error: "INVALID_JSON",
+		}
+		err := s.handler.handleGCMResponse(res)
+		s.Error(err)
+		s.Equal(int64(1), s.handler.responsesReceived)
+		s.Equal(int64(1), s.handler.failuresReceived)
+	})
+
+	s.Run("if response has error SERVICE_UNAVAILABLE", func() {
+		res := gcm.CCSMessage{
+			Error: "SERVICE_UNAVAILABLE",
+		}
+		err := s.handler.handleGCMResponse(res)
+		s.Error(err)
+		s.Equal(int64(1), s.handler.responsesReceived)
+		s.Equal(int64(1), s.handler.failuresReceived)
+	})
+
+	s.Run("if response has error INTERNAL_SERVER_ERROR", func() {
+		res := gcm.CCSMessage{
+			Error: "INTERNAL_SERVER_ERROR",
+		}
+		err := s.handler.handleGCMResponse(res)
+		s.Error(err)
+		s.Equal(int64(1), s.handler.responsesReceived)
+		s.Equal(int64(1), s.handler.failuresReceived)
+	})
+
+	s.Run("if response has error DEVICE_MESSAGE_RATE_EXCEEDED", func() {
+		res := gcm.CCSMessage{
+			Error: "DEVICE_MESSAGE_RATE_EXCEEDED",
+		}
+		err := s.handler.handleGCMResponse(res)
+		s.Error(err)
+		s.Equal(int64(1), s.handler.responsesReceived)
+		s.Equal(int64(1), s.handler.failuresReceived)
+	})
+
+	s.Run("if response has error TOPICS_MESSAGE_RATE_EXCEEDED", func() {
+		res := gcm.CCSMessage{
+			Error: "TOPICS_MESSAGE_RATE_EXCEEDED",
+		}
+		err := s.handler.handleGCMResponse(res)
+		s.Error(err)
+		s.Equal(int64(1), s.handler.responsesReceived)
+		s.Equal(int64(1), s.handler.failuresReceived)
+	})
+
+	s.Run("if response has untracked error", func() {
+		res := gcm.CCSMessage{
+			Error: "BAD_ACK",
+		}
+		err := s.handler.handleGCMResponse(res)
+		s.Error(err)
+		s.Equal(int64(1), s.handler.responsesReceived)
+		s.Equal(int64(1), s.handler.failuresReceived)
+	})
+}
+
+func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
+	s.Run("should not send message if expire is in the past", func() {
+		ttl := uint(0)
+		metadata := map[string]interface{}{
+			"some":      "metadata",
+			"timestamp": time.Now().Unix(),
+			"game":      "game",
+			"platform":  "gcm",
+		}
+		msg := &KafkaGCMMessage{
+			Message: interfaces.Message{
+				TimeToLive:               &ttl,
+				DeliveryReceiptRequested: false,
+				DryRun:                   true,
+				To:                       uuid.NewV4().String(),
+				Data: map[string]interface{}{
+					"title": "notification",
+				},
+			},
+			Metadata:   metadata,
+			PushExpiry: MakeTimestamp() - int64(100),
+		}
+		msgBytes, err := json.Marshal(msg)
+		s.Require().NoError(err)
+
+		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Value: msgBytes,
+		})
+		s.Require().NoError(err)
+		s.Equal(int64(0), s.handler.sentMessages)
+		s.Equal(int64(1), s.handler.ignoredMessages)
+		s.Contains(s.hooks.LastEntry().Message, "ignoring push")
+	})
+
+	s.Run("should send message if PushExpiry is in the future", func() {
+		ttl := uint(0)
+		metadata := map[string]interface{}{
+			"some":      "metadata",
+			"timestamp": time.Now().Unix(),
+			"game":      "game",
+			"platform":  "gcm",
+		}
+		msg := &KafkaGCMMessage{
+			Message: interfaces.Message{
+				TimeToLive:               &ttl,
+				DeliveryReceiptRequested: false,
+				DryRun:                   true,
+				To:                       uuid.NewV4().String(),
+				Data: map[string]interface{}{
+					"title": "notification",
+				},
+			},
+			Metadata:   metadata,
+			PushExpiry: MakeTimestamp() + int64(1000000),
+		}
+		msgBytes, err := json.Marshal(msg)
+		s.Require().NoError(err)
+
+		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Value: msgBytes,
+		})
+		s.Require().NoError(err)
+		s.Equal(int64(1), s.handler.sentMessages)
+		s.Equal(int64(0), s.handler.ignoredMessages)
+	})
+
+	s.Run("should send message and not increment sentMessages if an error occurs", func() {
+		err := s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Value: []byte("gogogo"),
+		})
+		s.Require().Error(err)
+		s.Equal(int64(0), s.handler.sentMessages)
+		s.Len(s.hooks.Entries, 1)
+		s.Contains(s.hooks.LastEntry().Message, "Error unmarshalling message.")
+		s.Len(s.mockClient.MessagesSent, 0)
+		s.Len(s.handler.pendingMessages, 0)
+	})
+
+	s.Run("should send xmpp message", func() {
+		ttl := uint(0)
+		msg := &interfaces.Message{
+			TimeToLive:               &ttl,
+			DeliveryReceiptRequested: false,
+			DryRun:                   true,
+			To:                       uuid.NewV4().String(),
+			Data: map[string]interface{}{
+				"title": "notification",
+			},
+		}
+		msgBytes, err := json.Marshal(msg)
+		s.Require().NoError(err)
+
+		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Value: msgBytes,
+		})
+		s.Require().NoError(err)
+		s.Equal(int64(1), s.handler.sentMessages)
+		s.Len(s.mockClient.MessagesSent, 1)
+		s.Len(s.handler.pendingMessages, 1)
+	})
+
+	s.Run("should send xmpp message with metadata", func() {
+		ttl := uint(0)
+		metadata := map[string]interface{}{
+			"some":      "metadata",
+			"timestamp": time.Now().Unix(),
+			"game":      "game",
+			"platform":  "gcm",
+		}
+		msg := &KafkaGCMMessage{
+			Message: interfaces.Message{
+				TimeToLive:               &ttl,
+				DeliveryReceiptRequested: false,
+				DryRun:                   true,
+				To:                       uuid.NewV4().String(),
+				Data: map[string]interface{}{
+					"title": "notification",
+				},
+			},
+			Metadata:   metadata,
+			PushExpiry: MakeTimestamp() + int64(1000000),
+		}
+		msgBytes, err := json.Marshal(msg)
+		s.Require().NoError(err)
+
+		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Value: msgBytes,
+		})
+		s.Require().NoError(err)
+		s.Equal(int64(1), s.handler.sentMessages)
+		s.Len(s.mockClient.MessagesSent, 1)
+		s.Len(s.handler.pendingMessages, 1)
+	})
+
+	s.Run("should forward metadata content on GCM request", func() {
+		ttl := uint(0)
+		metadata := map[string]interface{}{
+			"some": "metadata",
+		}
+		msg := &KafkaGCMMessage{
+			Message: interfaces.Message{
+				TimeToLive:               &ttl,
+				DeliveryReceiptRequested: false,
+				DryRun:                   true,
+				To:                       uuid.NewV4().String(),
+				Data: map[string]interface{}{
+					"title": "notification",
+				},
+			},
+			Metadata:   metadata,
+			PushExpiry: MakeTimestamp() + int64(1000000),
+		}
+		msgBytes, err := json.Marshal(msg)
+		s.Require().NoError(err)
+
+		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Value: msgBytes,
 		})
 
-		Describe("Creating new handler", func() {
-			It("should return configured handler", func() {
-				Expect(handler).NotTo(BeNil())
-				Expect(handler.apiKey).To(Equal(apiKey))
-				Expect(handler.game).To(Equal(game))
-				Expect(handler.Config).NotTo(BeNil())
-				Expect(handler.IsProduction).To(Equal(isProduction))
-				Expect(handler.senderID).To(Equal(senderID))
-				Expect(handler.responsesReceived).To(Equal(int64(0)))
-				Expect(handler.sentMessages).To(Equal(int64(0)))
-				Expect(mockClient.MessagesSent).To(HaveLen(0))
-			})
+		s.Require().NoError(err)
+		s.Equal(int64(1), s.handler.sentMessages)
+		s.Len(s.mockClient.MessagesSent, 1)
+		s.Len(s.handler.pendingMessages, 1)
+
+		sentMessage := s.mockClient.MessagesSent[0]
+		s.NotNil(sentMessage)
+		s.Equal("metadata", sentMessage.Data["some"])
+	})
+
+	s.Run("should forward nested metadata content on GCM request", func() {
+		ttl := uint(0)
+		metadata := map[string]interface{}{
+			"some": "metadata",
+		}
+		msg := &KafkaGCMMessage{
+			Message: interfaces.Message{
+				TimeToLive:               &ttl,
+				DeliveryReceiptRequested: false,
+				DryRun:                   true,
+				To:                       uuid.NewV4().String(),
+				Data: map[string]interface{}{
+					"nested": map[string]interface{}{
+						"some": "data",
+					},
+				},
+			},
+			Metadata:   metadata,
+			PushExpiry: MakeTimestamp() + int64(1000000),
+		}
+		msgBytes, err := json.Marshal(msg)
+		s.Require().NoError(err)
+
+		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Value: msgBytes,
 		})
 
-		Describe("Configuring Handler", func() {
-			It("should fail if invalid credentials", func() {
-				handler.apiKey = "badkey"
-				handler.senderID = "badsender"
-				err := handler.configure(nil)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("error connecting gcm xmpp client: auth failure: not-authorized"))
+		s.Require().NoError(err)
+		s.Equal(int64(1), s.handler.sentMessages)
+		s.Len(s.mockClient.MessagesSent, 1)
+		s.Len(s.handler.pendingMessages, 1)
+
+		sentMessage := s.mockClient.MessagesSent[0]
+		s.NotNil(sentMessage)
+		s.Equal("metadata", sentMessage.Data["some"])
+		s.Len(sentMessage.Data["nested"], 1)
+		s.Equal("data", sentMessage.Data["nested"].(map[string]interface{})["some"])
+	})
+
+	s.Run("should wait to send message if maxPendingMessages is reached", func() {
+		ttl := uint(0)
+		msg := &gcm.XMPPMessage{
+			TimeToLive:               &ttl,
+			DeliveryReceiptRequested: false,
+			DryRun:                   true,
+			To:                       uuid.NewV4().String(),
+			Data:                     map[string]interface{}{},
+		}
+		msgBytes, err := json.Marshal(msg)
+		s.NoError(err)
+		ctx := context.Background()
+
+		for i := 1; i <= 3; i++ {
+			err = s.handler.sendMessage(ctx, interfaces.KafkaMessage{
+				Topic: "push-game_gcm",
+				Value: msgBytes,
 			})
+			s.NoError(err)
+			s.Equal(int64(i), s.handler.sentMessages)
+			s.Equal(i, len(s.handler.pendingMessages))
+		}
+
+		go s.handler.sendMessage(ctx, interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Value: msgBytes,
 		})
 
-		Describe("Handle GCM response", func() {
-			It("if response has nil error", func() {
-				res := gcm.CCSMessage{}
-				handler.handleGCMResponse(res)
-				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(handler.successesReceived).To(Equal(int64(1)))
-			})
+		<-s.handler.pendingMessages
+		s.Eventually(
+			func() bool { return s.handler.sentMessages == 4 },
+			5*time.Second,
+			100*time.Millisecond,
+		)
+	})
+}
 
-			It("if response has error DEVICE_UNREGISTERED", func() {
-				res := gcm.CCSMessage{
-					Error: "DEVICE_UNREGISTERED",
-				}
-				handler.handleGCMResponse(res)
-				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(handler.failuresReceived).To(Equal(int64(1)))
-			})
-
-			It("if response has error BAD_REGISTRATION", func() {
-				res := gcm.CCSMessage{
-					Error: "BAD_REGISTRATION",
-				}
-				handler.handleGCMResponse(res)
-				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(handler.failuresReceived).To(Equal(int64(1)))
-			})
-
-			It("if response has error INVALID_JSON", func() {
-				res := gcm.CCSMessage{
-					Error: "INVALID_JSON",
-				}
-				handler.handleGCMResponse(res)
-				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(handler.failuresReceived).To(Equal(int64(1)))
-			})
-
-			It("if response has error SERVICE_UNAVAILABLE", func() {
-				res := gcm.CCSMessage{
-					Error: "SERVICE_UNAVAILABLE",
-				}
-				handler.handleGCMResponse(res)
-				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(handler.failuresReceived).To(Equal(int64(1)))
-			})
-
-			It("if response has error INTERNAL_SERVER_ERROR", func() {
-				res := gcm.CCSMessage{
-					Error: "INTERNAL_SERVER_ERROR",
-				}
-				handler.handleGCMResponse(res)
-				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(handler.failuresReceived).To(Equal(int64(1)))
-			})
-
-			It("if response has error DEVICE_MESSAGE_RATE_EXCEEDED", func() {
-				res := gcm.CCSMessage{
-					Error: "DEVICE_MESSAGE_RATE_EXCEEDED",
-				}
-				handler.handleGCMResponse(res)
-				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(handler.failuresReceived).To(Equal(int64(1)))
-			})
-
-			It("if response has error TOPICS_MESSAGE_RATE_EXCEEDED", func() {
-				res := gcm.CCSMessage{
-					Error: "TOPICS_MESSAGE_RATE_EXCEEDED",
-				}
-				handler.handleGCMResponse(res)
-				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(handler.failuresReceived).To(Equal(int64(1)))
-			})
-
-			It("if response has untracked error", func() {
-				res := gcm.CCSMessage{
-					Error: "BAD_ACK",
-				}
-				handler.handleGCMResponse(res)
-				Expect(handler.responsesReceived).To(Equal(int64(1)))
-				Expect(handler.failuresReceived).To(Equal(int64(1)))
-			})
+func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
+	s.Run("should remove from push queue after timeout", func() {
+		ctx := context.Background()
+		err := s.handler.sendMessage(ctx, interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 		})
+		s.Require().NoError(err)
 
-		Describe("Test push expiration", func() {
-			It("should send message if PushExpiry is in the future", func() {
-				ttl := uint(0)
-				metadata := map[string]interface{}{
-					"some":      "metadata",
-					"timestamp": time.Now().Unix(),
-					"game":      "game",
-					"platform":  "gcm",
-				}
-				msg := &KafkaGCMMessage{
-					XMPPMessage: gcm.XMPPMessage{
-						TimeToLive:               &ttl,
-						DeliveryReceiptRequested: false,
-						DryRun:                   true,
-						To:                       uuid.NewV4().String(),
-						Data: map[string]interface{}{
-							"title": "notification",
-						},
-					},
-					Metadata:   metadata,
-					PushExpiry: makeTimestamp() + int64(1000000),
-				}
-				msgBytes, err := json.Marshal(msg)
-				Expect(err).NotTo(HaveOccurred())
+		go s.handler.CleanMetadataCache()
 
-				err = handler.sendMessage(interfaces.KafkaMessage{
-					Topic: "push-game_gcm",
-					Value: msgBytes,
-				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(handler.sentMessages).To(Equal(int64(1)))
-				Expect(handler.ignoredMessages).To(Equal(int64(0)))
-				Expect(hook.LastEntry().Message).To(Equal("sent message"))
-			})
-			It("should not send message if PushExpiry is in the past", func() {
-				ttl := uint(0)
-				metadata := map[string]interface{}{
-					"some":      "metadata",
-					"timestamp": time.Now().Unix(),
-					"game":      "game",
-					"platform":  "gcm",
-				}
-				msg := &KafkaGCMMessage{
-					XMPPMessage: gcm.XMPPMessage{
-						TimeToLive:               &ttl,
-						DeliveryReceiptRequested: false,
-						DryRun:                   true,
-						To:                       uuid.NewV4().String(),
-						Data:                     map[string]interface{}{},
-					},
-					Metadata:   metadata,
-					PushExpiry: makeTimestamp() - int64(100),
-				}
-				msgBytes, err := json.Marshal(msg)
-				Expect(err).NotTo(HaveOccurred())
+		time.Sleep(500 * time.Millisecond)
 
-				err = handler.sendMessage(interfaces.KafkaMessage{
-					Topic: "push-game_gcm",
-					Value: msgBytes,
-				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(handler.sentMessages).To(Equal(int64(0)))
-				Expect(handler.ignoredMessages).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Message).To(ContainSubstring("ignoring push"))
-			})
+		s.Empty(s.handler.requestsHeap)
+		s.Empty(s.handler.InflightMessagesMetadata)
+	})
 
+	s.Run("should succeed if request gets a response", func() {
+		ctx := context.Background()
+		err := s.handler.sendMessage(ctx, interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 		})
+		s.Require().NoError(err)
 
-		Describe("Send message", func() {
-			It("should send xmpp message and not increment sentMessages if an error occurs", func() {
-				err := handler.sendMessage(interfaces.KafkaMessage{
-					Topic: "push-game_gcm",
-					Value: []byte("gogogo"),
-				})
-				Expect(err).To(HaveOccurred())
-				Expect(handler.sentMessages).To(Equal(int64(0)))
-				Expect(hook.Entries).To(ContainLogMessage("Error unmarshaling message."))
-				Expect(mockClient.MessagesSent).To(HaveLen(0))
-				Expect(len(handler.pendingMessages)).To(Equal(0))
-			})
+		go s.handler.CleanMetadataCache()
 
-			It("should send xmpp message", func() {
-				ttl := uint(0)
-				msg := &gcm.XMPPMessage{
-					TimeToLive:               &ttl,
-					DeliveryReceiptRequested: false,
-					DryRun:                   true,
-					To:                       uuid.NewV4().String(),
-					Data: map[string]interface{}{
-						"title": "notification",
-					},
-				}
-				msgBytes, err := json.Marshal(msg)
-				Expect(err).NotTo(HaveOccurred())
+		res := gcm.CCSMessage{
+			From:        "testToken1",
+			MessageID:   "idTest1",
+			MessageType: "ack",
+			Category:    "testCategory",
+		}
+		err = s.handler.handleGCMResponse(res)
+		s.Require().NoError(err)
 
-				err = handler.sendMessage(interfaces.KafkaMessage{
-					Topic: "push-game_gcm",
-					Value: msgBytes,
-				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(handler.sentMessages).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Message).To(Equal("sent message"))
-				Expect(mockClient.MessagesSent).To(HaveLen(1))
-				Expect(len(handler.pendingMessages)).To(Equal(1))
-			})
+		time.Sleep(500 * time.Millisecond)
 
-			It("should send xmpp message with metadata", func() {
-				ttl := uint(0)
-				metadata := map[string]interface{}{
-					"some":      "metadata",
-					"timestamp": time.Now().Unix(),
-					"game":      "game",
-					"platform":  "gcm",
-				}
-				msg := &KafkaGCMMessage{
-					XMPPMessage: gcm.XMPPMessage{
-						TimeToLive:               &ttl,
-						DeliveryReceiptRequested: false,
-						DryRun:                   true,
-						To:                       uuid.NewV4().String(),
-						Data: map[string]interface{}{
-							"title": "notification",
-						},
-					},
-					Metadata:   metadata,
-					PushExpiry: makeTimestamp() + int64(1000000),
-				}
-				msgBytes, err := json.Marshal(msg)
-				Expect(err).NotTo(HaveOccurred())
+		s.Empty(s.handler.requestsHeap)
+		s.Empty(s.handler.InflightMessagesMetadata)
+	})
 
-				err = handler.sendMessage(interfaces.KafkaMessage{
-					Topic: "push-game_gcm",
-					Value: msgBytes,
-				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(handler.sentMessages).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Message).To(Equal("sent message"))
-				Expect(mockClient.MessagesSent).To(HaveLen(1))
-				Expect(len(handler.pendingMessages)).To(Equal(1))
-			})
-
-			It("should forward metadata content on GCM request", func() {
-				ttl := uint(0)
-				metadata := map[string]interface{}{
-					"some": "metadata",
-				}
-				msg := &KafkaGCMMessage{
-					XMPPMessage: gcm.XMPPMessage{
-						TimeToLive:               &ttl,
-						DeliveryReceiptRequested: false,
-						DryRun:                   true,
-						To:                       uuid.NewV4().String(),
-						Data: map[string]interface{}{
-							"title": "notification",
-						},
-					},
-					Metadata:   metadata,
-					PushExpiry: makeTimestamp() + int64(1000000),
-				}
-				msgBytes, err := json.Marshal(msg)
-				Expect(err).NotTo(HaveOccurred())
-
-				err = handler.sendMessage(interfaces.KafkaMessage{
-					Topic: "push-game_gcm",
-					Value: msgBytes,
-				})
-
-				Expect(err).NotTo(HaveOccurred())
-				Expect(handler.sentMessages).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Message).To(Equal("sent message"))
-				Expect(mockClient.MessagesSent).To(HaveLen(1))
-				sentMessage := mockClient.MessagesSent[0]
-				Expect(sentMessage).NotTo(BeNil())
-				Expect(sentMessage.Data["some"]).To(Equal("metadata"))
-				Expect(len(handler.pendingMessages)).To(Equal(1))
-			})
-
-			It("should forward nested metadata content on GCM request", func() {
-				ttl := uint(0)
-				metadata := map[string]interface{}{
-					"some": "metadata",
-				}
-				msg := &KafkaGCMMessage{
-					XMPPMessage: gcm.XMPPMessage{
-						TimeToLive:               &ttl,
-						DeliveryReceiptRequested: false,
-						DryRun:                   true,
-						To:                       uuid.NewV4().String(),
-						Data: map[string]interface{}{
-							"nested": map[string]interface{}{
-								"some": "data",
-							},
-						},
-					},
-					Metadata:   metadata,
-					PushExpiry: makeTimestamp() + int64(1000000),
-				}
-				msgBytes, err := json.Marshal(msg)
-				Expect(err).NotTo(HaveOccurred())
-
-				err = handler.sendMessage(interfaces.KafkaMessage{
-					Topic: "push-game_gcm",
-					Value: msgBytes,
-				})
-
-				Expect(err).NotTo(HaveOccurred())
-				Expect(handler.sentMessages).To(Equal(int64(1)))
-				Expect(hook.LastEntry().Message).To(Equal("sent message"))
-				Expect(mockClient.MessagesSent).To(HaveLen(1))
-
-				sentMessage := mockClient.MessagesSent[0]
-				Expect(sentMessage).NotTo(BeNil())
-				Expect(sentMessage.Data["nested"]).NotTo(BeNil())
-
-				nestedContent := sentMessage.Data["nested"].(map[string]interface{})
-				Expect(nestedContent).NotTo(BeNil())
-				Expect(nestedContent["some"]).To(Equal("data"))
-
-				Expect(len(handler.pendingMessages)).To(Equal(1))
-			})
-
-			It("should wait to send message if maxPendingMessages limit is reached", func() {
-				ttl := uint(0)
-				msg := &gcm.XMPPMessage{
-					TimeToLive:               &ttl,
-					DeliveryReceiptRequested: false,
-					DryRun:                   true,
-					To:                       uuid.NewV4().String(),
-					Data:                     map[string]interface{}{},
-				}
-				msgBytes, err := json.Marshal(msg)
-				Expect(err).NotTo(HaveOccurred())
-
-				for i := 1; i <= 3; i++ {
-					err = handler.sendMessage(interfaces.KafkaMessage{
-						Topic: "push-game_gcm",
-						Value: msgBytes,
-					})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(handler.sentMessages).To(Equal(int64(i)))
-					Expect(len(handler.pendingMessages)).To(Equal(i))
-				}
-
-				go handler.sendMessage(interfaces.KafkaMessage{
-					Topic: "push-game_gcm",
-					Value: msgBytes,
-				})
-				Consistently(handler.sentMessages).Should(Equal(int64(3)))
-				Consistently(len(handler.pendingMessages)).Should(Equal(3))
-
-				time.Sleep(100 * time.Millisecond)
-				<-handler.pendingMessages
-				Eventually(func() int64 { return handler.sentMessages }).Should(Equal(int64(4)))
-			})
-		})
-
-		Describe("Clean Cache", func() {
-			It("should remove from push queue after timeout", func() {
-				handler.sendMessage(interfaces.KafkaMessage{
+	s.Run("should handle all responses or remove them after timeout", func() {
+		ctx := context.Background()
+		n := 10
+		sendRequests := func() {
+			for i := 0; i < n; i++ {
+				err := s.handler.sendMessage(ctx, interfaces.KafkaMessage{
 					Topic: "push-game_gcm",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
-				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
-				time.Sleep(500 * time.Millisecond)
-				Expect(*handler.requestsHeap).To(BeEmpty())
-				Expect(handler.InflightMessagesMetadata).To(BeEmpty())
-			})
+				s.Require().NoError(err)
+			}
+		}
 
-			It("should not panic if a request got a response", func() {
-				handler.sendMessage(interfaces.KafkaMessage{
-					Topic: "push-game_gcm",
-					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
-				})
-				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
+		handleResponses := func() {
+			for i := 0; i < n/2; i++ {
 				res := gcm.CCSMessage{
 					From:        "testToken1",
 					MessageID:   "idTest1",
@@ -478,343 +535,263 @@ var _ = Describe("GCM Message Handler", func() {
 					Category:    "testCategory",
 				}
 
-				handler.handleGCMResponse(res)
-				time.Sleep(500 * time.Millisecond)
-				Expect(*handler.requestsHeap).To(BeEmpty())
-				Expect(handler.InflightMessagesMetadata).To(BeEmpty())
-			})
+				err := s.handler.handleGCMResponse(res)
+				s.Require().NoError(err)
+			}
+		}
 
-			It("should handle all responses or remove them after timeout", func() {
-				var n int = 10
-				sendRequests := func() {
-					for i := 0; i < n; i++ {
-						handler.sendMessage(interfaces.KafkaMessage{
-							Topic: "push-game_gcm",
-							Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
-						})
-					}
+		go s.handler.CleanMetadataCache()
+		go sendRequests()
+		time.Sleep(500 * time.Millisecond)
+
+		go handleResponses()
+		time.Sleep(500 * time.Millisecond)
+
+		s.Empty(s.handler.requestsHeap)
+		s.Empty(s.handler.InflightMessagesMetadata)
+	})
+}
+
+func (s *GCMMessageHandlerTestSuite) TestLogStats() {
+	s.Run("should log stats and reset them", func() {
+		s.handler.sentMessages = 100
+		s.handler.responsesReceived = 90
+		s.handler.successesReceived = 60
+		s.handler.failuresReceived = 30
+		s.handler.ignoredMessages = 10
+
+		go s.handler.LogStats()
+		s.Eventually(func() bool {
+			for _, e := range s.hooks.Entries {
+				if e.Message == "flushing stats" {
+					return true
 				}
+			}
+			return false
+		},
+			time.Second,
+			time.Millisecond*100,
+		)
+		s.Eventually(func() bool { return s.handler.sentMessages == int64(0) }, time.Second, time.Millisecond*100)
+		s.Eventually(func() bool { return s.handler.responsesReceived == int64(0) }, time.Second, time.Millisecond*100)
+		s.Eventually(func() bool { return s.handler.successesReceived == int64(0) }, time.Second, time.Millisecond*100)
+		s.Eventually(func() bool { return s.handler.failuresReceived == int64(0) }, time.Second, time.Millisecond*100)
+		s.Eventually(func() bool { return s.handler.ignoredMessages == int64(0) }, time.Second, time.Millisecond*100)
+	})
+}
 
-				handleResponses := func() {
-					for i := 0; i < n/2; i++ {
-						res := gcm.CCSMessage{
-							From:        "testToken1",
-							MessageID:   "idTest1",
-							MessageType: "ack",
-							Category:    "testCategory",
-						}
+func (s *GCMMessageHandlerTestSuite) TestStatsReporter() {
+	s.Run("should call HandleNotificationSent upon message sent to queue", func() {
+		ttl := uint(0)
+		msg := &gcm.XMPPMessage{
+			TimeToLive:               &ttl,
+			DeliveryReceiptRequested: false,
+			DryRun:                   true,
+			To:                       uuid.NewV4().String(),
+			Data:                     map[string]interface{}{},
+		}
+		msgBytes, err := json.Marshal(msg)
+		s.NoError(err)
+		ctx := context.Background()
+		kafkaMessage := interfaces.KafkaMessage{
+			Game:  "game",
+			Topic: "push-game_gcm",
+			Value: msgBytes,
+		}
+		err = s.handler.sendMessage(ctx, kafkaMessage)
+		s.NoError(err)
 
-						handler.handleGCMResponse(res)
-					}
-				}
-
-				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
-				Expect(func() { go sendRequests() }).ShouldNot(Panic())
-				time.Sleep(10 * time.Millisecond)
-				Expect(func() { go handleResponses() }).ShouldNot(Panic())
-				time.Sleep(500 * time.Millisecond)
-
-				Expect(*handler.requestsHeap).To(BeEmpty())
-				Expect(handler.InflightMessagesMetadata).To(BeEmpty())
-			})
-		})
-
-		Describe("Log Stats", func() {
-			It("should log and zero stats", func() {
-				handler.sentMessages = 100
-				handler.responsesReceived = 90
-				handler.successesReceived = 60
-				handler.failuresReceived = 30
-				handler.ignoredMessages = 10
-				Expect(func() { go handler.LogStats() }).ShouldNot(Panic())
-				Eventually(func() []logrus.Entry { return hook.Entries }).Should(ContainLogMessage("flushing stats"))
-				Eventually(func() int64 { return handler.sentMessages }).Should(Equal(int64(0)))
-				Eventually(func() int64 { return handler.responsesReceived }).Should(Equal(int64(0)))
-				Eventually(func() int64 { return handler.successesReceived }).Should(Equal(int64(0)))
-				Eventually(func() int64 { return handler.failuresReceived }).Should(Equal(int64(0)))
-				Eventually(func() int64 { return handler.ignoredMessages }).Should(Equal(int64(0)))
-			})
-		})
-
-		Describe("Stats Reporter sent message", func() {
-			It("should call HandleNotificationSent upon message sent to queue", func() {
-				ttl := uint(0)
-				msg := &gcm.XMPPMessage{
-					TimeToLive:               &ttl,
-					DeliveryReceiptRequested: false,
-					DryRun:                   true,
-					To:                       uuid.NewV4().String(),
-					Data:                     map[string]interface{}{},
-				}
-				msgBytes, err := json.Marshal(msg)
-				Expect(err).NotTo(HaveOccurred())
-				kafkaMessage := interfaces.KafkaMessage{
-					Game:  "game",
-					Topic: "push-game_gcm",
-					Value: msgBytes,
-				}
-				err = handler.sendMessage(kafkaMessage)
-				Expect(err).NotTo(HaveOccurred())
-
-				err = handler.sendMessage(kafkaMessage)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(mockStatsDClient.Counts["sent"]).To(Equal(int64(2)))
-			})
-
-			It("should call HandleNotificationSuccess upon message response received", func() {
-				res := gcm.CCSMessage{}
-				handler.handleGCMResponse(res)
-				handler.handleGCMResponse(res)
-				Expect(mockStatsDClient.Counts["ack"]).To(Equal(int64(2)))
-			})
-
-			It("should call HandleNotificationFailure upon message response received", func() {
-				res := gcm.CCSMessage{
-					Error: "DEVICE_UNREGISTERED",
-				}
-				handler.handleGCMResponse(res)
-				handler.handleGCMResponse(res)
-
-				Expect(mockStatsDClient.Counts["failed"]).To(Equal(int64(2)))
-			})
-		})
-
-		Describe("Feedback Reporter sent message", func() {
-			BeforeEach(func() {
-				var err error
-
-				mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
-				kc, err := NewKafkaProducer(config, logger, mockKafkaProducerClient)
-				Expect(err).NotTo(HaveOccurred())
-				feedbackClients = []interfaces.FeedbackReporter{kc}
-
-				mockClient = mocks.NewGCMClientMock()
-
-				handler, err = NewGCMMessageHandler(
-					senderID,
-					apiKey,
-					game,
-					isProduction,
-					config,
-					logger,
-					nil,
-					statsClients,
-					feedbackClients,
-					mockClient,
-				)
-				Expect(err).NotTo(HaveOccurred())
-
-			})
-
-			It("should include a timestamp in feedback root and the hostname in metadata", func() {
-				timestampNow := time.Now().Unix()
-				hostname, err := os.Hostname()
-				Expect(err).NotTo(HaveOccurred())
-				metadata := map[string]interface{}{
-					"some":      "metadata",
-					"timestamp": timestampNow,
-					"hostname":  hostname,
-					"game":      "game",
-					"platform":  "gcm",
-				}
-				handler.InflightMessagesMetadata["idTest1"] = metadata
-				res := gcm.CCSMessage{
-					From:        "testToken1",
-					MessageID:   "idTest1",
-					MessageType: "ack",
-					Category:    "testCategory",
-				}
-				go handler.handleGCMResponse(res)
-
-				fromKafka := &CCSMessageWithMetadata{}
-				msg := <-mockKafkaProducerClient.ProduceChannel()
-				json.Unmarshal(msg.Value, fromKafka)
-				Expect(fromKafka.Timestamp).To(Equal(timestampNow))
-				Expect(fromKafka.Metadata["hostname"]).To(Equal(hostname))
-			})
-
-			It("should send feedback if success and metadata is present", func() {
-				metadata := map[string]interface{}{
-					"some":      "metadata",
-					"timestamp": time.Now().Unix(),
-					"game":      "game",
-					"platform":  "gcm",
-				}
-				handler.InflightMessagesMetadata["idTest1"] = metadata
-				res := gcm.CCSMessage{
-					From:        "testToken1",
-					MessageID:   "idTest1",
-					MessageType: "ack",
-					Category:    "testCategory",
-				}
-				go handler.handleGCMResponse(res)
-
-				fromKafka := &CCSMessageWithMetadata{}
-				msg := <-mockKafkaProducerClient.ProduceChannel()
-				json.Unmarshal(msg.Value, fromKafka)
-				Expect(fromKafka.From).To(Equal(res.From))
-				Expect(fromKafka.MessageID).To(Equal(res.MessageID))
-				Expect(fromKafka.MessageType).To(Equal(res.MessageType))
-				Expect(fromKafka.Category).To(Equal(res.Category))
-				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
-			})
-
-			It("should send feedback if success and metadata is not present", func() {
-				res := gcm.CCSMessage{
-					From:        "testToken1",
-					MessageID:   "idTest1",
-					MessageType: "ack",
-					Category:    "testCategory",
-				}
-				go handler.handleGCMResponse(res)
-
-				fromKafka := &CCSMessageWithMetadata{}
-				msg := <-mockKafkaProducerClient.ProduceChannel()
-				json.Unmarshal(msg.Value, fromKafka)
-				Expect(fromKafka.From).To(Equal(res.From))
-				Expect(fromKafka.MessageID).To(Equal(res.MessageID))
-				Expect(fromKafka.MessageType).To(Equal(res.MessageType))
-				Expect(fromKafka.Category).To(Equal(res.Category))
-				Expect(fromKafka.Metadata).To(BeNil())
-			})
-
-			It("should send feedback if error and metadata is present and token should be deleted", func() {
-				metadata := map[string]interface{}{
-					"some":      "metadata",
-					"timestamp": time.Now().Unix(),
-					"game":      "game",
-					"platform":  "gcm",
-				}
-				handler.InflightMessagesMetadata["idTest1"] = metadata
-				res := gcm.CCSMessage{
-					From:        "testToken1",
-					MessageID:   "idTest1",
-					MessageType: "nack",
-					Category:    "testCategory",
-					Error:       "BAD_REGISTRATION",
-				}
-				go handler.handleGCMResponse(res)
-
-				fromKafka := &CCSMessageWithMetadata{}
-				msg := <-mockKafkaProducerClient.ProduceChannel()
-				json.Unmarshal(msg.Value, fromKafka)
-				Expect(fromKafka.From).To(Equal(res.From))
-				Expect(fromKafka.MessageID).To(Equal(res.MessageID))
-				Expect(fromKafka.MessageType).To(Equal(res.MessageType))
-				Expect(fromKafka.Category).To(Equal(res.Category))
-				Expect(fromKafka.Error).To(Equal(res.Error))
-				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
-				Expect(fromKafka.Metadata["deleteToken"]).To(BeTrue())
-			})
-
-			It("should send feedback if error and metadata is present and token should not be deleted", func() {
-				metadata := map[string]interface{}{
-					"some":      "metadata",
-					"timestamp": time.Now().Unix(),
-					"game":      "game",
-					"platform":  "gcm",
-				}
-				handler.InflightMessagesMetadata["idTest1"] = metadata
-				res := gcm.CCSMessage{
-					From:        "testToken1",
-					MessageID:   "idTest1",
-					MessageType: "nack",
-					Category:    "testCategory",
-					Error:       "INVALID_JSON",
-				}
-				go handler.handleGCMResponse(res)
-
-				fromKafka := &CCSMessageWithMetadata{}
-				msg := <-mockKafkaProducerClient.ProduceChannel()
-				json.Unmarshal(msg.Value, fromKafka)
-				Expect(fromKafka.From).To(Equal(res.From))
-				Expect(fromKafka.MessageID).To(Equal(res.MessageID))
-				Expect(fromKafka.MessageType).To(Equal(res.MessageType))
-				Expect(fromKafka.Category).To(Equal(res.Category))
-				Expect(fromKafka.Error).To(Equal(res.Error))
-				Expect(fromKafka.Metadata["some"]).To(Equal(metadata["some"]))
-				Expect(fromKafka.Metadata["deleteToken"]).To(BeNil())
-			})
-
-			It("should send feedback if error and metadata is not present", func() {
-				res := gcm.CCSMessage{
-					From:        "testToken1",
-					MessageID:   "idTest1",
-					MessageType: "nack",
-					Category:    "testCategory",
-					Error:       "BAD_REGISTRATION",
-				}
-				go handler.handleGCMResponse(res)
-
-				fromKafka := &CCSMessageWithMetadata{}
-				msg := <-mockKafkaProducerClient.ProduceChannel()
-				json.Unmarshal(msg.Value, fromKafka)
-				Expect(fromKafka.From).To(Equal(res.From))
-				Expect(fromKafka.MessageID).To(Equal(res.MessageID))
-				Expect(fromKafka.MessageType).To(Equal(res.MessageType))
-				Expect(fromKafka.Category).To(Equal(res.Category))
-				Expect(fromKafka.Error).To(Equal(res.Error))
-				Expect(fromKafka.Metadata).To(BeNil())
-			})
-		})
-
-		Describe("Cleanup", func() {
-			It("should close GCMClient without error", func() {
-				err := handler.Cleanup()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(handler.GCMClient.(*mocks.GCMClientMock).Closed).To(BeTrue())
-			})
-		})
+		err = s.handler.sendMessage(ctx, kafkaMessage)
+		s.NoError(err)
+		s.Equal(int64(2), s.mockStatsdClient.Counts["sent"])
 	})
 
-	Describe("[Integration]", func() {
-		BeforeEach(func() {
-			var err error
+	s.Run("should call HandleNotificationSuccess upon response received", func() {
+		res := gcm.CCSMessage{}
+		err := s.handler.handleGCMResponse(res)
+		s.Require().NoError(err)
+		err = s.handler.handleGCMResponse(res)
+		s.Require().NoError(err)
 
-			c, err := NewStatsD(config, logger)
-			Expect(err).NotTo(HaveOccurred())
-
-			kc, err := NewKafkaProducer(config, logger)
-			Expect(err).NotTo(HaveOccurred())
-			statsClients = []interfaces.StatsReporter{c}
-			feedbackClients = []interfaces.FeedbackReporter{kc}
-
-			handler, err = NewGCMMessageHandler(
-				senderID,
-				apiKey,
-				game,
-				isProduction,
-				config,
-				logger,
-				nil,
-				statsClients,
-				feedbackClients,
-				nil,
-			)
-			Expect(err).NotTo(HaveOccurred())
-
-			hook.Reset()
-		})
-
-		PDescribe("Creating new handler", func() {
-			It("should fail when real client", func() {
-				var err error
-				handler, err = NewGCMMessageHandler(
-					senderID,
-					apiKey,
-					game,
-					isProduction,
-					config,
-					logger,
-					nil,
-					statsClients,
-					feedbackClients,
-					nil,
-				)
-				Expect(handler).To(BeNil())
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("error connecting gcm xmpp client: auth failure: not-authorized"))
-			})
-		})
+		s.Equal(int64(2), s.mockStatsdClient.Counts["ack"])
 	})
-})
+
+	s.Run("should call HandleNotificationFailure upon error response received", func() {
+		res := gcm.CCSMessage{
+			Error: "DEVICE_UNREGISTERED",
+		}
+		s.handler.handleGCMResponse(res)
+		s.handler.handleGCMResponse(res)
+
+		s.Equal(int64(2), s.mockStatsdClient.Counts["failed"])
+	})
+
+}
+
+func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
+	s.Run("should include a timestamp in feedback root and the hostname in metadata", func() {
+		timestampNow := time.Now().Unix()
+		hostname, err := os.Hostname()
+		s.Require().NoError(err)
+
+		metadata := map[string]interface{}{
+			"some":      "metadata",
+			"timestamp": timestampNow,
+			"hostname":  hostname,
+			"game":      "game",
+			"platform":  "gcm",
+		}
+		s.handler.InflightMessagesMetadata["idTest1"] = metadata
+		res := gcm.CCSMessage{
+			From:        "testToken1",
+			MessageID:   "idTest1",
+			MessageType: "ack",
+			Category:    "testCategory",
+		}
+		go s.handler.handleGCMResponse(res)
+
+		fromKafka := &CCSMessageWithMetadata{}
+		msg := <-s.mockKafkaProducer.ProduceChannel()
+		err = json.Unmarshal(msg.Value, fromKafka)
+		s.Require().NoError(err)
+		s.Equal(timestampNow, fromKafka.Timestamp)
+		s.Equal(hostname, fromKafka.Metadata["hostname"])
+	})
+
+	s.Run("should send feedback if success and metadata is present", func() {
+		metadata := map[string]interface{}{
+			"some":      "metadata",
+			"timestamp": time.Now().Unix(),
+			"game":      "game",
+			"platform":  "gcm",
+		}
+		s.handler.InflightMessagesMetadata["idTest1"] = metadata
+		res := gcm.CCSMessage{
+			From:        "testToken1",
+			MessageID:   "idTest1",
+			MessageType: "ack",
+			Category:    "testCategory",
+		}
+		go s.handler.handleGCMResponse(res)
+
+		fromKafka := &CCSMessageWithMetadata{}
+		msg := <-s.mockKafkaProducer.ProduceChannel()
+		err := json.Unmarshal(msg.Value, fromKafka)
+		s.Require().NoError(err)
+		s.Equal(res.From, fromKafka.From)
+		s.Equal(res.MessageID, fromKafka.MessageID)
+		s.Equal(res.MessageType, fromKafka.MessageType)
+		s.Equal(res.Category, fromKafka.Category)
+		s.Equal(metadata["some"], fromKafka.Metadata["some"])
+	})
+
+	s.Run("should send feedback if success and metadata is not present", func() {
+		res := gcm.CCSMessage{
+			From:        "testToken1",
+			MessageID:   "idTest1",
+			MessageType: "ack",
+			Category:    "testCategory",
+		}
+		go s.handler.handleGCMResponse(res)
+
+		fromKafka := &CCSMessageWithMetadata{}
+		msg := <-s.mockKafkaProducer.ProduceChannel()
+		err := json.Unmarshal(msg.Value, fromKafka)
+		s.Require().NoError(err)
+		s.Equal(res.From, fromKafka.From)
+		s.Equal(res.MessageID, fromKafka.MessageID)
+		s.Equal(res.MessageType, fromKafka.MessageType)
+		s.Equal(res.Category, fromKafka.Category)
+		s.Nil(fromKafka.Metadata)
+	})
+
+	s.Run("should send feedback if error and metadata is present and token should be deleted", func() {
+		metadata := map[string]interface{}{
+			"some":      "metadata",
+			"timestamp": time.Now().Unix(),
+			"game":      "game",
+			"platform":  "gcm",
+		}
+		s.handler.InflightMessagesMetadata["idTest1"] = metadata
+		res := gcm.CCSMessage{
+			From:        "testToken1",
+			MessageID:   "idTest1",
+			MessageType: "nack",
+			Category:    "testCategory",
+			Error:       "BAD_REGISTRATION",
+		}
+		go s.handler.handleGCMResponse(res)
+
+		fromKafka := &CCSMessageWithMetadata{}
+		msg := <-s.mockKafkaProducer.ProduceChannel()
+		err := json.Unmarshal(msg.Value, fromKafka)
+		s.Require().NoError(err)
+		s.Equal(res.From, fromKafka.From)
+		s.Equal(res.MessageID, fromKafka.MessageID)
+		s.Equal(res.MessageType, fromKafka.MessageType)
+		s.Equal(res.Category, fromKafka.Category)
+		s.Equal(res.Error, fromKafka.Error)
+		s.Equal(metadata["some"], fromKafka.Metadata["some"])
+		s.True(fromKafka.Metadata["deleteToken"].(bool))
+	})
+
+	s.Run("should send feedback if error and metadata is present and token should not be deleted", func() {
+		metadata := map[string]interface{}{
+			"some":      "metadata",
+			"timestamp": time.Now().Unix(),
+			"game":      "game",
+			"platform":  "gcm",
+		}
+		s.handler.InflightMessagesMetadata["idTest1"] = metadata
+		res := gcm.CCSMessage{
+			From:        "testToken1",
+			MessageID:   "idTest1",
+			MessageType: "nack",
+			Category:    "testCategory",
+			Error:       "INVALID_JSON",
+		}
+		go s.handler.handleGCMResponse(res)
+
+		fromKafka := &CCSMessageWithMetadata{}
+		msg := <-s.mockKafkaProducer.ProduceChannel()
+		err := json.Unmarshal(msg.Value, fromKafka)
+		s.Require().NoError(err)
+		s.Equal(res.From, fromKafka.From)
+		s.Equal(res.MessageID, fromKafka.MessageID)
+		s.Equal(res.MessageType, fromKafka.MessageType)
+		s.Equal(res.Category, fromKafka.Category)
+		s.Equal(res.Error, fromKafka.Error)
+		s.Equal(metadata["some"], fromKafka.Metadata["some"])
+		s.Nil(fromKafka.Metadata["deleteToken"])
+	})
+	s.Run("should send feedback if error and metadata is not present", func() {
+		res := gcm.CCSMessage{
+			From:        "testToken1",
+			MessageID:   "idTest1",
+			MessageType: "nack",
+			Category:    "testCategory",
+			Error:       "BAD_REGISTRATION",
+		}
+		go s.handler.handleGCMResponse(res)
+
+		fromKafka := &CCSMessageWithMetadata{}
+		msg := <-s.mockKafkaProducer.ProduceChannel()
+		err := json.Unmarshal(msg.Value, fromKafka)
+		s.Require().NoError(err)
+		s.Equal(res.From, fromKafka.From)
+		s.Equal(res.MessageID, fromKafka.MessageID)
+		s.Equal(res.MessageType, fromKafka.MessageType)
+		s.Equal(res.Category, fromKafka.Category)
+		s.Equal(res.Error, fromKafka.Error)
+		s.Nil(fromKafka.Metadata)
+	})
+}
+
+func (s *GCMMessageHandlerTestSuite) TestCleanup() {
+	s.Run("should close GCM client without errors", func() {
+		err := s.handler.Cleanup()
+		s.NoError(err)
+		s.True(s.mockClient.Closed)
+		fmt.Println("AQUIAQUIAQUIAQUIAQUIAQUIAQUIAQUIAQUIAQUIAQUI")
+	})
+}
