@@ -188,7 +188,7 @@ var _ = Describe("Kafka Extension", func() {
 			})
 		})
 
-		PDescribe("ConsumeLoop", func() {
+		Describe("ConsumeLoop", func() {
 			It("should consume message and add it to msgChan", func() {
 				stopChannel := make(chan struct{})
 				client, err := NewKafkaConsumer(config, logger, &stopChannel)
@@ -212,7 +212,7 @@ var _ = Describe("Kafka Extension", func() {
 					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(client.msgChan, 10*time.Second).Should(Receive(Equal([]byte("Hello Go!"))))
+				Eventually(client.msgChan, 100*time.Millisecond).WithTimeout(5 * time.Second).Should(Receive(Equal([]byte("Hello Go!"))))
 			})
 		})
 	})
