@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
 	"github.com/sirupsen/logrus"
@@ -19,7 +20,14 @@ var _ interfaces.PushClient = &firebaseClientImpl{}
 
 func NewFirebaseClient(jsonCredentials string, logger *logrus.Logger) (interfaces.PushClient, error) {
 	ctx := context.Background()
-	app, err := firebase.NewApp(ctx, nil, option.WithCredentialsJSON([]byte(jsonCredentials)))
+	projectID, err := getProjectIDFromJson(jsonCredentials)
+	if err != nil {
+		return nil, err
+	}
+	cfg := &firebase.Config{
+		ProjectID: projectID,
+	}
+	app, err := firebase.NewApp(ctx, cfg, option.WithCredentialsJSON([]byte(jsonCredentials)))
 	if err != nil {
 		return nil, err
 	}
@@ -55,15 +63,31 @@ func (f *firebaseClientImpl) SendPush(ctx context.Context, msg interfaces.Messag
 	return nil
 }
 
+func getProjectIDFromJson(jsonStr string) (string, error) {
+	var data map[string]interface{}
+	err := json.Unmarshal([]byte(jsonStr), &data)
+	if err != nil {
+		return "", err
+	}
+
+	return data["project_id"].(string), nil
+}
+
 func toFirebaseMessage(message interfaces.Message) messaging.Message {
 	firebaseMessage := messaging.Message{
-		Data: nil,
-		Notification: &messaging.Notification{
+		Token: message.To,
+	}
+
+	if message.Data != nil {
+		firebaseMessage.Data = toMapString(message.Data)
+	}
+	if message.Notification != nil {
+		firebaseMessage.Notification = &messaging.Notification{
 			Title:    message.Notification.Title,
 			Body:     message.Notification.Body,
 			ImageURL: message.Notification.Icon,
-		},
-		Android: &messaging.AndroidConfig{
+		}
+		firebaseMessage.Android = &messaging.AndroidConfig{
 			CollapseKey: message.CollapseKey,
 			Priority:    message.Priority,
 			Notification: &messaging.AndroidNotification{
@@ -77,8 +101,14 @@ func toFirebaseMessage(message interfaces.Message) messaging.Message {
 				BodyLocKey:  message.Notification.BodyLocKey,
 				TitleLocKey: message.Notification.TitleLocKey,
 			},
-		},
-		Token: message.To,
+		}
+		if message.Notification.BodyLocArgs != "" {
+			firebaseMessage.Android.Notification.BodyLocArgs = []string{message.Notification.BodyLocArgs}
+		}
+
+		if message.Notification.TitleLocArgs != "" {
+			firebaseMessage.Android.Notification.TitleLocArgs = []string{message.Notification.TitleLocArgs}
+		}
 	}
 
 	if message.TimeToLive != nil {
@@ -87,13 +117,15 @@ func toFirebaseMessage(message interfaces.Message) messaging.Message {
 		firebaseMessage.Android.TTL = &ttl
 	}
 
-	if message.Notification.BodyLocArgs != "" {
-		firebaseMessage.Android.Notification.BodyLocArgs = []string{message.Notification.BodyLocArgs}
-	}
-
-	if message.Notification.TitleLocArgs != "" {
-		firebaseMessage.Android.Notification.TitleLocArgs = []string{message.Notification.TitleLocArgs}
-	}
-
 	return firebaseMessage
+}
+
+func toMapString(data interfaces.Data) map[string]string {
+	result := make(map[string]string)
+	for k, v := range data {
+		if str, ok := v.(string); ok {
+			result[k] = str
+		}
+	}
+	return result
 }

@@ -85,11 +85,10 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 		h.stats.failures++
 		h.statsMutex.Unlock()
 
-		h.statsReporterHandleNotificationFailure(err)
+		h.handleNotificationFailure(err)
 		return
 	}
-
-	h.statsReporterHandleNotificationSent()
+	h.handleNotificationSent()
 
 	h.statsMutex.Lock()
 	h.stats.sent++
@@ -140,17 +139,31 @@ func (h *messageHandler) sendToFeedbackReporters(res interface{}) error {
 	return nil
 }
 
-func (h *messageHandler) statsReporterHandleNotificationSent() {
+func (h *messageHandler) handleNotificationSent() {
 	for _, statsReporter := range h.statsReporters {
 		statsReporter.HandleNotificationSent(h.app, "gcm")
 		statsReporter.HandleNotificationSuccess(h.app, "gcm")
 	}
+
+	for _, feedbackReporter := range h.feedbackReporters {
+		r := &FeedbackResponse{}
+		b, _ := json.Marshal(r)
+		feedbackReporter.SendFeedback(h.app, "gcm", b)
+	}
 }
 
-func (h *messageHandler) statsReporterHandleNotificationFailure(err error) {
+func (h *messageHandler) handleNotificationFailure(err error) {
 	pushError := translateToPushError(err)
 	for _, statsReporter := range h.statsReporters {
 		statsReporter.HandleNotificationFailure(h.app, "gcm", pushError)
+	}
+	for _, feedbackReporter := range h.feedbackReporters {
+		feedback := &FeedbackResponse{
+			Error:            pushError.Key,
+			ErrorDescription: pushError.Description,
+		}
+		b, _ := json.Marshal(feedback)
+		feedbackReporter.SendFeedback(h.app, "gcm", b)
 	}
 }
 

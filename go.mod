@@ -16,6 +16,7 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.9.0
 	github.com/topfreegames/go-gcm v0.9.2-0.20190502232724-427c8404345d
+	go.uber.org/mock v0.4.0
 	google.golang.org/api v0.114.0
 	gopkg.in/pg.v5 v5.3.3
 )
