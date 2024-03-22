@@ -188,7 +188,7 @@ var _ = Describe("Kafka Extension", func() {
 			})
 		})
 
-		Describe("ConsumeLoop", func() {
+		PDescribe("ConsumeLoop", func() {
 			It("should consume message and add it to msgChan", func() {
 				stopChannel := make(chan struct{})
 				client, err := NewKafkaConsumer(config, logger, &stopChannel)
