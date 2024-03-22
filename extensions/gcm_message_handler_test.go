@@ -592,6 +592,7 @@ func (s *GCMMessageHandlerTestSuite) TestLogStats() {
 
 func (s *GCMMessageHandlerTestSuite) TestStatsReporter() {
 	s.Run("should call HandleNotificationSent upon message sent to queue", func() {
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		ttl := uint(0)
 		msg := &gcm.XMPPMessage{
 			TimeToLive:               &ttl,
@@ -617,6 +618,7 @@ func (s *GCMMessageHandlerTestSuite) TestStatsReporter() {
 	})
 
 	s.Run("should call HandleNotificationSuccess upon response received", func() {
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		res := gcm.CCSMessage{}
 		err := s.handler.handleGCMResponse(res)
 		s.Require().NoError(err)
@@ -627,6 +629,7 @@ func (s *GCMMessageHandlerTestSuite) TestStatsReporter() {
 	})
 
 	s.Run("should call HandleNotificationFailure upon error response received", func() {
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		res := gcm.CCSMessage{
 			Error: "DEVICE_UNREGISTERED",
 		}
@@ -640,6 +643,8 @@ func (s *GCMMessageHandlerTestSuite) TestStatsReporter() {
 
 func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 	s.Run("should include a timestamp in feedback root and the hostname in metadata", func() {
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+
 		timestampNow := time.Now().Unix()
 		hostname, err := os.Hostname()
 		s.Require().NoError(err)
@@ -669,6 +674,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 	})
 
 	s.Run("should send feedback if success and metadata is present", func() {
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		metadata := map[string]interface{}{
 			"some":      "metadata",
 			"timestamp": time.Now().Unix(),
@@ -702,6 +708,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			MessageType: "ack",
 			Category:    "testCategory",
 		}
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		go s.handler.handleGCMResponse(res)
 
 		fromKafka := &CCSMessageWithMetadata{}
@@ -716,6 +723,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 	})
 
 	s.Run("should send feedback if error and metadata is present and token should be deleted", func() {
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		metadata := map[string]interface{}{
 			"some":      "metadata",
 			"timestamp": time.Now().Unix(),
@@ -746,6 +754,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 	})
 
 	s.Run("should send feedback if error and metadata is present and token should not be deleted", func() {
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		metadata := map[string]interface{}{
 			"some":      "metadata",
 			"timestamp": time.Now().Unix(),
@@ -775,6 +784,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 		s.Nil(fromKafka.Metadata["deleteToken"])
 	})
 	s.Run("should send feedback if error and metadata is not present", func() {
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		res := gcm.CCSMessage{
 			From:        "testToken1",
 			MessageID:   "idTest1",

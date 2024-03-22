@@ -21,6 +21,9 @@ gcm:
     game:
       apiKey: game-api-key
       senderID: "1233456789"
+  firebaseCredentials:
+    mygame: "{}"
+
 queue:
   topics:
     - "^push-[^-_]+_(apns|gcm)[_-](single|massive)"
