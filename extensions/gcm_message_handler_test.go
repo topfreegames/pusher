@@ -25,7 +25,6 @@ package extensions
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"github.com/topfreegames/pusher/config"
@@ -132,6 +131,7 @@ func (s *GCMMessageHandlerTestSuite) TestConfigureHandler() {
 func (s *GCMMessageHandlerTestSuite) TestHandleGCMResponse() {
 	s.Run("should succeed if response has no error", func() {
 		res := gcm.CCSMessage{}
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		err := s.handler.handleGCMResponse(res)
 		s.NoError(err)
 		s.Equal(int64(1), s.handler.responsesReceived)
@@ -142,6 +142,7 @@ func (s *GCMMessageHandlerTestSuite) TestHandleGCMResponse() {
 		res := gcm.CCSMessage{
 			Error: "DEVICE_UNREGISTERED",
 		}
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		err := s.handler.handleGCMResponse(res)
 		s.Error(err)
 		s.Equal(int64(1), s.handler.responsesReceived)
@@ -152,6 +153,7 @@ func (s *GCMMessageHandlerTestSuite) TestHandleGCMResponse() {
 		res := gcm.CCSMessage{
 			Error: "BAD_REGISTRATION",
 		}
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		err := s.handler.handleGCMResponse(res)
 		s.Error(err)
 		s.Equal(int64(1), s.handler.responsesReceived)
@@ -162,6 +164,7 @@ func (s *GCMMessageHandlerTestSuite) TestHandleGCMResponse() {
 		res := gcm.CCSMessage{
 			Error: "INVALID_JSON",
 		}
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		err := s.handler.handleGCMResponse(res)
 		s.Error(err)
 		s.Equal(int64(1), s.handler.responsesReceived)
@@ -172,6 +175,7 @@ func (s *GCMMessageHandlerTestSuite) TestHandleGCMResponse() {
 		res := gcm.CCSMessage{
 			Error: "SERVICE_UNAVAILABLE",
 		}
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		err := s.handler.handleGCMResponse(res)
 		s.Error(err)
 		s.Equal(int64(1), s.handler.responsesReceived)
@@ -182,6 +186,7 @@ func (s *GCMMessageHandlerTestSuite) TestHandleGCMResponse() {
 		res := gcm.CCSMessage{
 			Error: "INTERNAL_SERVER_ERROR",
 		}
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		err := s.handler.handleGCMResponse(res)
 		s.Error(err)
 		s.Equal(int64(1), s.handler.responsesReceived)
@@ -192,6 +197,7 @@ func (s *GCMMessageHandlerTestSuite) TestHandleGCMResponse() {
 		res := gcm.CCSMessage{
 			Error: "DEVICE_MESSAGE_RATE_EXCEEDED",
 		}
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		err := s.handler.handleGCMResponse(res)
 		s.Error(err)
 		s.Equal(int64(1), s.handler.responsesReceived)
@@ -202,6 +208,7 @@ func (s *GCMMessageHandlerTestSuite) TestHandleGCMResponse() {
 		res := gcm.CCSMessage{
 			Error: "TOPICS_MESSAGE_RATE_EXCEEDED",
 		}
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		err := s.handler.handleGCMResponse(res)
 		s.Error(err)
 		s.Equal(int64(1), s.handler.responsesReceived)
@@ -212,6 +219,7 @@ func (s *GCMMessageHandlerTestSuite) TestHandleGCMResponse() {
 		res := gcm.CCSMessage{
 			Error: "BAD_ACK",
 		}
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		err := s.handler.handleGCMResponse(res)
 		s.Error(err)
 		s.Equal(int64(1), s.handler.responsesReceived)
@@ -294,8 +302,7 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		})
 		s.Require().Error(err)
 		s.Equal(int64(0), s.handler.sentMessages)
-		s.Len(s.hooks.Entries, 1)
-		s.Contains(s.hooks.LastEntry().Message, "Error unmarshalling message.")
+		s.Equal(s.hooks.LastEntry().Message, "Error unmarshalling message.")
 		s.Len(s.mockClient.MessagesSent, 0)
 		s.Len(s.handler.pendingMessages, 0)
 	})
@@ -474,6 +481,7 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 	s.Run("should remove from push queue after timeout", func() {
 		ctx := context.Background()
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		err := s.handler.sendMessage(ctx, interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
@@ -490,6 +498,7 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 
 	s.Run("should succeed if request gets a response", func() {
 		ctx := context.Background()
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		err := s.handler.sendMessage(ctx, interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
@@ -515,6 +524,7 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 
 	s.Run("should handle all responses or remove them after timeout", func() {
 		ctx := context.Background()
+		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		n := 10
 		sendRequests := func() {
 			for i := 0; i < n; i++ {
@@ -792,6 +802,5 @@ func (s *GCMMessageHandlerTestSuite) TestCleanup() {
 		err := s.handler.Cleanup()
 		s.NoError(err)
 		s.True(s.mockClient.Closed)
-		fmt.Println("AQUIAQUIAQUIAQUIAQUIAQUIAQUIAQUIAQUIAQUIAQUI")
 	})
 }
