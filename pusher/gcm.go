@@ -95,15 +95,14 @@ func (g *GCMPusher) createMessageHandlerForApps() error {
 	g.MessageHandler = make(map[string]interfaces.MessageHandler)
 	for _, app := range g.Config.GetAppsArray() {
 		credentials, ok := g.Config.GCM.FirebaseCredentials[app]
-
+		l = l.WithField("app", app)
 		if ok { // Firebase is configured, use new handler
 			pushClient, err := client.NewFirebaseClient(credentials, g.Logger)
 			if err != nil {
-				l.WithError(err).WithFields(logrus.Fields{
-					"app": app,
-				}).Error("could not create firebase client")
+				l.WithError(err).Error("could not create firebase client")
 				return fmt.Errorf("could not create firebase pushClient for all apps: %w", err)
 			}
+			l.Debug("created new message handler with firebase client")
 			g.MessageHandler[app] = handler.NewMessageHandler(
 				app,
 				pushClient,
@@ -123,12 +122,11 @@ func (g *GCMPusher) createMessageHandlerForApps() error {
 			)
 
 			if err != nil {
-				l.WithError(err).WithFields(logrus.Fields{
-					"app": app,
-				}).Error("could not create gcm message handler")
+				l.WithError(err).Error("could not create gcm message handler")
 				return fmt.Errorf("could not create gcm message handler for all apps: %w", err)
 			}
 
+			l.Debug("created legacy message handler with xmpp client")
 			g.MessageHandler[app] = handler
 		}
 	}
