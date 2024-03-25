@@ -1,9 +1,12 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/util"
+	"reflect"
 	"strings"
 )
 
@@ -36,7 +39,7 @@ func NewConfigAndViper(configFile string) (*Config, *viper.Viper, error) {
 	}
 
 	config := &Config{}
-	if err := v.Unmarshal(config); err != nil {
+	if err := v.Unmarshal(config, decodeHookFunc()); err != nil {
 		return nil, nil, fmt.Errorf("error unmarshalling config: %s", err)
 	}
 
@@ -51,4 +54,36 @@ func (c *Config) GetAppsArray() []string {
 	}
 
 	return res
+}
+
+func decodeHookFunc() viper.DecoderConfigOption {
+	hooks := mapstructure.ComposeDecodeHookFunc(
+		StringToMapStringHookFunc(),
+	)
+	return viper.DecodeHook(hooks)
+}
+
+func StringToMapStringHookFunc() mapstructure.DecodeHookFunc {
+	return func(
+		f reflect.Type,
+		t reflect.Type,
+		data interface{},
+	) (interface{}, error) {
+		if f.Kind() != reflect.String || t.Kind() != reflect.Map {
+			return data, nil
+		}
+
+		if t.Key().Kind() != reflect.String || t.Elem().Kind() != reflect.String {
+			return data, nil
+		}
+
+		raw := data.(string)
+		if raw == "" {
+			return map[string]string{}, nil
+		}
+
+		m := map[string]string{}
+		err := json.Unmarshal([]byte(raw), &m)
+		return m, err
+	}
 }
