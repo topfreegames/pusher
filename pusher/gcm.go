@@ -94,9 +94,9 @@ func (g *GCMPusher) createMessageHandlerForApps() error {
 
 	g.MessageHandler = make(map[string]interfaces.MessageHandler)
 	for _, app := range g.Config.GetAppsArray() {
-		credentials, ok := g.Config.GCM.FirebaseCredentials[app]
+		credentials := g.ViperConfig.GetString("gcm.firebaseCredentials." + app)
 		l = l.WithField("app", app)
-		if ok { // Firebase is configured, use new handler
+		if credentials != "" { // Firebase is configured, use new handler
 			pushClient, err := client.NewFirebaseClient(credentials, g.Logger)
 			if err != nil {
 				l.WithError(err).Error("could not create firebase client")

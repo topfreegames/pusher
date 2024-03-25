@@ -18,12 +18,11 @@ type (
 	}
 
 	GCM struct {
-		Apps                string
-		PingInterval        int
-		PingTimeout         int
-		MaxPendingMessages  int
-		LogStatsInterval    int
-		FirebaseCredentials map[string]string
+		Apps               string
+		PingInterval       int
+		PingTimeout        int
+		MaxPendingMessages int
+		LogStatsInterval   int
 	}
 )
 
