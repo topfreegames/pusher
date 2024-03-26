@@ -29,7 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestExtensions(t *testing.T) {
+func TestCMD(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "CMD Suite")
 }

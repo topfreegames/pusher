@@ -23,6 +23,7 @@
 package extensions
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -49,6 +50,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 	var mockPushQueue *mocks.APNSPushQueueMock
 	var mockStatsDClient *mocks.StatsDClientMock
 	var statsClients []interfaces.StatsReporter
+	ctx := context.Background()
 
 	configFile := os.Getenv("CONFIG_FILE")
 	if configFile == "" {
@@ -473,7 +475,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 
 		Describe("Clean Cache", func() {
 			It("should remove from push queue after timeout", func() {
-				handler.HandleMessages(interfaces.KafkaMessage{
+				handler.HandleMessages(ctx, interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
@@ -484,7 +486,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("should not panic if a request got a response", func() {
-				handler.HandleMessages(interfaces.KafkaMessage{
+				handler.HandleMessages(ctx, interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
@@ -504,7 +506,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				var n int = 10
 				sendRequests := func() {
 					for i := 0; i < n; i++ {
-						handler.HandleMessages(interfaces.KafkaMessage{
+						handler.HandleMessages(ctx, interfaces.KafkaMessage{
 							Topic: "push-game_apns",
 							Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 						})
@@ -557,8 +559,8 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Topic: "push-game_apns",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				}
-				handler.HandleMessages(kafkaMessage)
-				handler.HandleMessages(kafkaMessage)
+				handler.HandleMessages(ctx, kafkaMessage)
+				handler.HandleMessages(ctx, kafkaMessage)
 
 				Expect(mockStatsDClient.Counts["sent"]).To(Equal(int64(2)))
 			})
@@ -797,7 +799,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 
 		Describe("Send message", func() {
 			It("should add message to push queue and increment sentMessages", func() {
-				handler.HandleMessages(interfaces.KafkaMessage{
+				handler.HandleMessages(ctx, interfaces.KafkaMessage{
 					Topic: "push-game_apns",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
@@ -809,18 +811,18 @@ var _ = FDescribe("APNS Message Handler", func() {
 
 		Describe("PushExpiry", func() {
 			It("should not send message if PushExpiry is in the past", func() {
-				handler.HandleMessages(interfaces.KafkaMessage{
+				handler.HandleMessages(ctx, interfaces.KafkaMessage{
 					Topic: "push-game_apns",
-					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d }`, makeTimestamp()-int64(100))),
+					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d }`, MakeTimestamp()-int64(100))),
 				})
 				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).ShouldNot(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(0)))
 				Expect(handler.ignoredMessages).To(Equal(int64(1)))
 			})
 			It("should send message if PushExpiry is in the future", func() {
-				handler.HandleMessages(interfaces.KafkaMessage{
+				handler.HandleMessages(ctx, interfaces.KafkaMessage{
 					Topic: "push-game_apns",
-					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d}`, makeTimestamp()+int64(100))),
+					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d}`, MakeTimestamp()+int64(100))),
 				})
 				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).ShouldNot(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
