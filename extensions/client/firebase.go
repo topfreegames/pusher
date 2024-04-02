@@ -40,12 +40,17 @@ func NewFirebaseClient(
 		return nil, err
 	}
 
-	l := logger.WithFields(logrus.Fields{
+	l := logrus.New()
+	if logger != nil {
+		l = logger
+	}
+	l = l.WithFields(logrus.Fields{
 		"source": "firebaseClient",
-	})
+	}).Logger
+	
 	return &firebaseClientImpl{
 		firebase: client,
-		logger:   l.Logger,
+		logger:   l,
 	}, nil
 }
 
