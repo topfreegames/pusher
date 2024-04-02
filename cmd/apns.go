@@ -23,6 +23,7 @@
 package cmd
 
 import (
+	"context"
 	raven "github.com/getsentry/raven-go"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -67,6 +68,8 @@ var apnsCmd = &cobra.Command{
 			raven.SetDSN(sentryURL)
 		}
 
+		ctx := context.Background()
+
 		apnsPusher, err := startApns(debug, json, production, config, nil, nil, nil)
 		if err != nil {
 			raven.CaptureErrorAndWait(err, map[string]string{
@@ -75,7 +78,7 @@ var apnsCmd = &cobra.Command{
 			})
 			panic(err)
 		}
-		apnsPusher.Start()
+		apnsPusher.Start(ctx)
 	},
 }
 
