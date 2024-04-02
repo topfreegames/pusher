@@ -23,7 +23,6 @@
 package extensions
 
 import (
-	"context"
 	"encoding/json"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
@@ -252,7 +251,7 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+		err = s.handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
@@ -286,7 +285,7 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+		err = s.handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
@@ -296,7 +295,7 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 	})
 
 	s.Run("should send message and not increment sentMessages if an error occurs", func() {
-		err := s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+		err := s.handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: []byte("gogogo"),
 		})
@@ -321,7 +320,7 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+		err = s.handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
@@ -355,7 +354,7 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+		err = s.handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
@@ -386,7 +385,7 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+		err = s.handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
@@ -424,7 +423,7 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(context.Background(), interfaces.KafkaMessage{
+		err = s.handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
@@ -452,10 +451,9 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		}
 		msgBytes, err := json.Marshal(msg)
 		s.NoError(err)
-		ctx := context.Background()
 
 		for i := 1; i <= 3; i++ {
-			err = s.handler.sendMessage(ctx, interfaces.KafkaMessage{
+			err = s.handler.sendMessage(interfaces.KafkaMessage{
 				Topic: "push-game_gcm",
 				Value: msgBytes,
 			})
@@ -464,7 +462,7 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 			s.Equal(i, len(s.handler.pendingMessages))
 		}
 
-		go s.handler.sendMessage(ctx, interfaces.KafkaMessage{
+		go s.handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
@@ -480,9 +478,8 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 
 func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 	s.Run("should remove from push queue after timeout", func() {
-		ctx := context.Background()
 		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.sendMessage(ctx, interfaces.KafkaMessage{
+		err := s.handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 		})
@@ -497,9 +494,8 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 	})
 
 	s.Run("should succeed if request gets a response", func() {
-		ctx := context.Background()
 		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.sendMessage(ctx, interfaces.KafkaMessage{
+		err := s.handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 		})
@@ -523,12 +519,11 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 	})
 
 	s.Run("should handle all responses or remove them after timeout", func() {
-		ctx := context.Background()
 		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		n := 10
 		sendRequests := func() {
 			for i := 0; i < n; i++ {
-				err := s.handler.sendMessage(ctx, interfaces.KafkaMessage{
+				err := s.handler.sendMessage(interfaces.KafkaMessage{
 					Topic: "push-game_gcm",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
@@ -603,16 +598,16 @@ func (s *GCMMessageHandlerTestSuite) TestStatsReporter() {
 		}
 		msgBytes, err := json.Marshal(msg)
 		s.NoError(err)
-		ctx := context.Background()
+
 		kafkaMessage := interfaces.KafkaMessage{
 			Game:  "game",
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		}
-		err = s.handler.sendMessage(ctx, kafkaMessage)
+		err = s.handler.sendMessage(kafkaMessage)
 		s.NoError(err)
 
-		err = s.handler.sendMessage(ctx, kafkaMessage)
+		err = s.handler.sendMessage(kafkaMessage)
 		s.NoError(err)
 		s.Equal(int64(2), s.mockStatsdClient.Counts["sent"])
 	})
