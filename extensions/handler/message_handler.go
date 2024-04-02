@@ -52,7 +52,7 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 	km := extensions.KafkaGCMMessage{}
 	err := json.Unmarshal(msg.Value, &km)
 	if err != nil {
-		l.WithError(err).Error("Error unmarshaling message.")
+		l.WithError(err).Error("Error unmarshalling message.")
 		return
 	}
 
@@ -96,6 +96,8 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 
 }
 
+// HandleResponses was  needed as a callback to handle the responses from them in APNS and the legacy GCM.
+// Here the responses are handled synchronously. The method is kept to comply with the interface.
 func (h *messageHandler) HandleResponses() {
 }
 
