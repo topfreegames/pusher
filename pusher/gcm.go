@@ -23,6 +23,7 @@
 package pusher
 
 import (
+	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -40,6 +41,7 @@ type GCMPusher struct {
 
 // NewGCMPusher for getting a new GCMPusher instance
 func NewGCMPusher(
+	ctx context.Context,
 	isProduction bool,
 	viperConfig *viper.Viper,
 	config *config.Config,
@@ -79,7 +81,7 @@ func NewGCMPusher(
 	}
 	g.Queue = q
 
-	err = g.createMessageHandlerForApps()
+	err = g.createMessageHandlerForApps(ctx)
 	if err != nil {
 		l.WithError(err).Error("could not create message handlers")
 		return nil, fmt.Errorf("could not create message handlers: %w", err)
@@ -87,7 +89,7 @@ func NewGCMPusher(
 	return g, nil
 }
 
-func (g *GCMPusher) createMessageHandlerForApps() error {
+func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 	l := g.Logger.WithFields(logrus.Fields{
 		"method": "GCMPusher.createMessageHandlerForApps",
 	})
@@ -97,7 +99,7 @@ func (g *GCMPusher) createMessageHandlerForApps() error {
 		credentials := g.ViperConfig.GetString("gcm.firebaseCredentials." + app)
 		l = l.WithField("app", app)
 		if credentials != "" { // Firebase is configured, use new handler
-			pushClient, err := client.NewFirebaseClient(credentials, g.Logger)
+			pushClient, err := client.NewFirebaseClient(ctx, credentials, g.Logger)
 			if err != nil {
 				l.WithError(err).Error("could not create firebase client")
 				return fmt.Errorf("could not create firebase pushClient for all apps: %w", err)

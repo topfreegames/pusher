@@ -96,13 +96,12 @@ func (p *Pusher) routeMessages(ctx context.Context, msgChan *chan interfaces.Kaf
 }
 
 // Start starts pusher
-func (p *Pusher) Start() {
+func (p *Pusher) Start(ctx context.Context) {
 	p.run = true
 	l := p.Logger.WithFields(logrus.Fields{
 		"method": "start",
 	})
 	l.Info("starting pusher...")
-	ctx := context.Background()
 	go p.routeMessages(ctx, p.Queue.MessagesChannel())
 	for _, v := range p.MessageHandler {
 		go v.HandleResponses()

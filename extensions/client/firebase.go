@@ -18,8 +18,11 @@ type firebaseClientImpl struct {
 
 var _ interfaces.PushClient = &firebaseClientImpl{}
 
-func NewFirebaseClient(jsonCredentials string, logger *logrus.Logger) (interfaces.PushClient, error) {
-	ctx := context.Background()
+func NewFirebaseClient(
+	ctx context.Context,
+	jsonCredentials string,
+	logger *logrus.Logger,
+) (interfaces.PushClient, error) {
 	projectID, err := getProjectIDFromJson(jsonCredentials)
 	if err != nil {
 		return nil, err

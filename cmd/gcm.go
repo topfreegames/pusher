@@ -23,6 +23,7 @@
 package cmd
 
 import (
+	"context"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -35,6 +36,7 @@ var senderID string
 var apiKey string
 
 func startGcm(
+	ctx context.Context,
 	debug, json, production bool,
 	vConfig *viper.Viper,
 	config *config.Config,
@@ -49,7 +51,7 @@ func startGcm(
 	} else {
 		log.Level = logrus.InfoLevel
 	}
-	return pusher.NewGCMPusher(production, vConfig, config, log, statsdClientOrNil)
+	return pusher.NewGCMPusher(ctx, production, vConfig, config, log, statsdClientOrNil)
 }
 
 // gcmCmd represents the gcm command
@@ -63,11 +65,13 @@ var gcmCmd = &cobra.Command{
 			panic(err)
 		}
 
-		gcmPusher, err := startGcm(debug, json, production, vConfig, config, nil)
+		ctx := context.Background()
+
+		gcmPusher, err := startGcm(ctx, debug, json, production, vConfig, config, nil)
 		if err != nil {
 			panic(err)
 		}
-		gcmPusher.Start()
+		gcmPusher.Start(ctx)
 	},
 }
 

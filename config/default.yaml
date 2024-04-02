@@ -16,14 +16,13 @@ gcm:
   pingTimeout: 10
   maxPendingMessages: 100
   logStatsInterval: 10000
-  apps: mygame, anothergame
+  apps: mygame
   certs:
     game:
       apiKey: game-api-key
       senderID: "1233456789"
   firebaseCredentials:
-    mygame: "{}"
-
+    mygame: "{\n  \"type\": \"service_account\",\n  \"project_id\": \"gilded-gardens-63066737\",\n  \"private_key_id\": \"6356f46a398c3a0508e510b68f0016e3a32ff716\",\n  \"private_key\": \"-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDD3X+S5mAgMtg9\\nsWPt4S/WAV2La2wrXWyCtN0bkWtEK/T8gp9Sxj0p643fDsBBkK9q+wgE7xAz6Rvu\\nCXlHmobvhnDGgY/Fj4FgOXbuTJwNvzEsYDv+frmwZy7m/72XGlqKe9e+dFt7NyRL\\n9B6oF8USy03UyjTbe1kPmTv8SdySPbCcMsUryI6UyZU9tA6jN7QCAMiB6rJYiFDE\\nbWZE1a4RUcDL/+Mgxb4e+A5DSFp8l+w3KsI81wYImtzDwJf/e7P0cg3kJMhwtfYC\\nZNPFvfwwehax09DNbO43aoW7RwTPmSAJ5Z/Vdz5Tm/nSqjWmjgKKW8O13obhm6qt\\nrZM0omphAgMBAAECggEADvXVZ3VIvNTdXvL0cMg9NOGkUUCagcJwRhiF9fPYx1t7\\nKilY/YPOSqwnCTVReoCQYYG8llHjQS/KNheLp6w2J8fzR7pALsUcCutAuglodwVW\\nPm84TeNEkCSFeNfqVYcKCN9WNoIhNatbzqBeEhVEtH+KWZk7SdNlVVNtOUM0AYhp\\n7QuRjDZMzJtS3zPUUMoFKO2rNFjfL8IfhxXIDqePbvqJRjcojwTX0dFJARognJvi\\nHgILoE3I7f4RWmqr98dlMkv8TbZzQwDJ28cDTv+ce6u9HsAeMW02QUrYZ2WodUnL\\nque6QsR4ZzFZ4vgVw0kzYpGrful8APz81l7pbRcGlQKBgQDxuJJlabMDEjtppnQi\\nI8VoZK/jArti9CZfSSEyo5Kg4Z2JIgTY9vHMeS+adw85ouvj255uRWYDQmnnBQkM\\n5G+EWDHtI5Jr9bHnzIMSegIV8nFgJVdJiEctVxnnWpdaYIJfEPKLKAO7p786X6ua\\n5kT/dlmi/M4sH4P9obK7nob3XQKBgQDPb3jp8+3VT72D7FASGyrAX1q7/rOSgh4+\\nSPjB7v2SWyMd8Jwr65gXaDqvbyOztzdECDsYnLVwR2MFs6tQUkY4Pk6/yotHjarB\\n3biU/oPPrLR7QElj3YcKTU3vvmLvkRj7Dv8qy95PYZRaeuj8SLGCotR+aMx+lX9w\\nBFwfgOli1QKBgQCeGm2W64XtMlWuCvPXCLKsT39D6puKY8tdc8XFC3xywl96PMgS\\n6aLKbVGXpNxOhKPqC9IaqkXJR/1g38hFqHzQgadWRngVKUVOKlRpF2iZ1lQV4Raw\\nv/ReUaRd0MFCmfFsIPej0W5vpY7MrZre3FKxDUYf918bORnqIYN4eH4q+QKBgFCt\\nSTisn3aUMeAqO6YfHMx/CZoOYKb9pmeRF/bNTZ/rhEfzubm3QorwBcsPjbIq8vqp\\nvNpAsKx/hzrDe0CdDyR2z0f2rZ7hsWT/J/gC2R8fS36YLTMDCK9wC3zP7kjAhRe3\\n6HQroEX9bKaYIR9l4mwtijmz5rzgxhS6DV5PU/YVAoGBAJTY962mkP/k7jhlc2sg\\nP/4XACUBbtRDEz/lntooXOXx2/KIGpe7dB0qhRPbHabd0rpU5ILWUHfUL+l2UQOG\\ngrWCjxZq5J04tyzuXyVRHiVAJB6uz2v4hs8H3CQp4l+UQ8+Wl5xNqgDrcBorRo9w\\nNXB1a4rClzlsr1c0t6zctgmb\\n-----END PRIVATE KEY-----\\n\",\n  \"client_email\": \"firebase-adminsdk-909vs@gilded-gardens-63066737.iam.gserviceaccount.com\",\n  \"client_id\": \"103930365174654016718\",\n  \"auth_uri\": \"https://accounts.google.com/o/oauth2/auth\",\n  \"token_uri\": \"https://oauth2.googleapis.com/token\",\n  \"auth_provider_x509_cert_url\": \"https://www.googleapis.com/oauth2/v1/certs\",\n  \"client_x509_cert_url\": \"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-909vs%40gilded-gardens-63066737.iam.gserviceaccount.com\",\n  \"universe_domain\": \"googleapis.com\"\n}"
 queue:
   topics:
     - "^push-[^-_]+_(apns|gcm)[_-](single|massive)"
