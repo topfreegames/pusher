@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
 	"github.com/sirupsen/logrus"
@@ -47,7 +48,7 @@ func NewFirebaseClient(
 	l = l.WithFields(logrus.Fields{
 		"source": "firebaseClient",
 	}).Logger
-	
+
 	return &firebaseClientImpl{
 		firebase: client,
 		logger:   l,
@@ -78,7 +79,11 @@ func getProjectIDFromJson(jsonStr string) (string, error) {
 		return "", err
 	}
 
-	return data["project_id"].(string), nil
+	if projectID, ok := data["project_id"]; ok {
+		return projectID.(string), nil
+	}
+
+	return "", errors.New("project_id not found in credentials")
 }
 
 func toFirebaseMessage(message interfaces.Message) messaging.Message {
