@@ -59,7 +59,7 @@ var _ = Describe("APNS", func() {
 			apnsPusher, err := startApns(false, false, false, config, mockStatsDClient, mockDB, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
-			Expect(apnsPusher.Config).NotTo(BeNil())
+			Expect(apnsPusher.ViperConfig).NotTo(BeNil())
 			Expect(apnsPusher.IsProduction).To(BeFalse())
 			Expect(apnsPusher.Logger.Level).To(Equal(logrus.InfoLevel))
 			Expect(fmt.Sprintf("%T", apnsPusher.Logger.Formatter)).To(Equal(fmt.Sprintf("%T", &logrus.TextFormatter{})))

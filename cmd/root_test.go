@@ -35,9 +35,6 @@ import (
 var _ = Describe("Root", func() {
 	Describe("[Unit]", func() {
 		It("Should return help", func() {
-			err := RootCmd.Execute()
-			Expect(err.Error()).To(ContainSubstring("unknown flag: --test.timeout"))
-
 			r, w, _ := os.Pipe()
 			RootCmd.SetArgs([]string{})
 			RootCmd.SetOutput(w)

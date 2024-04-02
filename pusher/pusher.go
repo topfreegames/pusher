@@ -23,6 +23,8 @@
 package pusher
 
 import (
+	"context"
+	"github.com/topfreegames/pusher/config"
 	"os"
 	"os/signal"
 	"runtime"
@@ -39,7 +41,8 @@ type Pusher struct {
 	feedbackReporters       []interfaces.FeedbackReporter
 	StatsReporters          []interfaces.StatsReporter
 	Queue                   interfaces.Queue
-	Config                  *viper.Viper
+	ViperConfig             *viper.Viper
+	Config                  *config.Config
 	GracefulShutdownTimeout int
 	Logger                  *logrus.Logger
 	MessageHandler          map[string]interfaces.MessageHandler
@@ -49,12 +52,16 @@ type Pusher struct {
 }
 
 func (p *Pusher) loadConfigurationDefaults() {
-	p.Config.SetDefault("gracefulShutdownTimeout", 10)
-	p.Config.SetDefault("stats.reporters", []string{})
+	p.ViperConfig.SetDefault("gracefulShutdownTimeout", 10)
+	p.ViperConfig.SetDefault("stats.reporters", []string{})
+}
+
+func (p *Pusher) loadConfiguration() {
+	p.GracefulShutdownTimeout = p.ViperConfig.GetInt("gracefulShutdownTimeout")
 }
 
 func (p *Pusher) configureFeedbackReporters() error {
-	reporters, err := configureFeedbackReporters(p.Config, p.Logger)
+	reporters, err := configureFeedbackReporters(p.ViperConfig, p.Logger)
 	if err != nil {
 		return err
 	}
@@ -63,7 +70,7 @@ func (p *Pusher) configureFeedbackReporters() error {
 }
 
 func (p *Pusher) configureStatsReporters(clientOrNil interfaces.StatsDClient) error {
-	reporters, err := configureStatsReporters(p.Config, p.Logger, clientOrNil)
+	reporters, err := configureStatsReporters(p.ViperConfig, p.Logger, clientOrNil)
 	if err != nil {
 		return err
 	}
@@ -71,13 +78,13 @@ func (p *Pusher) configureStatsReporters(clientOrNil interfaces.StatsDClient) er
 	return nil
 }
 
-func (p *Pusher) routeMessages(msgChan *chan interfaces.KafkaMessage) {
+func (p *Pusher) routeMessages(ctx context.Context, msgChan *chan interfaces.KafkaMessage) {
 	//nolint[:gosimple]
 	for p.run {
 		select {
 		case message := <-*msgChan:
 			if handler, ok := p.MessageHandler[message.Game]; ok {
-				handler.HandleMessages(message)
+				handler.HandleMessages(ctx, message)
 			} else {
 				p.Logger.WithFields(logrus.Fields{
 					"method": "routeMessages",
@@ -89,13 +96,13 @@ func (p *Pusher) routeMessages(msgChan *chan interfaces.KafkaMessage) {
 }
 
 // Start starts pusher
-func (p *Pusher) Start() {
+func (p *Pusher) Start(ctx context.Context) {
 	p.run = true
 	l := p.Logger.WithFields(logrus.Fields{
 		"method": "start",
 	})
 	l.Info("starting pusher...")
-	go p.routeMessages(p.Queue.MessagesChannel())
+	go p.routeMessages(ctx, p.Queue.MessagesChannel())
 	for _, v := range p.MessageHandler {
 		go v.HandleResponses()
 		go v.LogStats()

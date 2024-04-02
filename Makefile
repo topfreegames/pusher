@@ -18,7 +18,7 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-MOCKGENERATE := go run github.com/golang/mock/mockgen@v1.7.0-rc.1
+MOCKGENERATE := go run go.uber.org/mock/mockgen@v0.4.0
 GINKGO := go run github.com/onsi/ginkgo/ginkgo@v1.16.5
 
 build:
@@ -46,7 +46,7 @@ run:
 	@go run main.go
 
 gcm:
-	@go run main.go gcm --senderId=test --apiKey=123
+	@go run main.go gcm
 
 apns:
 	@go run main.go apns --certificate=./tls/_fixtures/certificate-valid.pem
@@ -105,7 +105,7 @@ test-unit:
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
 	@export $ACK_GINKGO_RC=true
-	@$(GINKGO) -trace -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
+	@$(GINKGO) --race -trace -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
 	@$(MAKE) test-coverage-func
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
@@ -120,7 +120,7 @@ run-integration-test:
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
 	@export $ACK_GINKGO_RC=true
-	@$(GINKGO) -trace -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
+	@$(GINKGO) --race -trace -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo "=               Integration tests finished.              ="
@@ -171,6 +171,6 @@ integration-test-container-dev: build-image-dev start-deps-container-dev test-db
 		pusher:local make run-integration-test
 	@$(MAKE) stop-deps
 
-# .PHONY: mocks
-# mocks:
-# 	$(MOCKGENERATE) -package=mocks -source=interfaces/apns.go -destination=mocks/apns.go
+.PHONY: mocks
+mocks:
+	$(MOCKGENERATE) -source=interfaces/client.go -destination=mocks/firebase/client.go

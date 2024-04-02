@@ -23,12 +23,14 @@
 package pusher
 
 import (
-	"errors"
-	"strings"
-
+	"context"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/config"
 	"github.com/topfreegames/pusher/extensions"
+	"github.com/topfreegames/pusher/extensions/client"
+	"github.com/topfreegames/pusher/extensions/handler"
 	"github.com/topfreegames/pusher/interfaces"
 )
 
@@ -39,85 +41,96 @@ type GCMPusher struct {
 
 // NewGCMPusher for getting a new GCMPusher instance
 func NewGCMPusher(
+	ctx context.Context,
 	isProduction bool,
-	config *viper.Viper,
+	viperConfig *viper.Viper,
+	config *config.Config,
 	logger *logrus.Logger,
 	statsdClientOrNil interfaces.StatsDClient,
-	db interfaces.DB,
-	clientOrNil ...interfaces.GCMClient,
 ) (*GCMPusher, error) {
 	g := &GCMPusher{
 		Pusher: Pusher{
+			ViperConfig:  viperConfig,
 			Config:       config,
 			IsProduction: isProduction,
 			Logger:       logger,
 			stopChannel:  make(chan struct{}),
 		},
 	}
-	var client interfaces.GCMClient
-	if len(clientOrNil) > 0 {
-		client = clientOrNil[0]
+	l := g.Logger.WithFields(logrus.Fields{
+		"method": "NewGCMPusher",
+	})
+
+	g.loadConfigurationDefaults()
+	g.loadConfiguration()
+
+	if err := g.configureStatsReporters(statsdClientOrNil); err != nil {
+		l.WithError(err).Error("could not configure stats reporters")
+		return nil, fmt.Errorf("could not configure stats reporters: %w", err)
 	}
-	err := g.configure(client, db, statsdClientOrNil)
+
+	if err := g.configureFeedbackReporters(); err != nil {
+		l.WithError(err).Error("could not configure feedback reporters")
+		return nil, fmt.Errorf("could not configure feedback reporters: %w", err)
+	}
+
+	q, err := extensions.NewKafkaConsumer(g.ViperConfig, g.Logger, &g.stopChannel)
 	if err != nil {
-		return nil, err
+		l.WithError(err).Error("could not create kafka consumer")
+		return nil, fmt.Errorf("could not create kafka consumer: %w", err)
+	}
+	g.Queue = q
+
+	err = g.createMessageHandlerForApps(ctx)
+	if err != nil {
+		l.WithError(err).Error("could not create message handlers")
+		return nil, fmt.Errorf("could not create message handlers: %w", err)
 	}
 	return g, nil
 }
 
-func (g *GCMPusher) configure(client interfaces.GCMClient, db interfaces.DB, statsdClientOrNil interfaces.StatsDClient) error {
-	var err error
+func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 	l := g.Logger.WithFields(logrus.Fields{
-		"method": "configure",
+		"method": "GCMPusher.createMessageHandlerForApps",
 	})
-	g.loadConfigurationDefaults()
-	g.GracefulShutdownTimeout = g.Config.GetInt("gracefulShutdownTimeout")
-	if err = g.configureStatsReporters(statsdClientOrNil); err != nil {
-		return err
-	}
-	if err = g.configureFeedbackReporters(); err != nil {
-		return err
-	}
-	q, err := extensions.NewKafkaConsumer(
-		g.Config,
-		g.Logger,
-		&g.stopChannel,
-	)
-	if err != nil {
-		return err
-	}
-	g.Queue = q
+
 	g.MessageHandler = make(map[string]interfaces.MessageHandler)
-	for _, k := range strings.Split(g.Config.GetString("gcm.apps"), ",") {
-		senderID := g.Config.GetString("gcm.certs." + k + ".senderID")
-		apiKey := g.Config.GetString("gcm.certs." + k + ".apiKey")
-		l.Infof("Configuring messageHandler for game %s", k)
-		handler, err := extensions.NewGCMMessageHandler(
-			senderID,
-			apiKey,
-			k,
-			g.IsProduction,
-			g.Config,
-			g.Logger,
-			g.Queue.PendingMessagesWaitGroup(),
-			g.StatsReporters,
-			g.feedbackReporters,
-			client,
-		)
-		if err == nil {
-			g.MessageHandler[k] = handler
-		} else {
-			for _, statsReporter := range g.StatsReporters {
-				statsReporter.InitializeFailure(k, "gcm")
+	for _, app := range g.Config.GetAppsArray() {
+		credentials := g.ViperConfig.GetString("gcm.firebaseCredentials." + app)
+		l = l.WithField("app", app)
+		if credentials != "" { // Firebase is configured, use new handler
+			pushClient, err := client.NewFirebaseClient(ctx, credentials, g.Logger)
+			if err != nil {
+				l.WithError(err).Error("could not create firebase client")
+				return fmt.Errorf("could not create firebase pushClient for all apps: %w", err)
 			}
-			l.WithError(err).WithFields(logrus.Fields{
-				"method": "gcm",
-				"game":   k,
-			}).Error("failed to initialize gcm handler")
+			l.Debug("created new message handler with firebase client")
+			g.MessageHandler[app] = handler.NewMessageHandler(
+				app,
+				pushClient,
+				g.feedbackReporters,
+				g.StatsReporters,
+				g.Logger,
+			)
+		} else { // Firebase credentials not yet configured, use legacy XMPP client
+			handler, err := extensions.NewGCMMessageHandler(
+				app,
+				g.IsProduction,
+				g.ViperConfig,
+				g.Logger,
+				g.Queue.PendingMessagesWaitGroup(),
+				g.StatsReporters,
+				g.feedbackReporters,
+			)
+
+			if err != nil {
+				l.WithError(err).Error("could not create gcm message handler")
+				return fmt.Errorf("could not create gcm message handler for all apps: %w", err)
+			}
+
+			l.Debug("created legacy message handler with xmpp client")
+			g.MessageHandler[app] = handler
 		}
-	}
-	if len(g.MessageHandler) == 0 {
-		return errors.New("could not initilize any app")
 	}
 	return nil
 }

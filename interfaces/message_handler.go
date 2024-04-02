@@ -22,9 +22,11 @@
 
 package interfaces
 
+import "context"
+
 // MessageHandler interface for making message handlers pluggable easily.
 type MessageHandler interface {
-	HandleMessages(msg KafkaMessage)
+	HandleMessages(ctx context.Context, msg KafkaMessage)
 	HandleResponses()
 	LogStats()
 	CleanMetadataCache()

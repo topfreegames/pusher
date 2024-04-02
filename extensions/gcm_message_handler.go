@@ -23,17 +23,19 @@
 package extensions
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/go-gcm"
-	"github.com/topfreegames/pusher/errors"
+	pushererrors "github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
 )
 
@@ -41,37 +43,33 @@ var gcmResMutex sync.Mutex
 
 // KafkaGCMMessage is a enriched XMPPMessage with a Metadata field
 type KafkaGCMMessage struct {
-	gcm.XMPPMessage
+	interfaces.Message
 	Metadata   map[string]interface{} `json:"metadata,omitempty"`
 	PushExpiry int64                  `json:"push_expiry,omitempty"`
 }
 
-// CCSMessageWithMetadata is a enriched CCSMessage with a metadata field
+// CCSMessageWithMetadata is an enriched CCSMessage with a metadata field
 type CCSMessageWithMetadata struct {
 	gcm.CCSMessage
 	Timestamp int64                  `json:"timestamp"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// GCMMessageHandler implements the messagehandler interface
+// GCMMessageHandler implements the MessageHandler interface
 type GCMMessageHandler struct {
 	feedbackReporters            []interfaces.FeedbackReporter
 	StatsReporters               []interfaces.StatsReporter
-	apiKey                       string
 	game                         string
 	GCMClient                    interfaces.GCMClient
-	senderID                     string
-	Config                       *viper.Viper
+	ViperConfig                  *viper.Viper
 	failuresReceived             int64
 	InflightMessagesMetadata     map[string]interface{}
-	Logger                       *log.Entry
+	Logger                       *logrus.Entry
 	LogStatsInterval             time.Duration
 	pendingMessages              chan bool
 	pendingMessagesWG            *sync.WaitGroup
 	ignoredMessages              int64
 	inflightMessagesMetadataLock *sync.Mutex
-	PingInterval                 int
-	PingTimeout                  int
 	responsesReceived            int64
 	sentMessages                 int64
 	successesReceived            int64
@@ -82,42 +80,60 @@ type GCMMessageHandler struct {
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
 func NewGCMMessageHandler(
-	senderID, apiKey, game string,
+	game string,
 	isProduction bool,
 	config *viper.Viper,
-	logger *log.Logger,
+	logger *logrus.Logger,
+	pendingMessagesWG *sync.WaitGroup,
+	statsReporters []interfaces.StatsReporter,
+	feedbackReporters []interfaces.FeedbackReporter,
+) (*GCMMessageHandler, error) {
+	l := logger.WithFields(logrus.Fields{
+		"method":       "NewGCMMessageHandler",
+		"game":         game,
+		"isProduction": isProduction,
+	})
+
+	h, err := NewGCMMessageHandlerWithClient(game, isProduction, config, l.Logger, pendingMessagesWG, statsReporters, feedbackReporters, nil)
+	if err != nil {
+		l.WithError(err).Error("Failed to create a new GCM Message handler.")
+		return nil, err
+	}
+	return h, nil
+}
+
+func NewGCMMessageHandlerWithClient(
+	game string,
+	isProduction bool,
+	config *viper.Viper,
+	logger *logrus.Logger,
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
 	feedbackReporters []interfaces.FeedbackReporter,
 	client interfaces.GCMClient,
 ) (*GCMMessageHandler, error) {
-	log := logger.WithFields(log.Fields{
+	l := logger.WithFields(logrus.Fields{
+		"method":       "NewGCMMessageHandlerWithClient",
 		"game":         game,
 		"isProduction": isProduction,
 	})
-	l := log.WithField("method", "NewGCMMessageHandler")
-	config.SetDefault("gcm.client.initialization.retries", 3)
 
 	g := &GCMMessageHandler{
-		game:                         game,
-		apiKey:                       apiKey,
-		Config:                       config,
+		ViperConfig:                  config,
 		failuresReceived:             0,
 		feedbackReporters:            feedbackReporters,
+		game:                         game,
 		InflightMessagesMetadata:     map[string]interface{}{},
-		IsProduction:                 isProduction,
-		Logger:                       log,
-		pendingMessagesWG:            pendingMessagesWG,
-		ignoredMessages:              0,
 		inflightMessagesMetadataLock: &sync.Mutex{},
-		responsesReceived:            0,
-		senderID:                     senderID,
-		sentMessages:                 0,
-		StatsReporters:               statsReporters,
-		successesReceived:            0,
+		IsProduction:                 isProduction,
+		Logger:                       l,
+		pendingMessagesWG:            pendingMessagesWG,
 		requestsHeap:                 NewTimeoutHeap(config),
+		StatsReporters:               statsReporters,
+		GCMClient:                    client,
 	}
-	err := g.configure(client)
+
+	err := g.configure()
 	if err != nil {
 		l.WithError(err).Error("Failed to create a new GCM Message handler.")
 		return nil, err
@@ -125,48 +141,54 @@ func NewGCMMessageHandler(
 	return g, nil
 }
 
-func (g *GCMMessageHandler) configure(client interfaces.GCMClient) error {
+func (g *GCMMessageHandler) configure() error {
 	g.loadConfigurationDefaults()
-	g.pendingMessages = make(chan bool, g.Config.GetInt("gcm.maxPendingMessages"))
-	interval := g.Config.GetInt("gcm.logStatsInterval")
+
+	g.pendingMessages = make(chan bool, g.ViperConfig.GetInt("gcm.maxPendingMessages"))
+	interval := g.ViperConfig.GetInt("gcm.logStatsInterval")
 	g.LogStatsInterval = time.Duration(interval) * time.Millisecond
-	g.CacheCleaningInterval = g.Config.GetInt("feedback.cache.cleaningInterval")
-	var err error
-	if client != nil {
-		g.GCMClient = client
-	} else {
-		err = g.configureGCMClient()
+	g.CacheCleaningInterval = g.ViperConfig.GetInt("feedback.cache.cleaningInterval")
+
+	if g.GCMClient == nil { // Configures the legacy GCM client here because it needs the handleGCMResponse function
+		err := g.configureGCMClient()
+		if err != nil {
+			return err
+		}
 	}
-	if err != nil {
-		return err
-	}
+
 	return nil
 }
 
 func (g *GCMMessageHandler) loadConfigurationDefaults() {
-	g.Config.SetDefault("gcm.pingInterval", 20)
-	g.Config.SetDefault("gcm.pingTimeout", 30)
-	g.Config.SetDefault("gcm.maxPendingMessages", 100)
-	g.Config.SetDefault("gcm.logStatsInterval", 5000)
-	g.Config.SetDefault("feedback.cache.cleaningInterval", 300000)
+	g.ViperConfig.SetDefault("gcm.pingInterval", 20)
+	g.ViperConfig.SetDefault("gcm.pingTimeout", 30)
+	g.ViperConfig.SetDefault("gcm.maxPendingMessages", 100)
+	g.ViperConfig.SetDefault("gcm.logStatsInterval", 5000)
+	g.ViperConfig.SetDefault("gcm.client.initialization.retries", 3)
+	g.ViperConfig.SetDefault("feedback.cache.cleaningInterval", 300000)
 }
 
 func (g *GCMMessageHandler) configureGCMClient() error {
 	l := g.Logger.WithField("method", "configureGCMClient")
-	g.PingInterval = g.Config.GetInt("gcm.pingInterval")
-	g.PingTimeout = g.Config.GetInt("gcm.pingTimeout")
+
+	senderID := g.ViperConfig.GetString(fmt.Sprintf("gcm.certs.%s.senderID", g.game))
+	apiKey := g.ViperConfig.GetString(fmt.Sprintf("gcm.certs.%s.apiKey", g.game))
+	if senderID == "" || apiKey == "" {
+		l.Error("senderID or apiKey not found")
+		return errors.New("senderID or apiKey not found")
+	}
+
 	gcmConfig := &gcm.Config{
-		SenderID:          g.senderID,
-		APIKey:            g.apiKey,
+		SenderID:          senderID,
+		APIKey:            apiKey,
 		Sandbox:           !g.IsProduction,
 		MonitorConnection: true,
 		Debug:             false,
-		PingInterval:      g.PingInterval,
-		PingTimeout:       g.PingTimeout,
 	}
+
 	var err error
 	var cl interfaces.GCMClient
-	for retries := g.Config.GetInt("gcm.client.initialization.retries"); retries > 0; retries-- {
+	for retries := g.ViperConfig.GetInt("gcm.client.initialization.retries"); retries > 0; retries-- {
 		cl, err = gcm.NewClient(gcmConfig, g.handleGCMResponse)
 		if err != nil && retries-1 != 0 {
 			l.WithError(err).Warnf("failed to create gcm client. %d attempts left.", retries-1)
@@ -190,7 +212,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 		}
 	}()
 
-	l := g.Logger.WithFields(log.Fields{
+	l := g.Logger.WithFields(logrus.Fields{
 		"method":     "handleGCMResponse",
 		"ccsMessage": cm,
 	})
@@ -227,44 +249,44 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 		gcmResMutex.Lock()
 		g.failuresReceived++
 		gcmResMutex.Unlock()
-		pErr := errors.NewPushError(strings.ToLower(cm.Error), cm.ErrorDescription)
+		pErr := pushererrors.NewPushError(strings.ToLower(cm.Error), cm.ErrorDescription)
 		statsReporterHandleNotificationFailure(g.StatsReporters, parsedTopic.Game, "gcm", pErr)
 
 		err = pErr
 		switch cm.Error {
 		// errors from https://developers.google.com/cloud-messaging/xmpp-server-ref table 4
 		case "DEVICE_UNREGISTERED", "BAD_REGISTRATION":
-			l.WithFields(log.Fields{
-				"category":   "TokenError",
-				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			l.WithFields(logrus.Fields{
+				"category":      "TokenError",
+				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
 			}).Debug("received an error")
 			if ccsMessageWithMetadata.Metadata != nil {
 				ccsMessageWithMetadata.Metadata["deleteToken"] = true
 			}
 		case "INVALID_JSON":
-			l.WithFields(log.Fields{
-				"category":   "JsonError",
-				log.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
+			l.WithFields(logrus.Fields{
+				"category":      "JsonError",
+				logrus.ErrorKey: fmt.Errorf("%s (Description: %s)", cm.Error, cm.ErrorDescription),
 			}).Debug("received an error")
 		case "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR":
-			l.WithFields(log.Fields{
-				"category":   "GoogleError",
-				log.ErrorKey: cm.Error,
+			l.WithFields(logrus.Fields{
+				"category":      "GoogleError",
+				logrus.ErrorKey: cm.Error,
 			}).Debug("received an error")
 		case "DEVICE_MESSAGE_RATE_EXCEEDED", "TOPICS_MESSAGE_RATE_EXCEEDED":
-			l.WithFields(log.Fields{
-				"category":   "RateExceededError",
-				log.ErrorKey: cm.Error,
+			l.WithFields(logrus.Fields{
+				"category":      "RateExceededError",
+				logrus.ErrorKey: cm.Error,
 			}).Debug("received an error")
 		case "CONNECTION_DRAINING":
-			l.WithFields(log.Fields{
-				"category":   "ConnectionDrainingError",
-				log.ErrorKey: cm.Error,
+			l.WithFields(logrus.Fields{
+				"category":      "ConnectionDrainingError",
+				logrus.ErrorKey: cm.Error,
 			}).Debug("received an error")
 		default:
-			l.WithFields(log.Fields{
-				"category":   "DefaultError",
-				log.ErrorKey: cm.Error,
+			l.WithFields(logrus.Fields{
+				"category":      "DefaultError",
+				logrus.ErrorKey: cm.Error,
 			}).Debug("received an error")
 		}
 		sendFeedbackErr := sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata, parsedTopic)
@@ -293,10 +315,10 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 	km := KafkaGCMMessage{}
 	err := json.Unmarshal(message.Value, &km)
 	if err != nil {
-		l.WithError(err).Error("Error unmarshaling message.")
+		l.WithError(err).Error("Error unmarshalling message.")
 		return err
 	}
-	if km.PushExpiry > 0 && km.PushExpiry < makeTimestamp() {
+	if km.PushExpiry > 0 && km.PushExpiry < MakeTimestamp() {
 		l.Warnf("ignoring push message because it has expired: %s", km.Data)
 		g.ignoredMessages++
 		if g.pendingMessagesWG != nil {
@@ -306,23 +328,26 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 	}
 
 	if km.Metadata != nil {
-		if km.XMPPMessage.Data == nil {
-			km.XMPPMessage.Data = map[string]interface{}{}
+		if km.Message.Data == nil {
+			km.Message.Data = map[string]interface{}{}
 		}
 
 		for k, v := range km.Metadata {
-			if km.XMPPMessage.Data[k] == nil {
-				km.XMPPMessage.Data[k] = v
+			if km.Message.Data[k] == nil {
+				km.Message.Data[k] = v
 			}
 		}
 	}
 
-	l.WithField("message", km).Debug("sending message to gcm")
+	l = l.WithField("message", km)
+	l.Debug("sending message to gcm")
+
 	var messageID string
 	var bytes int
 
 	g.pendingMessages <- true
-	messageID, bytes, err = g.GCMClient.SendXMPP(km.XMPPMessage)
+	xmppMessage := toGCMMessage(km.Message)
+	messageID, bytes, err = g.GCMClient.SendXMPP(xmppMessage)
 
 	if err != nil {
 		<-g.pendingMessages
@@ -353,12 +378,51 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 	}
 
 	statsReporterHandleNotificationSent(g.StatsReporters, message.Game, "gcm")
+
+	gcmResMutex.Lock()
 	g.sentMessages++
-	l.WithFields(log.Fields{
+	gcmResMutex.Unlock()
+
+	l.WithFields(logrus.Fields{
 		"messageID": messageID,
 		"bytes":     bytes,
 	}).Debug("sent message")
+
 	return nil
+}
+
+func toGCMMessage(message interfaces.Message) gcm.XMPPMessage {
+	gcmMessage := gcm.XMPPMessage{
+		To:                       message.To,
+		MessageID:                message.MessageID,
+		MessageType:              message.MessageType,
+		CollapseKey:              message.CollapseKey,
+		Priority:                 message.Priority,
+		ContentAvailable:         message.ContentAvailable,
+		TimeToLive:               message.TimeToLive,
+		DeliveryReceiptRequested: message.DeliveryReceiptRequested,
+		DryRun:                   message.DryRun,
+		Data:                     gcm.Data(message.Data),
+	}
+
+	if message.Notification != nil {
+		gcmMessage.Notification = &gcm.Notification{
+			Title:        message.Notification.Title,
+			Body:         message.Notification.Body,
+			Sound:        message.Notification.Sound,
+			ClickAction:  message.Notification.ClickAction,
+			BodyLocKey:   message.Notification.BodyLocKey,
+			BodyLocArgs:  message.Notification.BodyLocArgs,
+			TitleLocKey:  message.Notification.TitleLocKey,
+			TitleLocArgs: message.Notification.TitleLocArgs,
+			Icon:         message.Notification.Icon,
+			Tag:          message.Notification.Tag,
+			Color:        message.Notification.Color,
+			Badge:        message.Notification.Badge,
+		}
+	}
+
+	return gcmMessage
 }
 
 // HandleResponses from gcm
@@ -383,22 +447,22 @@ func (g *GCMMessageHandler) CleanMetadataCache() {
 }
 
 // HandleMessages get messages from msgChan and send to GCM
-func (g *GCMMessageHandler) HandleMessages(msg interfaces.KafkaMessage) {
-	g.sendMessage(msg)
+func (g *GCMMessageHandler) HandleMessages(_ context.Context, msg interfaces.KafkaMessage) {
+	_ = g.sendMessage(msg)
 }
 
 // LogStats from time to time
 func (g *GCMMessageHandler) LogStats() {
-	l := g.Logger.WithFields(log.Fields{
+	l := g.Logger.WithFields(logrus.Fields{
 		"method":       "logStats",
 		"interval(ns)": g.LogStatsInterval,
 	})
 
 	ticker := time.NewTicker(g.LogStatsInterval)
 	for range ticker.C {
-		apnsResMutex.Lock()
+		gcmResMutex.Lock()
 		if g.sentMessages > 0 || g.responsesReceived > 0 || g.ignoredMessages > 0 || g.successesReceived > 0 || g.failuresReceived > 0 {
-			l.WithFields(log.Fields{
+			l.WithFields(logrus.Fields{
 				"sentMessages":      g.sentMessages,
 				"responsesReceived": g.responsesReceived,
 				"ignoredMessages":   g.ignoredMessages,
@@ -411,7 +475,7 @@ func (g *GCMMessageHandler) LogStats() {
 			g.ignoredMessages = 0
 			g.failuresReceived = 0
 		}
-		apnsResMutex.Unlock()
+		gcmResMutex.Unlock()
 	}
 }
 
