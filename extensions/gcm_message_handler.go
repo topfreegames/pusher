@@ -309,7 +309,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	return nil
 }
 
-func (g *GCMMessageHandler) sendMessage(_ context.Context, message interfaces.KafkaMessage) error {
+func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 	l := g.Logger.WithField("method", "sendMessage")
 	//ttl := uint(0)
 	km := KafkaGCMMessage{}
@@ -447,8 +447,8 @@ func (g *GCMMessageHandler) CleanMetadataCache() {
 }
 
 // HandleMessages get messages from msgChan and send to GCM
-func (g *GCMMessageHandler) HandleMessages(ctx context.Context, msg interfaces.KafkaMessage) {
-	_ = g.sendMessage(ctx, msg)
+func (g *GCMMessageHandler) HandleMessages(_ context.Context, msg interfaces.KafkaMessage) {
+	_ = g.sendMessage(msg)
 }
 
 // LogStats from time to time
