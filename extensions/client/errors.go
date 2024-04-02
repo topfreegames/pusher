@@ -1,24 +1,12 @@
 package client
 
 import (
-	"errors"
 	"firebase.google.com/go/v4/messaging"
 	pushererrors "github.com/topfreegames/pusher/errors"
 )
 
 // Firebase errors docs can be found here: https://firebase.google.com/docs/cloud-messaging/send-message#admin
-var (
-	ErrUnspecified         = errors.New("unspecified error")
-	ErrInvalidArgument     = errors.New("invalid argument")
-	ErrUnregisteredDevice  = errors.New("unregistered device")
-	ErrSenderIDMismatch    = errors.New("sender id mismatch")
-	ErrQuotaExceeded       = errors.New("quota exceeded")
-	ErrUnavailable         = errors.New("unavailable")
-	ErrInternalServerError = errors.New("internal server error")
-	ErrThirdParyAuthError  = errors.New("third party authentication error")
-)
-
-// TranslateError translates a Firebase error into a pusher error.
+// translateError translates a Firebase error into a pusher error.
 func translateError(err error) *pushererrors.PushError {
 	switch {
 	case messaging.IsInvalidArgument(err):
