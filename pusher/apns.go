@@ -24,6 +24,7 @@ package pusher
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -120,10 +121,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			for _, statsReporter := range a.StatsReporters {
 				statsReporter.InitializeFailure(k, "apns")
 			}
-			l.WithError(err).WithFields(logrus.Fields{
-				"method": "apns",
-				"game":   k,
-			}).Fatal("failed to initialize apns handler")
+			return fmt.Errorf("failed to initialize apns handler for %s", k)
 		}
 	}
 	if len(a.MessageHandler) == 0 {

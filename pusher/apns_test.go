@@ -111,16 +111,15 @@ var _ = Describe("APNS Pusher", func() {
 				config.Set("apns.certs.invalidgame.teamID", "aoijeoijfiowejfoij")
 				config.Set("apns.certs.invalidgame.teamID", "com.invalidgame.test")
 
-				Expect(func() {
-					_, _ = NewAPNSPusher(
-						isProduction,
-						config,
-						logger,
-						mockStatsDClient,
-						mockDB,
-						mockPushQueue,
-					)
-				}).To(Panic())
+				_, err := NewAPNSPusher(
+					isProduction,
+					config,
+					logger,
+					mockStatsDClient,
+					mockDB,
+					mockPushQueue,
+				)
+				Expect(err).To(HaveOccurred())
 			})
 		})
 
