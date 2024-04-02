@@ -23,6 +23,7 @@
 package pusher
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -99,7 +100,7 @@ var _ = Describe("APNS Pusher", func() {
 				Expect(len(pusher.MessageHandler)).To(Equal(1))
 				Expect(pusher).NotTo(BeNil())
 				defer func() { pusher.run = false }()
-				go pusher.Start()
+				go pusher.Start(context.Background())
 				time.Sleep(50 * time.Millisecond)
 			})
 
