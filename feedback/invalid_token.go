@@ -25,6 +25,7 @@ package feedback
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/getsentry/raven-go"
@@ -62,9 +63,9 @@ type InvalidTokenHandler struct {
 
 	InChan     chan *InvalidToken
 	Buffer     []*InvalidToken
+	BufferLock sync.Mutex
 	bufferSize int
 
-	run      bool
 	stopChan chan bool
 }
 
@@ -127,13 +128,11 @@ func (i *InvalidTokenHandler) Start() {
 	)
 	l.Info("starting invalid token handler")
 
-	i.run = true
 	go i.processMessages()
 }
 
 // Stop stops the Handler from consuming messages from the intake channel
 func (i *InvalidTokenHandler) Stop() {
-	i.run = false
 	close(i.stopChan)
 }
 
@@ -145,23 +144,29 @@ func (i *InvalidTokenHandler) processMessages() {
 	flushTicker := time.NewTicker(i.flushTime)
 	defer flushTicker.Stop()
 
-	for i.run {
+	for {
 		select {
 		case tk, ok := <-i.InChan:
 			if ok {
+				i.BufferLock.Lock()
 				i.Buffer = append(i.Buffer, tk)
+				i.BufferLock.Unlock()
 
+				i.BufferLock.Lock()
 				if len(i.Buffer) >= i.bufferSize {
 					l.Debug("buffer is full")
 					i.deleteTokens(i.Buffer)
 					i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
 				}
+				i.BufferLock.Unlock()
 			}
 
 		case <-flushTicker.C:
 			l.Debug("flush ticker")
 			i.deleteTokens(i.Buffer)
+			i.BufferLock.Lock()
 			i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
+			i.BufferLock.Unlock()
 
 		case <-i.stopChan:
 			break

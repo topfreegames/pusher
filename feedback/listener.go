@@ -163,8 +163,12 @@ func (l *Listener) flushStats() {
 		"broker_in_channel", float64(len(l.Broker.InChan)), "", "")
 	statsReporterReportMetricGauge(l.StatsReporters,
 		"broker_invalid_token_channel", float64(len(l.Broker.InvalidTokenOutChan)), "", "")
+
+	l.InvalidTokenHandler.BufferLock.Lock()
+	bufferSize := float64(len(l.InvalidTokenHandler.Buffer))
+	l.InvalidTokenHandler.BufferLock.Unlock()
 	statsReporterReportMetricGauge(l.StatsReporters,
-		"invalid_token_handler_buffer", float64(len(l.InvalidTokenHandler.Buffer)), "", "")
+		"invalid_token_handler_buffer", bufferSize, "", "")
 }
 
 // Cleanup ends the Listener execution

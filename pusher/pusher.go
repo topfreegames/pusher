@@ -123,6 +123,8 @@ func (p *Pusher) Start(ctx context.Context) {
 		case <-p.stopChannel:
 			l.Warn("Stop channel closed\n")
 			p.run = false
+		case <-ctx.Done():
+			p.run = false
 		}
 	}
 	p.Queue.StopConsuming()

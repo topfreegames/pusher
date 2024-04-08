@@ -99,8 +99,10 @@ var _ = Describe("APNS Pusher", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(pusher.MessageHandler)).To(Equal(1))
 				Expect(pusher).NotTo(BeNil())
-				defer func() { pusher.run = false }()
-				go pusher.Start(context.Background())
+				ctx := context.Background()
+				ctx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				go pusher.Start(ctx)
 				time.Sleep(50 * time.Millisecond)
 			})
 

@@ -23,6 +23,7 @@
 package feedback
 
 import (
+	"context"
 	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -53,6 +54,8 @@ type KafkaConsumer struct {
 	stopChannel                    chan struct{}
 	run                            bool
 	HandleAllMessagesBeforeExiting bool
+	consumerContext                context.Context
+	stopFunc                       context.CancelFunc
 }
 
 // NewKafkaConsumer for creating a new KafkaConsumer instance
@@ -79,6 +82,8 @@ func NewKafkaConsumer(
 	if err != nil {
 		return nil, err
 	}
+
+	q.consumerContext, q.stopFunc = context.WithCancel(context.Background())
 
 	return q, nil
 }
@@ -174,7 +179,7 @@ func (q *KafkaConsumer) PendingMessagesWaitGroup() *sync.WaitGroup {
 
 // StopConsuming stops consuming messages from the queue
 func (q *KafkaConsumer) StopConsuming() {
-	q.run = false
+	q.stopFunc()
 }
 
 // MessagesChannel returns the channel that will receive all messages got from kafka
@@ -197,20 +202,23 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 
 	l.Info("successfully subscribed to topics")
 
-	q.run = true
-	for q.run {
-		message, err := q.Consumer.ReadMessage(100)
-		if message == nil && err.(kafka.Error).IsTimeout() {
-			continue
+	for {
+		select {
+		case <-q.consumerContext.Done():
+			l.Info("context done, stopping consuming")
+			return nil
+		default:
+			message, err := q.Consumer.ReadMessage(100)
+			if message == nil && err.(kafka.Error).IsTimeout() {
+				continue
+			}
+			if err != nil {
+				q.handleError(err)
+				continue
+			}
+			q.receiveMessage(message.TopicPartition, message.Value)
 		}
-		if err != nil {
-			q.handleError(err)
-			continue
-		}
-		q.receiveMessage(message.TopicPartition, message.Value)
 	}
-
-	return nil
 }
 
 func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, value []byte) {
@@ -254,9 +262,12 @@ func (q *KafkaConsumer) handleError(err error) {
 
 // Cleanup closes kafka consumer connection
 func (q *KafkaConsumer) Cleanup() error {
-	if q.run {
+	select {
+	case <-q.consumerContext.Done():
+	default:
 		q.StopConsuming()
 	}
+
 	if q.Consumer != nil {
 		err := q.Consumer.Close()
 		if err != nil {

@@ -203,7 +203,11 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 		return
 	}
 	statsReporterHandleNotificationSent(a.StatsReporters, a.appName, "apns")
+
+	apnsResMutex.Lock()
 	a.sentMessages++
+	apnsResMutex.Unlock()
+
 	a.inFlightNotificationsMapLock.Lock()
 	ifn := &inFlightNotification{
 		notification: notification,

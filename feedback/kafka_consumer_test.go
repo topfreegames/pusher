@@ -95,9 +95,8 @@ var _ = Describe("Kafka Consumer", func() {
 
 		Describe("Stop consuming", func() {
 			It("should stop consuming", func() {
-				consumer.run = true
 				consumer.StopConsuming()
-				Expect(consumer.run).To(BeFalse())
+				Expect(consumer.consumerContext.Done()).To(BeClosed())
 			})
 		})
 
@@ -163,10 +162,9 @@ var _ = Describe("Kafka Consumer", func() {
 
 		Describe("Cleanup", func() {
 			It("should stop running upon cleanup", func() {
-				consumer.run = true
 				err := consumer.Cleanup()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(consumer.run).To(BeFalse())
+				Expect(consumer.consumerContext.Done()).To(BeClosed())
 			})
 
 			It("should close connection to kafka upon cleanup", func() {
