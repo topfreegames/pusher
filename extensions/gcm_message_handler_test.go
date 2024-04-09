@@ -691,9 +691,9 @@ func (s *GCMMessageHandlerTestSuite) TestStatsReporter() {
 			Error: "DEVICE_UNREGISTERED",
 		}
 		err := handler.handleGCMResponse(res)
-		s.Require().NoError(err)
+		s.Error(err)
 
-		s.Equal(int64(2), mockStatsdClient.Counts["failed"])
+		s.Equal(int64(1), mockStatsdClient.Counts["failed"])
 	})
 
 }
