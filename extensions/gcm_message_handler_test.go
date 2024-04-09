@@ -628,13 +628,15 @@ func (s *GCMMessageHandlerTestSuite) TestLogStats() {
 
 		go handler.LogStats()
 
-		handler.inflightMessagesMetadataLock.Lock()
-		s.Eventually(func() bool { return handler.sentMessages == int64(0) }, time.Second, time.Millisecond*100)
-		s.Eventually(func() bool { return handler.responsesReceived == int64(0) }, time.Second, time.Millisecond*100)
-		s.Eventually(func() bool { return handler.successesReceived == int64(0) }, time.Second, time.Millisecond*100)
-		s.Eventually(func() bool { return handler.failuresReceived == int64(0) }, time.Second, time.Millisecond*100)
-		s.Eventually(func() bool { return handler.ignoredMessages == int64(0) }, time.Second, time.Millisecond*100)
-		handler.inflightMessagesMetadataLock.Unlock()
+		s.Eventually(func() bool {
+			gcmResMutex.Lock()
+			defer gcmResMutex.Unlock()
+			return handler.sentMessages == int64(0) &&
+				handler.responsesReceived == int64(0) &&
+				handler.successesReceived == int64(0) &&
+				handler.failuresReceived == int64(0) &&
+				handler.ignoredMessages == int64(0)
+		}, time.Second, time.Millisecond*100)
 	})
 }
 
@@ -809,7 +811,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 		}
 		go func() {
 			err := handler.handleGCMResponse(res)
-			s.Require().NoError(err)
+			s.Error(err)
 		}()
 
 		fromKafka := &CCSMessageWithMetadata{}
@@ -847,7 +849,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 		}
 		go func() {
 			err := handler.handleGCMResponse(res)
-			s.Require().NoError(err)
+			s.Error(err)
 		}()
 
 		fromKafka := &CCSMessageWithMetadata{}
@@ -873,7 +875,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 		}
 		go func() {
 			err := handler.handleGCMResponse(res)
-			s.Require().NoError(err)
+			s.Error(err)
 		}()
 
 		fromKafka := &CCSMessageWithMetadata{}
