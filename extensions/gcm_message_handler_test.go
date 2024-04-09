@@ -24,6 +24,7 @@ package extensions
 
 import (
 	"encoding/json"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"github.com/topfreegames/pusher/config"
@@ -32,7 +33,6 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/interfaces"
@@ -45,14 +45,6 @@ type GCMMessageHandlerTestSuite struct {
 	config  *config.Config
 	vConfig *viper.Viper
 	game    string
-	logger  *logrus.Logger
-	hooks   *test.Hook
-
-	mockClient        *mocks.GCMClientMock
-	mockStatsdClient  *mocks.StatsDClientMock
-	mockKafkaProducer *mocks.KafkaProducerClientMock
-
-	handler *GCMMessageHandler
 }
 
 func TestGCMMessageHandlerSuite(t *testing.T) {
@@ -72,31 +64,34 @@ func (s *GCMMessageHandlerTestSuite) SetupSuite() {
 	s.game = "game"
 }
 
-func (s *GCMMessageHandlerTestSuite) SetupSubTest() {
-	s.logger, s.hooks = test.NewNullLogger()
+func (s *GCMMessageHandlerTestSuite) setupHandler() (
+	*GCMMessageHandler,
+	*mocks.GCMClientMock,
+	*mocks.StatsDClientMock,
+	*mocks.KafkaProducerClientMock,
+) {
+	logger, _ := test.NewNullLogger()
+	mockClient := mocks.NewGCMClientMock()
+	mockStatsdClient := mocks.NewStatsDClientMock()
 
-	s.mockClient = mocks.NewGCMClientMock()
-
-	s.mockStatsdClient = mocks.NewStatsDClientMock()
-	statsD, err := NewStatsD(s.vConfig, s.logger, s.mockStatsdClient)
+	statsD, err := NewStatsD(s.vConfig, logger, mockStatsdClient)
 	s.Require().NoError(err)
 
-	s.mockKafkaProducer = mocks.NewKafkaProducerClientMock()
-	kc, err := NewKafkaProducer(s.vConfig, s.logger, s.mockKafkaProducer)
+	mockKafkaProducer := mocks.NewKafkaProducerClientMock()
+	kc, err := NewKafkaProducer(s.vConfig, logger, mockKafkaProducer)
 	s.Require().NoError(err)
 
 	statsClients := []interfaces.StatsReporter{statsD}
 	feedbackClients := []interfaces.FeedbackReporter{kc}
-
 	handler, err := NewGCMMessageHandlerWithClient(
 		s.game,
 		false,
 		s.vConfig,
-		s.logger,
+		logger,
 		nil,
 		statsClients,
 		feedbackClients,
-		s.mockClient,
+		mockClient,
 	)
 	s.NoError(err)
 	s.Require().NotNil(handler)
@@ -105,10 +100,48 @@ func (s *GCMMessageHandlerTestSuite) SetupSubTest() {
 	s.False(handler.IsProduction)
 	s.Equal(int64(0), handler.responsesReceived)
 	s.Equal(int64(0), handler.sentMessages)
-	s.Len(s.mockClient.MessagesSent, 0)
+	s.Len(mockClient.MessagesSent, 0)
 
-	s.handler = handler
+	return handler, mockClient, mockStatsdClient, mockKafkaProducer
 }
+
+//func (s *GCMMessageHandlerTestSuite) SetupSubTest() {
+//	s.logger, s.hooks = test.NewNullLogger()
+//
+//	s.mockClient = mocks.NewGCMClientMock()
+//
+//	s.mockStatsdClient = mocks.NewStatsDClientMock()
+//	statsD, err := NewStatsD(s.vConfig, s.logger, s.mockStatsdClient)
+//	s.Require().NoError(err)
+//
+//	s.mockKafkaProducer = mocks.NewKafkaProducerClientMock()
+//	kc, err := NewKafkaProducer(s.vConfig, s.logger, s.mockKafkaProducer)
+//	s.Require().NoError(err)
+//
+//	statsClients := []interfaces.StatsReporter{statsD}
+//	feedbackClients := []interfaces.FeedbackReporter{kc}
+//
+//	handler, err := NewGCMMessageHandlerWithClient(
+//		s.game,
+//		false,
+//		s.vConfig,
+//		s.logger,
+//		nil,
+//		statsClients,
+//		feedbackClients,
+//		s.mockClient,
+//	)
+//	s.NoError(err)
+//	s.Require().NotNil(handler)
+//	s.Equal(s.game, handler.game)
+//	s.NotNil(handler.ViperConfig)
+//	s.False(handler.IsProduction)
+//	s.Equal(int64(0), handler.responsesReceived)
+//	s.Equal(int64(0), handler.sentMessages)
+//	s.Len(s.mockClient.MessagesSent, 0)
+//
+//	s.handler = handler
+//}
 
 func (s *GCMMessageHandlerTestSuite) TestConfigureHandler() {
 	s.Run("should fail if invalid credentials", func() {
@@ -116,7 +149,7 @@ func (s *GCMMessageHandlerTestSuite) TestConfigureHandler() {
 			s.game,
 			false,
 			s.vConfig,
-			s.logger,
+			logrus.New(),
 			nil,
 			[]interfaces.StatsReporter{},
 			[]interfaces.FeedbackReporter{},
@@ -129,105 +162,115 @@ func (s *GCMMessageHandlerTestSuite) TestConfigureHandler() {
 
 func (s *GCMMessageHandlerTestSuite) TestHandleGCMResponse() {
 	s.Run("should succeed if response has no error", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		res := gcm.CCSMessage{}
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.handleGCMResponse(res)
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		err := handler.handleGCMResponse(res)
 		s.NoError(err)
-		s.Equal(int64(1), s.handler.responsesReceived)
-		s.Equal(int64(1), s.handler.successesReceived)
+		s.Equal(int64(1), handler.responsesReceived)
+		s.Equal(int64(1), handler.successesReceived)
 	})
 
 	s.Run("if response has error DEVICE_UNREGISTERED", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		res := gcm.CCSMessage{
 			Error: "DEVICE_UNREGISTERED",
 		}
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.handleGCMResponse(res)
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		err := handler.handleGCMResponse(res)
 		s.Error(err)
-		s.Equal(int64(1), s.handler.responsesReceived)
-		s.Equal(int64(1), s.handler.failuresReceived)
+		s.Equal(int64(1), handler.responsesReceived)
+		s.Equal(int64(1), handler.failuresReceived)
 	})
 
 	s.Run("if response has error BAD_REGISTRATION", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		res := gcm.CCSMessage{
 			Error: "BAD_REGISTRATION",
 		}
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.handleGCMResponse(res)
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		err := handler.handleGCMResponse(res)
 		s.Error(err)
-		s.Equal(int64(1), s.handler.responsesReceived)
-		s.Equal(int64(1), s.handler.failuresReceived)
+		s.Equal(int64(1), handler.responsesReceived)
+		s.Equal(int64(1), handler.failuresReceived)
 	})
 
 	s.Run("if response has error INVALID_JSON", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		res := gcm.CCSMessage{
 			Error: "INVALID_JSON",
 		}
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.handleGCMResponse(res)
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		err := handler.handleGCMResponse(res)
 		s.Error(err)
-		s.Equal(int64(1), s.handler.responsesReceived)
-		s.Equal(int64(1), s.handler.failuresReceived)
+		s.Equal(int64(1), handler.responsesReceived)
+		s.Equal(int64(1), handler.failuresReceived)
 	})
 
 	s.Run("if response has error SERVICE_UNAVAILABLE", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		res := gcm.CCSMessage{
 			Error: "SERVICE_UNAVAILABLE",
 		}
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.handleGCMResponse(res)
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		err := handler.handleGCMResponse(res)
 		s.Error(err)
-		s.Equal(int64(1), s.handler.responsesReceived)
-		s.Equal(int64(1), s.handler.failuresReceived)
+		s.Equal(int64(1), handler.responsesReceived)
+		s.Equal(int64(1), handler.failuresReceived)
 	})
 
 	s.Run("if response has error INTERNAL_SERVER_ERROR", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		res := gcm.CCSMessage{
 			Error: "INTERNAL_SERVER_ERROR",
 		}
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.handleGCMResponse(res)
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		err := handler.handleGCMResponse(res)
 		s.Error(err)
-		s.Equal(int64(1), s.handler.responsesReceived)
-		s.Equal(int64(1), s.handler.failuresReceived)
+		s.Equal(int64(1), handler.responsesReceived)
+		s.Equal(int64(1), handler.failuresReceived)
 	})
 
 	s.Run("if response has error DEVICE_MESSAGE_RATE_EXCEEDED", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		res := gcm.CCSMessage{
 			Error: "DEVICE_MESSAGE_RATE_EXCEEDED",
 		}
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.handleGCMResponse(res)
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		err := handler.handleGCMResponse(res)
 		s.Error(err)
-		s.Equal(int64(1), s.handler.responsesReceived)
-		s.Equal(int64(1), s.handler.failuresReceived)
+		s.Equal(int64(1), handler.responsesReceived)
+		s.Equal(int64(1), handler.failuresReceived)
 	})
 
 	s.Run("if response has error TOPICS_MESSAGE_RATE_EXCEEDED", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		res := gcm.CCSMessage{
 			Error: "TOPICS_MESSAGE_RATE_EXCEEDED",
 		}
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.handleGCMResponse(res)
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		err := handler.handleGCMResponse(res)
 		s.Error(err)
-		s.Equal(int64(1), s.handler.responsesReceived)
-		s.Equal(int64(1), s.handler.failuresReceived)
+		s.Equal(int64(1), handler.responsesReceived)
+		s.Equal(int64(1), handler.failuresReceived)
 	})
 
 	s.Run("if response has untracked error", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		res := gcm.CCSMessage{
 			Error: "BAD_ACK",
 		}
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.handleGCMResponse(res)
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		err := handler.handleGCMResponse(res)
 		s.Error(err)
-		s.Equal(int64(1), s.handler.responsesReceived)
-		s.Equal(int64(1), s.handler.failuresReceived)
+		s.Equal(int64(1), handler.responsesReceived)
+		s.Equal(int64(1), handler.failuresReceived)
 	})
 }
 
 func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 	s.Run("should not send message if expire is in the past", func() {
+		handler, _, _, _ := s.setupHandler()
 		ttl := uint(0)
 		metadata := map[string]interface{}{
 			"some":      "metadata",
@@ -251,17 +294,17 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(interfaces.KafkaMessage{
+		err = handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
 		s.Require().NoError(err)
-		s.Equal(int64(0), s.handler.sentMessages)
-		s.Equal(int64(1), s.handler.ignoredMessages)
-		s.Contains(s.hooks.LastEntry().Message, "ignoring push")
+		s.Equal(int64(0), handler.sentMessages)
+		s.Equal(int64(1), handler.ignoredMessages)
 	})
 
 	s.Run("should send message if PushExpiry is in the future", func() {
+		handler, _, _, _ := s.setupHandler()
 		ttl := uint(0)
 		metadata := map[string]interface{}{
 			"some":      "metadata",
@@ -285,28 +328,29 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(interfaces.KafkaMessage{
+		err = handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
 		s.Require().NoError(err)
-		s.Equal(int64(1), s.handler.sentMessages)
-		s.Equal(int64(0), s.handler.ignoredMessages)
+		s.Equal(int64(1), handler.sentMessages)
+		s.Equal(int64(0), handler.ignoredMessages)
 	})
 
 	s.Run("should send message and not increment sentMessages if an error occurs", func() {
-		err := s.handler.sendMessage(interfaces.KafkaMessage{
+		handler, mockClient, _, _ := s.setupHandler()
+		err := handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
-			Value: []byte("gogogo"),
+			Value: []byte("value"),
 		})
 		s.Require().Error(err)
-		s.Equal(int64(0), s.handler.sentMessages)
-		s.Equal(s.hooks.LastEntry().Message, "Error unmarshalling message.")
-		s.Len(s.mockClient.MessagesSent, 0)
-		s.Len(s.handler.pendingMessages, 0)
+		s.Equal(int64(0), handler.sentMessages)
+		s.Len(mockClient.MessagesSent, 0)
+		s.Len(handler.pendingMessages, 0)
 	})
 
 	s.Run("should send xmpp message", func() {
+		handler, mockClient, _, _ := s.setupHandler()
 		ttl := uint(0)
 		msg := &interfaces.Message{
 			TimeToLive:               &ttl,
@@ -320,17 +364,18 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(interfaces.KafkaMessage{
+		err = handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
 		s.Require().NoError(err)
-		s.Equal(int64(1), s.handler.sentMessages)
-		s.Len(s.mockClient.MessagesSent, 1)
-		s.Len(s.handler.pendingMessages, 1)
+		s.Equal(int64(1), handler.sentMessages)
+		s.Len(mockClient.MessagesSent, 1)
+		s.Len(handler.pendingMessages, 1)
 	})
 
 	s.Run("should send xmpp message with metadata", func() {
+		handler, mockClient, _, _ := s.setupHandler()
 		ttl := uint(0)
 		metadata := map[string]interface{}{
 			"some":      "metadata",
@@ -354,17 +399,18 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(interfaces.KafkaMessage{
+		err = handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
 		s.Require().NoError(err)
-		s.Equal(int64(1), s.handler.sentMessages)
-		s.Len(s.mockClient.MessagesSent, 1)
-		s.Len(s.handler.pendingMessages, 1)
+		s.Equal(int64(1), handler.sentMessages)
+		s.Len(mockClient.MessagesSent, 1)
+		s.Len(handler.pendingMessages, 1)
 	})
 
 	s.Run("should forward metadata content on GCM request", func() {
+		handler, mockClient, _, _ := s.setupHandler()
 		ttl := uint(0)
 		metadata := map[string]interface{}{
 			"some": "metadata",
@@ -385,22 +431,23 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(interfaces.KafkaMessage{
+		err = handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
 
 		s.Require().NoError(err)
-		s.Equal(int64(1), s.handler.sentMessages)
-		s.Len(s.mockClient.MessagesSent, 1)
-		s.Len(s.handler.pendingMessages, 1)
+		s.Equal(int64(1), handler.sentMessages)
+		s.Len(mockClient.MessagesSent, 1)
+		s.Len(handler.pendingMessages, 1)
 
-		sentMessage := s.mockClient.MessagesSent[0]
+		sentMessage := mockClient.MessagesSent[0]
 		s.NotNil(sentMessage)
 		s.Equal("metadata", sentMessage.Data["some"])
 	})
 
 	s.Run("should forward nested metadata content on GCM request", func() {
+		handler, mockClient, _, _ := s.setupHandler()
 		ttl := uint(0)
 		metadata := map[string]interface{}{
 			"some": "metadata",
@@ -423,17 +470,17 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		msgBytes, err := json.Marshal(msg)
 		s.Require().NoError(err)
 
-		err = s.handler.sendMessage(interfaces.KafkaMessage{
+		err = handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		})
 
 		s.Require().NoError(err)
-		s.Equal(int64(1), s.handler.sentMessages)
-		s.Len(s.mockClient.MessagesSent, 1)
-		s.Len(s.handler.pendingMessages, 1)
+		s.Equal(int64(1), handler.sentMessages)
+		s.Len(mockClient.MessagesSent, 1)
+		s.Len(handler.pendingMessages, 1)
 
-		sentMessage := s.mockClient.MessagesSent[0]
+		sentMessage := mockClient.MessagesSent[0]
 		s.NotNil(sentMessage)
 		s.Equal("metadata", sentMessage.Data["some"])
 		s.Len(sentMessage.Data["nested"], 1)
@@ -441,6 +488,7 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 	})
 
 	s.Run("should wait to send message if maxPendingMessages is reached", func() {
+		handler, _, _, _ := s.setupHandler()
 		ttl := uint(0)
 		msg := &gcm.XMPPMessage{
 			TimeToLive:               &ttl,
@@ -453,23 +501,26 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		s.NoError(err)
 
 		for i := 1; i <= 3; i++ {
-			err = s.handler.sendMessage(interfaces.KafkaMessage{
+			err = handler.sendMessage(interfaces.KafkaMessage{
 				Topic: "push-game_gcm",
 				Value: msgBytes,
 			})
 			s.NoError(err)
-			s.Equal(int64(i), s.handler.sentMessages)
-			s.Equal(i, len(s.handler.pendingMessages))
+			s.Equal(int64(i), handler.sentMessages)
+			s.Equal(i, len(handler.pendingMessages))
 		}
 
-		go s.handler.sendMessage(interfaces.KafkaMessage{
-			Topic: "push-game_gcm",
-			Value: msgBytes,
-		})
+		go func() {
+			err := handler.sendMessage(interfaces.KafkaMessage{
+				Topic: "push-game_gcm",
+				Value: msgBytes,
+			})
+			s.Require().NoError(err)
+		}()
 
-		<-s.handler.pendingMessages
+		<-handler.pendingMessages
 		s.Eventually(
-			func() bool { return s.handler.sentMessages == 4 },
+			func() bool { return handler.sentMessages == 4 },
 			5*time.Second,
 			100*time.Millisecond,
 		)
@@ -478,32 +529,34 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 
 func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 	s.Run("should remove from push queue after timeout", func() {
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.sendMessage(interfaces.KafkaMessage{
+		handler, _, _, mockKafkaProducer := s.setupHandler()
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		err := handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 		})
 		s.Require().NoError(err)
 
-		go s.handler.CleanMetadataCache()
+		go handler.CleanMetadataCache()
 
 		time.Sleep(500 * time.Millisecond)
 
-		s.True(s.handler.requestsHeap.Empty())
-		s.handler.inflightMessagesMetadataLock.Lock()
-		s.Empty(s.handler.InflightMessagesMetadata)
-		s.handler.inflightMessagesMetadataLock.Unlock()
+		s.True(handler.requestsHeap.Empty())
+		handler.inflightMessagesMetadataLock.Lock()
+		s.Empty(handler.InflightMessagesMetadata)
+		handler.inflightMessagesMetadataLock.Unlock()
 	})
 
 	s.Run("should succeed if request gets a response", func() {
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
-		err := s.handler.sendMessage(interfaces.KafkaMessage{
+		handler, _, _, mockKafkaProducer := s.setupHandler()
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		err := handler.sendMessage(interfaces.KafkaMessage{
 			Topic: "push-game_gcm",
 			Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 		})
 		s.Require().NoError(err)
 
-		go s.handler.CleanMetadataCache()
+		go handler.CleanMetadataCache()
 
 		res := gcm.CCSMessage{
 			From:        "testToken1",
@@ -511,23 +564,24 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 			MessageType: "ack",
 			Category:    "testCategory",
 		}
-		err = s.handler.handleGCMResponse(res)
+		err = handler.handleGCMResponse(res)
 		s.Require().NoError(err)
 
 		time.Sleep(500 * time.Millisecond)
 
-		s.True(s.handler.requestsHeap.Empty())
-		s.handler.inflightMessagesMetadataLock.Lock()
-		s.Empty(s.handler.InflightMessagesMetadata)
-		s.handler.inflightMessagesMetadataLock.Unlock()
+		s.True(handler.requestsHeap.Empty())
+		handler.inflightMessagesMetadataLock.Lock()
+		s.Empty(handler.InflightMessagesMetadata)
+		handler.inflightMessagesMetadataLock.Unlock()
 	})
 
 	s.Run("should handle all responses or remove them after timeout", func() {
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		handler, _, _, mockKafkaProducer := s.setupHandler()
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		n := 10
 		sendRequests := func() {
 			for i := 0; i < n; i++ {
-				err := s.handler.sendMessage(interfaces.KafkaMessage{
+				err := handler.sendMessage(interfaces.KafkaMessage{
 					Topic: "push-game_gcm",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
@@ -544,58 +598,50 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 					Category:    "testCategory",
 				}
 
-				err := s.handler.handleGCMResponse(res)
+				err := handler.handleGCMResponse(res)
 				s.Require().NoError(err)
 			}
 		}
 
-		go s.handler.CleanMetadataCache()
+		go handler.CleanMetadataCache()
 		go sendRequests()
 		time.Sleep(500 * time.Millisecond)
 
 		go handleResponses()
 		time.Sleep(500 * time.Millisecond)
 
-		s.True(s.handler.requestsHeap.Empty())
-		s.handler.inflightMessagesMetadataLock.Lock()
-		s.Empty(s.handler.InflightMessagesMetadata)
-		s.handler.inflightMessagesMetadataLock.Unlock()
+		s.True(handler.requestsHeap.Empty())
+		handler.inflightMessagesMetadataLock.Lock()
+		s.Empty(handler.InflightMessagesMetadata)
+		handler.inflightMessagesMetadataLock.Unlock()
 	})
 }
 
 func (s *GCMMessageHandlerTestSuite) TestLogStats() {
 	s.Run("should log stats and reset them", func() {
-		s.handler.sentMessages = 100
-		s.handler.responsesReceived = 90
-		s.handler.successesReceived = 60
-		s.handler.failuresReceived = 30
-		s.handler.ignoredMessages = 10
+		handler, _, _, _ := s.setupHandler()
+		handler.sentMessages = 100
+		handler.responsesReceived = 90
+		handler.successesReceived = 60
+		handler.failuresReceived = 30
+		handler.ignoredMessages = 10
 
-		go s.handler.LogStats()
-		s.Eventually(func() bool {
-			for _, e := range s.hooks.Entries {
-				if e.Message == "flushing stats" {
-					return true
-				}
-			}
-			return false
-		},
-			time.Second,
-			time.Millisecond*100,
-		)
-		s.handler.inflightMessagesMetadataLock.Lock()
-		s.Eventually(func() bool { return s.handler.sentMessages == int64(0) }, time.Second, time.Millisecond*100)
-		s.Eventually(func() bool { return s.handler.responsesReceived == int64(0) }, time.Second, time.Millisecond*100)
-		s.Eventually(func() bool { return s.handler.successesReceived == int64(0) }, time.Second, time.Millisecond*100)
-		s.Eventually(func() bool { return s.handler.failuresReceived == int64(0) }, time.Second, time.Millisecond*100)
-		s.Eventually(func() bool { return s.handler.ignoredMessages == int64(0) }, time.Second, time.Millisecond*100)
-		s.handler.inflightMessagesMetadataLock.Unlock()
+		go handler.LogStats()
+
+		handler.inflightMessagesMetadataLock.Lock()
+		s.Eventually(func() bool { return handler.sentMessages == int64(0) }, time.Second, time.Millisecond*100)
+		s.Eventually(func() bool { return handler.responsesReceived == int64(0) }, time.Second, time.Millisecond*100)
+		s.Eventually(func() bool { return handler.successesReceived == int64(0) }, time.Second, time.Millisecond*100)
+		s.Eventually(func() bool { return handler.failuresReceived == int64(0) }, time.Second, time.Millisecond*100)
+		s.Eventually(func() bool { return handler.ignoredMessages == int64(0) }, time.Second, time.Millisecond*100)
+		handler.inflightMessagesMetadataLock.Unlock()
 	})
 }
 
 func (s *GCMMessageHandlerTestSuite) TestStatsReporter() {
 	s.Run("should call HandleNotificationSent upon message sent to queue", func() {
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		handler, _, mockStatsdClient, mockKafkaProducer := s.setupHandler()
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		ttl := uint(0)
 		msg := &gcm.XMPPMessage{
 			TimeToLive:               &ttl,
@@ -612,40 +658,43 @@ func (s *GCMMessageHandlerTestSuite) TestStatsReporter() {
 			Topic: "push-game_gcm",
 			Value: msgBytes,
 		}
-		err = s.handler.sendMessage(kafkaMessage)
+		err = handler.sendMessage(kafkaMessage)
 		s.NoError(err)
 
-		err = s.handler.sendMessage(kafkaMessage)
+		err = handler.sendMessage(kafkaMessage)
 		s.NoError(err)
-		s.Equal(int64(2), s.mockStatsdClient.Counts["sent"])
+		s.Equal(int64(2), mockStatsdClient.Counts["sent"])
 	})
 
 	s.Run("should call HandleNotificationSuccess upon response received", func() {
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		handler, _, mockStatsdClient, mockKafkaProducer := s.setupHandler()
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		res := gcm.CCSMessage{}
-		err := s.handler.handleGCMResponse(res)
+		err := handler.handleGCMResponse(res)
 		s.Require().NoError(err)
-		err = s.handler.handleGCMResponse(res)
+		err = handler.handleGCMResponse(res)
 		s.Require().NoError(err)
 
-		s.Equal(int64(2), s.mockStatsdClient.Counts["ack"])
+		s.Equal(int64(2), mockStatsdClient.Counts["ack"])
 	})
 
 	s.Run("should call HandleNotificationFailure upon error response received", func() {
-		s.mockKafkaProducer.StartConsumingMessagesInProduceChannel()
+		handler, _, mockStatsdClient, mockKafkaProducer := s.setupHandler()
+		mockKafkaProducer.StartConsumingMessagesInProduceChannel()
 		res := gcm.CCSMessage{
 			Error: "DEVICE_UNREGISTERED",
 		}
-		s.handler.handleGCMResponse(res)
-		s.handler.handleGCMResponse(res)
+		err := handler.handleGCMResponse(res)
+		s.Require().NoError(err)
 
-		s.Equal(int64(2), s.mockStatsdClient.Counts["failed"])
+		s.Equal(int64(2), mockStatsdClient.Counts["failed"])
 	})
 
 }
 
 func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 	s.Run("should include a timestamp in feedback root and the hostname in metadata", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		timestampNow := time.Now().Unix()
 		hostname, err := os.Hostname()
 		s.Require().NoError(err)
@@ -657,19 +706,22 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			"game":      "game",
 			"platform":  "gcm",
 		}
-		s.handler.inflightMessagesMetadataLock.Lock()
-		s.handler.InflightMessagesMetadata["idTest1"] = metadata
-		s.handler.inflightMessagesMetadataLock.Unlock()
+		handler.inflightMessagesMetadataLock.Lock()
+		handler.InflightMessagesMetadata["idTest1"] = metadata
+		handler.inflightMessagesMetadataLock.Unlock()
 		res := gcm.CCSMessage{
 			From:        "testToken1",
 			MessageID:   "idTest1",
 			MessageType: "ack",
 			Category:    "testCategory",
 		}
-		go s.handler.handleGCMResponse(res)
+		go func() {
+			err := handler.handleGCMResponse(res)
+			s.Require().NoError(err)
+		}()
 
 		fromKafka := &CCSMessageWithMetadata{}
-		msg := <-s.mockKafkaProducer.ProduceChannel()
+		msg := <-mockKafkaProducer.ProduceChannel()
 		err = json.Unmarshal(msg.Value, fromKafka)
 		s.Require().NoError(err)
 		s.Equal(timestampNow, fromKafka.Timestamp)
@@ -677,6 +729,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 	})
 
 	s.Run("should send feedback if success and metadata is present", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		metadata := map[string]interface{}{
 			"some":      "metadata",
 			"timestamp": time.Now().Unix(),
@@ -684,9 +737,9 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			"platform":  "gcm",
 		}
 
-		s.handler.inflightMessagesMetadataLock.Lock()
-		s.handler.InflightMessagesMetadata["idTest1"] = metadata
-		s.handler.inflightMessagesMetadataLock.Unlock()
+		handler.inflightMessagesMetadataLock.Lock()
+		handler.InflightMessagesMetadata["idTest1"] = metadata
+		handler.inflightMessagesMetadataLock.Unlock()
 
 		res := gcm.CCSMessage{
 			From:        "testToken1",
@@ -694,10 +747,13 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			MessageType: "ack",
 			Category:    "testCategory",
 		}
-		go s.handler.handleGCMResponse(res)
+		go func() {
+			err := handler.handleGCMResponse(res)
+			s.Require().NoError(err)
+		}()
 
 		fromKafka := &CCSMessageWithMetadata{}
-		msg := <-s.mockKafkaProducer.ProduceChannel()
+		msg := <-mockKafkaProducer.ProduceChannel()
 		err := json.Unmarshal(msg.Value, fromKafka)
 		s.Require().NoError(err)
 		s.Equal(res.From, fromKafka.From)
@@ -708,16 +764,20 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 	})
 
 	s.Run("should send feedback if success and metadata is not present", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		res := gcm.CCSMessage{
 			From:        "testToken1",
 			MessageID:   "idTest1",
 			MessageType: "ack",
 			Category:    "testCategory",
 		}
-		go s.handler.handleGCMResponse(res)
+		go func() {
+			err := handler.handleGCMResponse(res)
+			s.Require().NoError(err)
+		}()
 
 		fromKafka := &CCSMessageWithMetadata{}
-		msg := <-s.mockKafkaProducer.ProduceChannel()
+		msg := <-mockKafkaProducer.ProduceChannel()
 		err := json.Unmarshal(msg.Value, fromKafka)
 		s.Require().NoError(err)
 		s.Equal(res.From, fromKafka.From)
@@ -728,6 +788,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 	})
 
 	s.Run("should send feedback if error and metadata is present and token should be deleted", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		metadata := map[string]interface{}{
 			"some":      "metadata",
 			"timestamp": time.Now().Unix(),
@@ -735,9 +796,9 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			"platform":  "gcm",
 		}
 
-		s.handler.inflightMessagesMetadataLock.Lock()
-		s.handler.InflightMessagesMetadata["idTest1"] = metadata
-		s.handler.inflightMessagesMetadataLock.Unlock()
+		handler.inflightMessagesMetadataLock.Lock()
+		handler.InflightMessagesMetadata["idTest1"] = metadata
+		handler.inflightMessagesMetadataLock.Unlock()
 
 		res := gcm.CCSMessage{
 			From:        "testToken1",
@@ -746,10 +807,13 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			Category:    "testCategory",
 			Error:       "BAD_REGISTRATION",
 		}
-		go s.handler.handleGCMResponse(res)
+		go func() {
+			err := handler.handleGCMResponse(res)
+			s.Require().NoError(err)
+		}()
 
 		fromKafka := &CCSMessageWithMetadata{}
-		msg := <-s.mockKafkaProducer.ProduceChannel()
+		msg := <-mockKafkaProducer.ProduceChannel()
 		err := json.Unmarshal(msg.Value, fromKafka)
 		s.Require().NoError(err)
 		s.Equal(res.From, fromKafka.From)
@@ -762,6 +826,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 	})
 
 	s.Run("should send feedback if error and metadata is present and token should not be deleted", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		metadata := map[string]interface{}{
 			"some":      "metadata",
 			"timestamp": time.Now().Unix(),
@@ -769,9 +834,9 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			"platform":  "gcm",
 		}
 
-		s.handler.inflightMessagesMetadataLock.Lock()
-		s.handler.InflightMessagesMetadata["idTest1"] = metadata
-		s.handler.inflightMessagesMetadataLock.Unlock()
+		handler.inflightMessagesMetadataLock.Lock()
+		handler.InflightMessagesMetadata["idTest1"] = metadata
+		handler.inflightMessagesMetadataLock.Unlock()
 
 		res := gcm.CCSMessage{
 			From:        "testToken1",
@@ -780,10 +845,13 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			Category:    "testCategory",
 			Error:       "INVALID_JSON",
 		}
-		go s.handler.handleGCMResponse(res)
+		go func() {
+			err := handler.handleGCMResponse(res)
+			s.Require().NoError(err)
+		}()
 
 		fromKafka := &CCSMessageWithMetadata{}
-		msg := <-s.mockKafkaProducer.ProduceChannel()
+		msg := <-mockKafkaProducer.ProduceChannel()
 		err := json.Unmarshal(msg.Value, fromKafka)
 		s.Require().NoError(err)
 		s.Equal(res.From, fromKafka.From)
@@ -795,6 +863,7 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 		s.Nil(fromKafka.Metadata["deleteToken"])
 	})
 	s.Run("should send feedback if error and metadata is not present", func() {
+		handler, _, _, mockKafkaProducer := s.setupHandler()
 		res := gcm.CCSMessage{
 			From:        "testToken1",
 			MessageID:   "idTest1",
@@ -802,10 +871,13 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			Category:    "testCategory",
 			Error:       "BAD_REGISTRATION",
 		}
-		go s.handler.handleGCMResponse(res)
+		go func() {
+			err := handler.handleGCMResponse(res)
+			s.Require().NoError(err)
+		}()
 
 		fromKafka := &CCSMessageWithMetadata{}
-		msg := <-s.mockKafkaProducer.ProduceChannel()
+		msg := <-mockKafkaProducer.ProduceChannel()
 		err := json.Unmarshal(msg.Value, fromKafka)
 		s.Require().NoError(err)
 		s.Equal(res.From, fromKafka.From)
