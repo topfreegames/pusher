@@ -415,7 +415,7 @@ func (a *APNSMessageHandler) LogStats() {
 func (a *APNSMessageHandler) mapErrorReason(reason string) string {
 	switch reason {
 	case apns2.ReasonPayloadEmpty:
-		return "payload-empty"
+		return "payload-Empty"
 	case apns2.ReasonPayloadTooLarge:
 		return "payload-too-large"
 	case apns2.ReasonMissingDeviceToken:

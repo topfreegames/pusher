@@ -489,8 +489,10 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 
 		time.Sleep(500 * time.Millisecond)
 
-		s.Empty(s.handler.requestsHeap)
+		s.True(s.handler.requestsHeap.Empty())
+		s.handler.inflightMessagesMetadataLock.Lock()
 		s.Empty(s.handler.InflightMessagesMetadata)
+		s.handler.inflightMessagesMetadataLock.Unlock()
 	})
 
 	s.Run("should succeed if request gets a response", func() {
@@ -514,8 +516,10 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 
 		time.Sleep(500 * time.Millisecond)
 
-		s.Empty(s.handler.requestsHeap)
+		s.True(s.handler.requestsHeap.Empty())
+		s.handler.inflightMessagesMetadataLock.Lock()
 		s.Empty(s.handler.InflightMessagesMetadata)
+		s.handler.inflightMessagesMetadataLock.Unlock()
 	})
 
 	s.Run("should handle all responses or remove them after timeout", func() {
@@ -552,8 +556,10 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 		go handleResponses()
 		time.Sleep(500 * time.Millisecond)
 
-		s.Empty(s.handler.requestsHeap)
+		s.True(s.handler.requestsHeap.Empty())
+		s.handler.inflightMessagesMetadataLock.Lock()
 		s.Empty(s.handler.InflightMessagesMetadata)
+		s.handler.inflightMessagesMetadataLock.Unlock()
 	})
 }
 
@@ -577,11 +583,13 @@ func (s *GCMMessageHandlerTestSuite) TestLogStats() {
 			time.Second,
 			time.Millisecond*100,
 		)
+		s.handler.inflightMessagesMetadataLock.Lock()
 		s.Eventually(func() bool { return s.handler.sentMessages == int64(0) }, time.Second, time.Millisecond*100)
 		s.Eventually(func() bool { return s.handler.responsesReceived == int64(0) }, time.Second, time.Millisecond*100)
 		s.Eventually(func() bool { return s.handler.successesReceived == int64(0) }, time.Second, time.Millisecond*100)
 		s.Eventually(func() bool { return s.handler.failuresReceived == int64(0) }, time.Second, time.Millisecond*100)
 		s.Eventually(func() bool { return s.handler.ignoredMessages == int64(0) }, time.Second, time.Millisecond*100)
+		s.handler.inflightMessagesMetadataLock.Unlock()
 	})
 }
 
@@ -649,7 +657,9 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			"game":      "game",
 			"platform":  "gcm",
 		}
+		s.handler.inflightMessagesMetadataLock.Lock()
 		s.handler.InflightMessagesMetadata["idTest1"] = metadata
+		s.handler.inflightMessagesMetadataLock.Unlock()
 		res := gcm.CCSMessage{
 			From:        "testToken1",
 			MessageID:   "idTest1",
@@ -673,7 +683,11 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			"game":      "game",
 			"platform":  "gcm",
 		}
+
+		s.handler.inflightMessagesMetadataLock.Lock()
 		s.handler.InflightMessagesMetadata["idTest1"] = metadata
+		s.handler.inflightMessagesMetadataLock.Unlock()
+
 		res := gcm.CCSMessage{
 			From:        "testToken1",
 			MessageID:   "idTest1",
@@ -720,7 +734,11 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			"game":      "game",
 			"platform":  "gcm",
 		}
+
+		s.handler.inflightMessagesMetadataLock.Lock()
 		s.handler.InflightMessagesMetadata["idTest1"] = metadata
+		s.handler.inflightMessagesMetadataLock.Unlock()
+
 		res := gcm.CCSMessage{
 			From:        "testToken1",
 			MessageID:   "idTest1",
@@ -750,7 +768,11 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 			"game":      "game",
 			"platform":  "gcm",
 		}
+
+		s.handler.inflightMessagesMetadataLock.Lock()
 		s.handler.InflightMessagesMetadata["idTest1"] = metadata
+		s.handler.inflightMessagesMetadataLock.Unlock()
+
 		res := gcm.CCSMessage{
 			From:        "testToken1",
 			MessageID:   "idTest1",
@@ -794,11 +816,3 @@ func (s *GCMMessageHandlerTestSuite) TestFeedbackReporter() {
 		s.Nil(fromKafka.Metadata)
 	})
 }
-
-//func (s *GCMMessageHandlerTestSuite) TestCleanup() {
-//	s.Run("should close GCM client without errors", func() {
-//		err := s.handler.Cleanup()
-//		s.NoError(err)
-//		s.True(s.mockClient.Closed)
-//	})
-//}
