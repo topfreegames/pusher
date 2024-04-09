@@ -284,7 +284,6 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 
 	a.inFlightNotificationsMapLock.Lock()
 	inFlightNotificationInstance, hasInFlightNotificationInstance := a.InFlightNotificationsMap[responseWithMetadata.ApnsID]
-	a.inFlightNotificationsMapLock.Unlock()
 
 	if hasInFlightNotificationInstance {
 		// retry on too many requests (429)
@@ -307,6 +306,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		delete(responseWithMetadata.Metadata, "timestamp")
 		delete(a.InFlightNotificationsMap, responseWithMetadata.ApnsID)
 	}
+	a.inFlightNotificationsMapLock.Unlock()
 
 	apnsResMutex.Lock()
 	a.responsesReceived++
