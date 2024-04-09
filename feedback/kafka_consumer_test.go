@@ -211,7 +211,7 @@ var _ = Describe("Kafka Consumer", func() {
 
 		Describe("ConsumeLoop", func() {
 			It("should consume message and add it to msgChan", func() {
-				logger, _ := test.NewNullLogger()
+				logger := logrus.New()
 				logger.Level = logrus.DebugLevel
 				stopChannel := make(chan struct{})
 
@@ -242,7 +242,7 @@ var _ = Describe("Kafka Consumer", func() {
 					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(client.msgChan, 5*time.Millisecond, 100*time.Millisecond).Should(Receive(Equal(&KafkaMessage{
+				Eventually(client.msgChan, 5*time.Second, 100*time.Millisecond).Should(Receive(Equal(&KafkaMessage{
 					Game:     game,
 					Platform: platform,
 					Value:    value,
