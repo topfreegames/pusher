@@ -242,7 +242,7 @@ var _ = Describe("Kafka Consumer", func() {
 					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(client.msgChan, 10*time.Second).Should(Receive(Equal(&KafkaMessage{
+				Eventually(client.msgChan, 5*time.Millisecond, 100*time.Millisecond).Should(Receive(Equal(&KafkaMessage{
 					Game:     game,
 					Platform: platform,
 					Value:    value,
