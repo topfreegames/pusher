@@ -228,7 +228,7 @@ var _ = Describe("Kafka Consumer", func() {
 				go client.ConsumeLoop()
 
 				// Required to assure the consumer to be ready before producing a message
-				time.Sleep(5 * time.Second)
+				time.Sleep(10 * time.Second)
 
 				p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": client.Brokers})
 				Expect(err).NotTo(HaveOccurred())
