@@ -520,7 +520,11 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 
 		<-handler.pendingMessages
 		s.Eventually(
-			func() bool { return handler.sentMessages == 4 },
+			func() bool {
+				gcmResMutex.Lock()
+				defer gcmResMutex.Unlock()
+				return handler.sentMessages == 4
+			},
 			5*time.Second,
 			100*time.Millisecond,
 		)
