@@ -150,9 +150,7 @@ func (i *InvalidTokenHandler) processMessages() {
 			if ok {
 				i.BufferLock.Lock()
 				i.Buffer = append(i.Buffer, tk)
-				i.BufferLock.Unlock()
 
-				i.BufferLock.Lock()
 				if len(i.Buffer) >= i.bufferSize {
 					l.Debug("buffer is full")
 					i.deleteTokens(i.Buffer)
