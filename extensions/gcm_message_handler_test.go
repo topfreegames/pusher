@@ -295,8 +295,10 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 			Value: msgBytes,
 		})
 		s.Require().NoError(err)
+		gcmResMutex.Lock()
 		s.Equal(int64(1), handler.sentMessages)
 		s.Equal(int64(0), handler.ignoredMessages)
+		gcmResMutex.Unlock()
 	})
 
 	s.Run("should send message and not increment sentMessages if an error occurs", func() {
@@ -306,9 +308,11 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 			Value: []byte("value"),
 		})
 		s.Require().Error(err)
+		gcmResMutex.Lock()
 		s.Equal(int64(0), handler.sentMessages)
-		s.Len(mockClient.MessagesSent, 0)
 		s.Len(handler.pendingMessages, 0)
+		gcmResMutex.Unlock()
+		s.Len(mockClient.MessagesSent, 0)
 	})
 
 	s.Run("should send xmpp message", func() {
@@ -331,9 +335,11 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 			Value: msgBytes,
 		})
 		s.Require().NoError(err)
+		gcmResMutex.Lock()
 		s.Equal(int64(1), handler.sentMessages)
 		s.Len(mockClient.MessagesSent, 1)
 		s.Len(handler.pendingMessages, 1)
+		gcmResMutex.Unlock()
 	})
 
 	s.Run("should send xmpp message with metadata", func() {
@@ -366,9 +372,11 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 			Value: msgBytes,
 		})
 		s.Require().NoError(err)
+		gcmResMutex.Lock()
 		s.Equal(int64(1), handler.sentMessages)
 		s.Len(mockClient.MessagesSent, 1)
 		s.Len(handler.pendingMessages, 1)
+		gcmResMutex.Unlock()
 	})
 
 	s.Run("should forward metadata content on GCM request", func() {
@@ -399,9 +407,11 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		})
 
 		s.Require().NoError(err)
+		gcmResMutex.Lock()
 		s.Equal(int64(1), handler.sentMessages)
 		s.Len(mockClient.MessagesSent, 1)
 		s.Len(handler.pendingMessages, 1)
+		gcmResMutex.Unlock()
 
 		sentMessage := mockClient.MessagesSent[0]
 		s.NotNil(sentMessage)
@@ -438,9 +448,11 @@ func (s *GCMMessageHandlerTestSuite) TestSendMessage() {
 		})
 
 		s.Require().NoError(err)
+		gcmResMutex.Lock()
 		s.Equal(int64(1), handler.sentMessages)
 		s.Len(mockClient.MessagesSent, 1)
 		s.Len(handler.pendingMessages, 1)
+		gcmResMutex.Unlock()
 
 		sentMessage := mockClient.MessagesSent[0]
 		s.NotNil(sentMessage)
