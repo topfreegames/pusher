@@ -105,44 +105,6 @@ func (s *GCMMessageHandlerTestSuite) setupHandler() (
 	return handler, mockClient, mockStatsdClient, mockKafkaProducer
 }
 
-//func (s *GCMMessageHandlerTestSuite) SetupSubTest() {
-//	s.logger, s.hooks = test.NewNullLogger()
-//
-//	s.mockClient = mocks.NewGCMClientMock()
-//
-//	s.mockStatsdClient = mocks.NewStatsDClientMock()
-//	statsD, err := NewStatsD(s.vConfig, s.logger, s.mockStatsdClient)
-//	s.Require().NoError(err)
-//
-//	s.mockKafkaProducer = mocks.NewKafkaProducerClientMock()
-//	kc, err := NewKafkaProducer(s.vConfig, s.logger, s.mockKafkaProducer)
-//	s.Require().NoError(err)
-//
-//	statsClients := []interfaces.StatsReporter{statsD}
-//	feedbackClients := []interfaces.FeedbackReporter{kc}
-//
-//	handler, err := NewGCMMessageHandlerWithClient(
-//		s.game,
-//		false,
-//		s.vConfig,
-//		s.logger,
-//		nil,
-//		statsClients,
-//		feedbackClients,
-//		s.mockClient,
-//	)
-//	s.NoError(err)
-//	s.Require().NotNil(handler)
-//	s.Equal(s.game, handler.game)
-//	s.NotNil(handler.ViperConfig)
-//	s.False(handler.IsProduction)
-//	s.Equal(int64(0), handler.responsesReceived)
-//	s.Equal(int64(0), handler.sentMessages)
-//	s.Len(s.mockClient.MessagesSent, 0)
-//
-//	s.handler = handler
-//}
-
 func (s *GCMMessageHandlerTestSuite) TestConfigureHandler() {
 	s.Run("should fail if invalid credentials", func() {
 		handler, err := NewGCMMessageHandler(
