@@ -161,8 +161,8 @@ func (i *InvalidTokenHandler) processMessages() {
 
 		case <-flushTicker.C:
 			l.Debug("flush ticker")
-			i.deleteTokens(i.Buffer)
 			i.BufferLock.Lock()
+			i.deleteTokens(i.Buffer)
 			i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
 			i.BufferLock.Unlock()
 
