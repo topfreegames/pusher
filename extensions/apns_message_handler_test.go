@@ -26,6 +26,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
 	"os"
 	"time"
 
@@ -50,6 +51,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 	var mockPushQueue *mocks.APNSPushQueueMock
 	var mockStatsDClient *mocks.StatsDClientMock
 	var statsClients []interfaces.StatsReporter
+	mockConsumptionManager := mock_interfaces.NewMockConsumptionManager()
 	ctx := context.Background()
 
 	configFile := os.Getenv("CONFIG_FILE")
@@ -96,7 +98,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				statsClients,
 				feedbackClients,
 				mockPushQueue,
-				nil,
+				mockConsumptionManager,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			db.(*mocks.PGMock).RowsReturned = 0
@@ -645,7 +647,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 		Describe("Feedback Reporter sent message", func() {
 			BeforeEach(func() {
 				mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
-
 				kc, err := NewKafkaProducer(config, logger, mockKafkaProducerClient)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -666,7 +667,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 					statsClients,
 					feedbackClients,
 					mockPushQueue,
-					nil,
+					mockConsumptionManager,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -816,6 +817,42 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Expect(fromKafka.ApnsID).To(Equal(res.ApnsID))
 				Expect(fromKafka.Metadata).To(BeNil())
 				Expect(string(msg.Value)).To(ContainSubstring("BadDeviceToken"))
+			})
+
+			It("should not deadlock on handle retry for handle apns response", func() {
+
+				metadata := map[string]interface{}{
+					"some":      "metadata",
+					"timestamp": time.Now().Unix(),
+					"game":      "game",
+					"platform":  "apns",
+				}
+				handler.inFlightNotificationsMapLock.Lock()
+				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
+				handler.InFlightNotificationsMap["idTest2"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
+				handler.inFlightNotificationsMapLock.Unlock()
+
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 429,
+					ApnsID:     "idTest1",
+					Reason:     apns2.ReasonTooManyRequests,
+				}
+
+				res2 := &structs.ResponseWithMetadata{
+					StatusCode: 429,
+					ApnsID:     "idTest2",
+					Reason:     apns2.ReasonTooManyRequests,
+				}
+				go func() {
+					err := handler.handleAPNSResponse(res)
+					Expect(err).NotTo(HaveOccurred())
+				}()
+				time.Sleep(200 * time.Millisecond)
+
+				go func() {
+					err := handler.handleAPNSResponse(res2)
+					Expect(err).NotTo(HaveOccurred())
+				}()
 			})
 		})
 
