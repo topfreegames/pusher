@@ -96,10 +96,14 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 		keyID := a.ViperConfig.GetString("apns.certs." + k + ".keyID")
 		teamID := a.ViperConfig.GetString("apns.certs." + k + ".teamID")
 		topic := a.ViperConfig.GetString("apns.certs." + k + ".topic")
-		l.Infof(
-			"Configuring messageHandler for game %s with key: %s",
-			k, authKeyPath,
-		)
+
+		l.WithFields(logrus.Fields{
+			"app":         k,
+			"authKeyPath": authKeyPath,
+			"teamID":      teamID,
+			"topic":       topic,
+		}).Info("configuring apns message handler")
+
 		handler, err := extensions.NewAPNSMessageHandler(
 			authKeyPath,
 			keyID,
