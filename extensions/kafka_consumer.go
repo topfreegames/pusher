@@ -236,6 +236,11 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 			continue
 		}
 		q.receiveMessage(message.TopicPartition, message.Value)
+		_, err = q.Consumer.CommitMessage(message)
+		if err != nil {
+			q.handleError(err)
+			return fmt.Errorf("error committing message: %s", err.Error())
+		}
 	}
 
 	return nil
