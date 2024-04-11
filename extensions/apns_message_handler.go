@@ -61,7 +61,7 @@ type APNSMessageHandler struct {
 	teamID                       string
 	appName                      string
 	PushQueue                    interfaces.APNSPushQueue
-	Topic                        string
+	ApnsTopic                    string
 	Config                       *viper.Viper
 	failuresReceived             int64
 	InFlightNotificationsMap     map[string]*inFlightNotification
@@ -99,7 +99,7 @@ func NewAPNSMessageHandler(
 		authKeyPath:                  authKeyPath,
 		keyID:                        keyID,
 		teamID:                       teamID,
-		Topic:                        topic,
+		ApnsTopic:                    topic,
 		appName:                      appName,
 		Config:                       config,
 		failuresReceived:             0,
@@ -265,7 +265,7 @@ func (a *APNSMessageHandler) sendNotification(notification *Notification) error 
 	}
 	l.WithField("notification", notification).Debug("adding notification to apns push queue")
 	a.PushQueue.Push(&apns2.Notification{
-		Topic:       a.Topic,
+		Topic:       a.ApnsTopic,
 		DeviceToken: notification.DeviceToken,
 		Payload:     payload,
 		ApnsID:      notification.ApnsID,
@@ -292,7 +292,10 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		sendAttempts := inFlightNotificationInstance.sendAttempts.Load()
 		if responseWithMetadata.Reason == apns2.ReasonTooManyRequests &&
 			uint(sendAttempts) < a.maxRetryAttempts {
-			a.consumptionManager.Pause(inFlightNotificationInstance.kafkaTopic)
+			err := a.consumptionManager.Pause(inFlightNotificationInstance.kafkaTopic)
+			if err != nil {
+				l.WithError(err).Error("error pausing consumption")
+			}
 			inFlightNotificationInstance.sendAttempts.Add(1)
 			<-time.After(a.retryInterval)
 			if err := a.sendNotification(inFlightNotificationInstance.notification); err == nil {
@@ -300,7 +303,10 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 			}
 		}
 		if uint(sendAttempts) > 0 {
-			a.consumptionManager.Resume(inFlightNotificationInstance.kafkaTopic)
+			err := a.consumptionManager.Resume(inFlightNotificationInstance.kafkaTopic)
+			if err != nil {
+				l.WithError(err).Error("error resuming consumption")
+			}
 		}
 		responseWithMetadata.Metadata = inFlightNotificationInstance.notification.Metadata
 		responseWithMetadata.Timestamp = responseWithMetadata.Metadata["timestamp"].(int64)

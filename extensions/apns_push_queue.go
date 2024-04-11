@@ -66,7 +66,10 @@ func NewAPNSPushQueue(
 
 // Configure configures queues and token
 func (p *APNSPushQueue) Configure() error {
-	l := p.Logger.WithField("method", "configure")
+	l := p.Logger.WithFields(log.Fields{
+		"source": "APNSPushQueue",
+		"method": "configure",
+	})
 	err := p.configureCertificate()
 	if err != nil {
 		return err
@@ -77,8 +80,10 @@ func (p *APNSPushQueue) Configure() error {
 	for i := 0; i < connectionPoolSize; i++ {
 		client := apns2.NewTokenClient(p.token)
 		if p.IsProduction {
+			l.Debug("using production")
 			client = client.Production()
 		} else {
+			l.Debug("using development")
 			client = client.Development()
 		}
 		p.clients <- client
