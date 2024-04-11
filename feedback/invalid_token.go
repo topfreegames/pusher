@@ -160,18 +160,17 @@ func (i *InvalidTokenHandler) processMessages() {
 			}
 
 		case <-flushTicker.C:
-			l.Debug("flush ticker")
 			i.BufferLock.Lock()
 			i.deleteTokens(i.Buffer)
 			i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
 			i.BufferLock.Unlock()
 
 		case <-i.stopChan:
-			break
+			l.Info("stop processing Invalid Token Handler's in channel")
+			return
 		}
 	}
 
-	l.Info("stop processing Invalid Token Handler's in channel")
 }
 
 // deleteTokens groups tokens by game and platform and deletes them from the

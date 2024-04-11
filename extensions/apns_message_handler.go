@@ -292,6 +292,12 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		sendAttempts := inFlightNotificationInstance.sendAttempts.Load()
 		if responseWithMetadata.Reason == apns2.ReasonTooManyRequests &&
 			uint(sendAttempts) < a.maxRetryAttempts {
+			l.WithFields(log.Fields{
+				"sendAttempts": sendAttempts,
+				"maxRetries":   a.maxRetryAttempts,
+				"apnsID":       responseWithMetadata.ApnsID,
+			}).Debug("retrying notification")
+
 			err := a.consumptionManager.Pause(inFlightNotificationInstance.kafkaTopic)
 			if err != nil {
 				l.WithError(err).Error("error pausing consumption")
