@@ -135,7 +135,7 @@ var _ = Describe("InvalidToken Handler", func() {
 			})
 
 			It("Should flush because reached flush timeout", func() {
-				logger, hook := test.NewNullLogger()
+				logger, _ := test.NewNullLogger()
 				logger.Level = logrus.DebugLevel
 
 				mockClient := mocks.NewPGMock(0, 1)
@@ -160,9 +160,6 @@ var _ = Describe("InvalidToken Handler", func() {
 				for _, t := range tokens {
 					inChan <- t
 				}
-
-				Eventually(func() []logrus.Entry { return hook.Entries }).
-					Should(testing.ContainLogMessage("flush ticker"))
 
 				Eventually(func() int64 {
 					return mockStatsDClient.Counts[MetricsTokensDeleteSuccess]

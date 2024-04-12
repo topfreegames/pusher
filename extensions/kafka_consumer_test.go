@@ -104,14 +104,12 @@ var _ = Describe("Kafka Extension", func() {
 				}
 				val := []byte("test")
 				event := &kafka.Message{TopicPartition: part, Value: val}
-				consumer.messagesReceived = 999
 
 				publishEvent(event)
 				Eventually(consumer.msgChan, 5).Should(Receive(&interfaces.KafkaMessage{
 					Topic: topic,
 					Value: val,
 				}))
-				Expect(consumer.messagesReceived).To(BeEquivalentTo(1000))
 			})
 		})
 

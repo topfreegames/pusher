@@ -67,7 +67,7 @@ func NewKafkaConsumer(
 ) (*KafkaConsumer, error) {
 	q := &KafkaConsumer{
 		Config:            config,
-		Logger:            logger,
+		Logger:            logger.WithField("source", "feedback.KafkaConsumer").Logger,
 		messagesReceived:  0,
 		pendingMessagesWG: nil,
 		stopChannel:       *stopChannel,

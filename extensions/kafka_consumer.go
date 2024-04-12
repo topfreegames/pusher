@@ -46,7 +46,6 @@ type KafkaConsumer struct {
 	Logger                         *logrus.Logger
 	FetchMinBytes                  int
 	FetchWaitMaxMs                 int
-	messagesReceived               int64
 	msgChan                        chan interfaces.KafkaMessage
 	SessionTimeout                 int
 	pendingMessagesWG              *sync.WaitGroup
@@ -64,8 +63,7 @@ func NewKafkaConsumer(
 ) (*KafkaConsumer, error) {
 	q := &KafkaConsumer{
 		Config:            config,
-		Logger:            logger,
-		messagesReceived:  0,
+		Logger:            logger.WithField("source", "extensions.KafkaConsumer").Logger,
 		pendingMessagesWG: nil,
 		stopChannel:       *stopChannel,
 	}
@@ -248,16 +246,14 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 
 func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, value []byte) {
 	l := q.Logger.WithFields(logrus.Fields{
-		"method": "receiveMessage",
+		"method":       "receiveMessage",
+		"topic":        *topicPartition.Topic,
+		"partitionKey": topicPartition.Partition,
+		"jsonValue":    string(value),
 	})
 
 	l.Debug("Processing received message...")
 
-	q.messagesReceived++
-	if q.messagesReceived%1000 == 0 {
-		l.Infof("messages from kafka: %d", q.messagesReceived)
-	}
-	l.Debugf("message on %s:\n%s\n", topicPartition, string(value))
 	if q.pendingMessagesWG != nil {
 		q.pendingMessagesWG.Add(1)
 	}
@@ -270,7 +266,7 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 
 	q.msgChan <- message
 
-	l.Debug("Received message processed.")
+	l.Debug("added message to channel")
 }
 
 func (q *KafkaConsumer) handleError(err error) {

@@ -79,17 +79,26 @@ func (p *Pusher) configureStatsReporters(clientOrNil interfaces.StatsDClient) er
 }
 
 func (p *Pusher) routeMessages(ctx context.Context, msgChan *chan interfaces.KafkaMessage) {
+	l := p.Logger.WithFields(logrus.Fields{
+		"method": "routeMessages",
+		"source": "pusher",
+	})
 	//nolint[:gosimple]
 	for p.run {
 		select {
 		case message := <-*msgChan:
+			l = l.WithFields(logrus.Fields{
+				"game":      message.Game,
+				"jsonValue": string(message.Value),
+				"topic":     message.Topic,
+			})
+
+			l.Debug("got message from message channel")
+
 			if handler, ok := p.MessageHandler[message.Game]; ok {
 				handler.HandleMessages(ctx, message)
 			} else {
-				p.Logger.WithFields(logrus.Fields{
-					"method": "routeMessages",
-					"game":   message.Game,
-				}).Error("Game not found")
+				l.Error("Game not found")
 			}
 		}
 	}

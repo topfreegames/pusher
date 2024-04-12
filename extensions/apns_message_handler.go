@@ -118,6 +118,14 @@ func NewAPNSMessageHandler(
 		PushQueue:                    pushQueue,
 		consumptionManager:           consumptionManager,
 	}
+
+	if a.Logger != nil {
+		a.Logger = a.Logger.WithFields(log.Fields{
+			"source": "APNSMessageHandler",
+			"game":   appName,
+		}).Logger
+	}
+
 	if err := a.configure(); err != nil {
 		return nil, err
 	}
@@ -165,7 +173,7 @@ func (a *APNSMessageHandler) loadConfigurationDefaults() {
 // HandleResponses from apns.
 func (a *APNSMessageHandler) HandleResponses() {
 	for response := range a.PushQueue.ResponseChannel() {
-		a.handleAPNSResponse(response)
+		_ = a.handleAPNSResponse(response)
 	}
 }
 
@@ -193,8 +201,13 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 }
 
 // HandleMessages get messages from msgChan and send to APNS.
-func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfaces.KafkaMessage) {
-	a.Logger.WithField("message", message).Debug("received message to send to apns")
+func (a *APNSMessageHandler) HandleMessages(_ context.Context, message interfaces.KafkaMessage) {
+	l := a.Logger.WithFields(log.Fields{
+		"method":    "HandleMessages",
+		"jsonValue": string(message.Value),
+		"topic":     message.Topic,
+	})
+	l.Debug("received message to send to apns")
 	notification, err := a.buildNotification(message)
 	if err != nil {
 		return
