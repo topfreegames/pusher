@@ -142,7 +142,7 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 		},
 		"topics": q.Topics,
 	})
-	l.Debug("configuring kafka queue extension")
+	l.Debug("configuring kafka queue")
 
 	if client == nil {
 		c, err := kafka.NewConsumer(&kafka.ConfigMap{

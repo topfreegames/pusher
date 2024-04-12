@@ -25,6 +25,7 @@ package extensions
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/getsentry/raven-go"
@@ -214,7 +215,10 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 		"topics": q.Topics,
 	})
 
-	err := q.Consumer.SubscribeTopics(q.Topics, nil)
+	err := q.Consumer.SubscribeTopics(q.Topics, func(_ *kafka.Consumer, event kafka.Event) error {
+		l.WithField("event", event.String()).Debug("got event from Kafka")
+		return nil
+	})
 
 	if err != nil {
 		l.WithError(err).Error("error subscribing to topics")
@@ -225,7 +229,7 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 
 	//nolint[:gosimple]
 	for q.run {
-		message, err := q.Consumer.ReadMessage(100)
+		message, err := q.Consumer.ReadMessage(100 * time.Millisecond)
 		if message == nil && err.(kafka.Error).IsTimeout() {
 			continue
 		}
@@ -233,7 +237,9 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 			q.handleError(err)
 			continue
 		}
+		l.Debug("got message from Kafka")
 		q.receiveMessage(message.TopicPartition, message.Value)
+
 		_, err = q.Consumer.CommitMessage(message)
 		if err != nil {
 			q.handleError(err)
