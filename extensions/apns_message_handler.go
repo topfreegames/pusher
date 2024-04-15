@@ -315,18 +315,19 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 			if err != nil {
 				l.WithError(err).Error("error pausing consumption")
 			}
+			defer func() {
+				err := a.consumptionManager.Resume(inFlightNotificationInstance.kafkaTopic)
+				if err != nil {
+					l.WithError(err).Error("error resuming consumption")
+				}
+			}()
 			inFlightNotificationInstance.sendAttempts.Add(1)
 			<-time.After(a.retryInterval)
 			if err := a.sendNotification(inFlightNotificationInstance.notification); err == nil {
 				return nil
 			}
 		}
-		if uint(sendAttempts) > 0 {
-			err := a.consumptionManager.Resume(inFlightNotificationInstance.kafkaTopic)
-			if err != nil {
-				l.WithError(err).Error("error resuming consumption")
-			}
-		}
+
 		responseWithMetadata.Metadata = inFlightNotificationInstance.notification.Metadata
 		responseWithMetadata.Timestamp = responseWithMetadata.Metadata["timestamp"].(int64)
 		delete(responseWithMetadata.Metadata, "timestamp")
