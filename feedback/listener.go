@@ -23,6 +23,7 @@
 package feedback
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -127,7 +128,7 @@ func (l *Listener) Start() {
 	)
 	log.Info("starting the feedback listener...")
 
-	go l.Queue.ConsumeLoop()
+	go l.Queue.ConsumeLoop(context.Background())
 	l.Broker.Start()
 	l.InvalidTokenHandler.Start()
 
@@ -146,7 +147,7 @@ func (l *Listener) Start() {
 			log.WithField("signal", sig.String()).Warn("terminating due to caught signal")
 			l.run = false
 		case <-l.stopChannel:
-			log.Warn("Stop channel closed\n")
+			log.Warn("Stop channel closed")
 			l.run = false
 		case <-flushTicker.C:
 			l.flushStats()

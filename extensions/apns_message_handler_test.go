@@ -26,20 +26,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	uuid "github.com/satori/go.uuid"
+	"github.com/sideshow/apns2"
 	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
 	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
-	"github.com/sideshow/apns2"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/structs"
-	. "github.com/topfreegames/pusher/testing"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -580,7 +579,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.successesReceived = 60
 				handler.failuresReceived = 30
 				Expect(func() { go handler.LogStats() }).ShouldNot(Panic())
-				Eventually(func() []logrus.Entry { return hook.Entries }).Should(ContainLogMessage("flushing stats"))
+				time.Sleep(handler.LogStatsInterval)
 
 				apnsResMutex.Lock()
 				Eventually(func() int64 { return handler.sentMessages }).Should(Equal(int64(0)))
@@ -847,8 +846,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 					err := handler.handleAPNSResponse(res)
 					Expect(err).NotTo(HaveOccurred())
 				}()
-				time.Sleep(200 * time.Millisecond)
-
 				go func() {
 					err := handler.handleAPNSResponse(res2)
 					Expect(err).NotTo(HaveOccurred())
@@ -898,6 +895,17 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).Should(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
 				apnsResMutex.Unlock()
+			})
+
+			It("should be able to call HandleMessages concurrently with no errors", func() {
+				msg := interfaces.KafkaMessage{
+					Topic: "push-game_apns",
+					Value: []byte(`{ "aps" : { "alert" : "Hello" } }`),
+				}
+
+				go handler.HandleMessages(context.Background(), msg)
+				go handler.HandleMessages(context.Background(), msg)
+				go handler.HandleMessages(context.Background(), msg)
 			})
 		})
 

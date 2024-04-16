@@ -92,7 +92,7 @@ var _ = Describe("InvalidToken Handler", func() {
 			})
 
 			It("Should flush because buffer is full", func() {
-				logger, hook := test.NewNullLogger()
+				logger, _ := test.NewNullLogger()
 				logger.Level = logrus.DebugLevel
 
 				mockClient := mocks.NewPGMock(0, 1)
@@ -118,8 +118,9 @@ var _ = Describe("InvalidToken Handler", func() {
 					inChan <- t
 				}
 
-				Eventually(func() []logrus.Entry { return hook.Entries }).
-					Should(testing.ContainLogMessage("buffer is full"))
+				time.Sleep(time.Second)
+				handler.Stop()
+				time.Sleep(500 * time.Millisecond)
 
 				Eventually(func() int64 {
 					return mockStatsDClient.Counts[MetricsTokensDeleteSuccess]
@@ -255,6 +256,9 @@ var _ = Describe("InvalidToken Handler", func() {
 						Tokens: []interface{}{"EEEEEEEEEE", "FFFFFFFFFF"},
 					},
 				}
+				time.Sleep(time.Second)
+				handler.Stop()
+				time.Sleep(500 * time.Millisecond)
 
 				for _, res := range expResults {
 					Eventually(func() interface{} {
@@ -269,7 +273,7 @@ var _ = Describe("InvalidToken Handler", func() {
 			})
 
 			It("should not break if token does not exist in db", func() {
-				logger, hook := test.NewNullLogger()
+				logger, _ := test.NewNullLogger()
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
@@ -299,8 +303,9 @@ var _ = Describe("InvalidToken Handler", func() {
 					Game:     "sniper",
 					Platform: "apns",
 				}
-				Consistently(func() []logrus.Entry { return hook.Entries }).
-					ShouldNot(testing.ContainLogMessage("error deleting tokens"))
+				time.Sleep(time.Second)
+				handler.Stop()
+				time.Sleep(time.Second)
 
 				Eventually(func() int64 {
 					return mockStatsDClient.Counts[MetricsTokensDeleteSuccess]

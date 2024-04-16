@@ -23,6 +23,7 @@
 package extensions
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -51,7 +52,6 @@ type KafkaConsumer struct {
 	SessionTimeout                 int
 	pendingMessagesWG              *sync.WaitGroup
 	stopChannel                    chan struct{}
-	run                            bool
 	HandleAllMessagesBeforeExiting bool
 }
 
@@ -165,7 +165,7 @@ func (q *KafkaConsumer) PendingMessagesWaitGroup() *sync.WaitGroup {
 
 // StopConsuming stops consuming messages from the queue
 func (q *KafkaConsumer) StopConsuming() {
-	q.run = false
+	close(q.stopChannel)
 }
 
 func (q *KafkaConsumer) Pause(topic string) error {
@@ -208,8 +208,7 @@ func (q *KafkaConsumer) MessagesChannel() *chan interfaces.KafkaMessage {
 }
 
 // ConsumeLoop consume messages from the queue and put in messages to send channel
-func (q *KafkaConsumer) ConsumeLoop() error {
-	q.run = true
+func (q *KafkaConsumer) ConsumeLoop(ctx context.Context) error {
 	l := q.Logger.WithFields(logrus.Fields{
 		"method": "ConsumeLoop",
 		"topics": q.Topics,
@@ -228,26 +227,34 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 	l.Info("successfully subscribed to topics")
 
 	//nolint[:gosimple]
-	for q.run {
-		message, err := q.Consumer.ReadMessage(100 * time.Millisecond)
-		if message == nil && err.(kafka.Error).IsTimeout() {
-			continue
-		}
-		if err != nil {
-			q.handleError(err)
-			continue
-		}
-		l.Debug("got message from Kafka")
-		q.receiveMessage(message.TopicPartition, message.Value)
+	for {
+		select {
+		case <-q.stopChannel:
+			l.Info("stopping kafka consumer")
+			return nil
+		case <-ctx.Done():
+			l.Info("context done. Will stop consuming messages.")
+			return nil
+		default:
+			message, err := q.Consumer.ReadMessage(100 * time.Millisecond)
+			if message == nil && err.(kafka.Error).IsTimeout() {
+				continue
+			}
+			if err != nil {
+				q.handleError(err)
+				continue
+			}
+			l.Debug("got message from Kafka")
+			q.receiveMessage(message.TopicPartition, message.Value)
 
-		_, err = q.Consumer.CommitMessage(message)
-		if err != nil {
-			q.handleError(err)
-			return fmt.Errorf("error committing message: %s", err.Error())
+			_, err = q.Consumer.CommitMessage(message)
+			if err != nil {
+				q.handleError(err)
+				return fmt.Errorf("error committing message: %s", err.Error())
+			}
 		}
 	}
 
-	return nil
 }
 
 func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, value []byte) {
@@ -289,9 +296,6 @@ func (q *KafkaConsumer) handleError(err error) {
 
 // Cleanup closes kafka consumer connection
 func (q *KafkaConsumer) Cleanup() error {
-	if q.run {
-		q.StopConsuming()
-	}
 	if q.Consumer != nil {
 		err := q.Consumer.Close()
 		if err != nil {

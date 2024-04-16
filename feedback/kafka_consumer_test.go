@@ -23,6 +23,7 @@
 package feedback
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -52,7 +53,8 @@ var _ = Describe("Kafka Consumer", func() {
 		startConsuming := func() {
 			go func() {
 				defer GinkgoRecover()
-				consumer.ConsumeLoop()
+				err := consumer.ConsumeLoop(context.Background())
+				Expect(err).NotTo(HaveOccurred())
 			}()
 			time.Sleep(5 * time.Millisecond)
 		}
@@ -103,7 +105,7 @@ var _ = Describe("Kafka Consumer", func() {
 		Describe("Consume loop", func() {
 			It("should fail if subscribing to topic fails", func() {
 				kafkaConsumerClientMock.Error = fmt.Errorf("could not subscribe")
-				err := consumer.ConsumeLoop()
+				err := consumer.ConsumeLoop(context.Background())
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("could not subscribe"))
 			})
@@ -225,7 +227,10 @@ var _ = Describe("Kafka Consumer", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(client).NotTo(BeNil())
 				defer client.StopConsuming()
-				go client.ConsumeLoop()
+				go func() {
+					goFuncErr := client.ConsumeLoop(context.Background())
+					Expect(goFuncErr).NotTo(HaveOccurred())
+				}()
 
 				// Required to assure the consumer to be ready before producing a message
 				time.Sleep(10 * time.Second)

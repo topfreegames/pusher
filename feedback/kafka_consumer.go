@@ -188,7 +188,7 @@ func (q *KafkaConsumer) MessagesChannel() chan QueueMessage {
 }
 
 // ConsumeLoop consume messages from the queue and put in messages to send channel
-func (q *KafkaConsumer) ConsumeLoop() error {
+func (q *KafkaConsumer) ConsumeLoop(ctx context.Context) error {
 	l := q.Logger.WithFields(logrus.Fields{
 		"method": "ConsumeLoop",
 		"topics": q.Topics,
@@ -205,6 +205,12 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 	for {
 		select {
 		case <-q.consumerContext.Done():
+			l.Info("context done, stopping consuming")
+			return nil
+		case <-q.stopChannel:
+			l.Info("stop channel closed, stopping consuming")
+			return nil
+		case <-ctx.Done():
 			l.Info("context done, stopping consuming")
 			return nil
 		default:
