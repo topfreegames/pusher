@@ -261,7 +261,11 @@ func (a *APNSMessageHandler) sendNotification(notification *Notification) error 
 	l := a.Logger.WithField("method", "sendNotification")
 	if notification.PushExpiry > 0 && notification.PushExpiry < MakeTimestamp() {
 		l.Warnf("ignoring push message because it has expired: %s", notification.Payload)
+
+		apnsResMutex.Lock()
 		a.ignoredMessages++
+		apnsResMutex.Unlock()
+
 		if a.pendingMessagesWG != nil {
 			a.pendingMessagesWG.Done()
 		}
@@ -270,7 +274,11 @@ func (a *APNSMessageHandler) sendNotification(notification *Notification) error 
 	payload, err := json.Marshal(notification.Payload)
 	if err != nil {
 		l.WithError(err).Error("error marshaling message payload")
+
+		apnsResMutex.Lock()
 		a.ignoredMessages++
+		apnsResMutex.Unlock()
+
 		if a.pendingMessagesWG != nil {
 			a.pendingMessagesWG.Done()
 		}
@@ -310,17 +318,6 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 				"maxRetries":   a.maxRetryAttempts,
 				"apnsID":       responseWithMetadata.ApnsID,
 			}).Debug("retrying notification")
-
-			err := a.consumptionManager.Pause(inFlightNotificationInstance.kafkaTopic)
-			if err != nil {
-				l.WithError(err).Error("error pausing consumption")
-			}
-			defer func() {
-				err := a.consumptionManager.Resume(inFlightNotificationInstance.kafkaTopic)
-				if err != nil {
-					l.WithError(err).Error("error resuming consumption")
-				}
-			}()
 			inFlightNotificationInstance.sendAttempts.Add(1)
 			<-time.After(a.retryInterval)
 			if err := a.sendNotification(inFlightNotificationInstance.notification); err == nil {
@@ -331,6 +328,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		responseWithMetadata.Metadata = inFlightNotificationInstance.notification.Metadata
 		responseWithMetadata.Timestamp = responseWithMetadata.Metadata["timestamp"].(int64)
 		delete(responseWithMetadata.Metadata, "timestamp")
+
 		a.inFlightNotificationsMapLock.Lock()
 		delete(a.InFlightNotificationsMap, responseWithMetadata.ApnsID)
 		a.inFlightNotificationsMapLock.Unlock()
