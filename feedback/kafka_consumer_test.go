@@ -112,7 +112,10 @@ var _ = Describe("Kafka Consumer", func() {
 
 			It("should subscribe to topic", func() {
 				startConsuming()
-				defer consumer.StopConsuming()
+				time.Sleep(100 * time.Millisecond)
+				consumer.StopConsuming()
+				time.Sleep(100 * time.Millisecond)
+
 				Eventually(kafkaConsumerClientMock.SubscribedTopics, 5).Should(HaveKey("com.games.test"))
 			})
 

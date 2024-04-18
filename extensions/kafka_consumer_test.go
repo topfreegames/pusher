@@ -91,10 +91,12 @@ var _ = Describe("Kafka Extension", func() {
 
 			It("should subscribe to topic", func() {
 				startConsuming()
+
 				time.Sleep(100 * time.Millisecond)
 				consumer.StopConsuming()
+				time.Sleep(100 * time.Millisecond)
 
-				Eventually(kafkaConsumerClientMock.SubscribedTopics, 5).Should(HaveKey("com.games.test"))
+				Expect(kafkaConsumerClientMock.SubscribedTopics).To(HaveKey("com.games.test"))
 			})
 
 			It("should receive message", func() {

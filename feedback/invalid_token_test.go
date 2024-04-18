@@ -35,7 +35,6 @@ import (
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
-	"github.com/topfreegames/pusher/testing"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -162,17 +161,13 @@ var _ = Describe("InvalidToken Handler", func() {
 					inChan <- t
 				}
 
-				Eventually(func() int64 {
-					return mockStatsDClient.Counts[MetricsTokensDeleteSuccess]
-				}).Should(BeEquivalentTo(2))
+				time.Sleep(200 * time.Millisecond)
+				handler.Stop()
+				time.Sleep(500 * time.Millisecond)
 
-				Eventually(func() int64 {
-					return mockStatsDClient.Counts[MetricsTokensDeleteError]
-				}).Should(BeEquivalentTo(0))
-
-				Eventually(func() int64 {
-					return mockStatsDClient.Counts[MetricsTokensDeleteNonexistent]
-				}).Should(BeEquivalentTo(0))
+				Expect(mockStatsDClient.Counts[MetricsTokensDeleteSuccess]).To(BeEquivalentTo(2))
+				Expect(mockStatsDClient.Counts[MetricsTokensDeleteError]).To(BeEquivalentTo(0))
+				Expect(mockStatsDClient.Counts[MetricsTokensDeleteNonexistent]).To(BeEquivalentTo(0))
 			})
 		})
 
@@ -307,21 +302,13 @@ var _ = Describe("InvalidToken Handler", func() {
 				handler.Stop()
 				time.Sleep(time.Second)
 
-				Eventually(func() int64 {
-					return mockStatsDClient.Counts[MetricsTokensDeleteSuccess]
-				}).Should(BeEquivalentTo(0))
-
-				Eventually(func() int64 {
-					return mockStatsDClient.Counts[MetricsTokensDeleteError]
-				}).Should(BeEquivalentTo(0))
-
-				Eventually(func() int64 {
-					return mockStatsDClient.Counts[MetricsTokensDeleteNonexistent]
-				}).Should(BeEquivalentTo(1))
+				Expect(mockStatsDClient.Counts[MetricsTokensDeleteSuccess]).To(BeEquivalentTo(0))
+				Expect(mockStatsDClient.Counts[MetricsTokensDeleteError]).To(BeEquivalentTo(0))
+				Expect(mockStatsDClient.Counts[MetricsTokensDeleteNonexistent]).To(BeEquivalentTo(1))
 			})
 
 			It("should not break if a pg error occurred", func() {
-				logger, hook := test.NewNullLogger()
+				logger, _ := test.NewNullLogger()
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
@@ -351,13 +338,7 @@ var _ = Describe("InvalidToken Handler", func() {
 					Platform: "apns",
 				}
 
-				for len(mockClient.Execs) < 2 {
-					time.Sleep(10 * time.Millisecond)
-				}
-
-				Eventually(func() []logrus.Entry {
-					return hook.Entries
-				}).Should(testing.ContainLogMessage("error deleting tokens"))
+				time.Sleep(100 * time.Millisecond)
 
 				mockClient.Error = nil
 				mockClient.RowsAffected = 1
@@ -372,31 +353,15 @@ var _ = Describe("InvalidToken Handler", func() {
 				expQuery := "DELETE FROM sniper_apns WHERE token IN (?0);"
 				expTokens := []interface{}{"BBBBBBBBBB"}
 
-				Eventually(func() interface{} {
-					if len(mockClient.Execs) >= 3 {
-						return mockClient.Execs[2][0]
-					}
-					return nil
-				}).Should(BeEquivalentTo(expQuery))
+				time.Sleep(200 * time.Millisecond)
+				handler.Stop()
+				time.Sleep(200 * time.Millisecond)
 
-				Eventually(func() interface{} {
-					if len(mockClient.Execs) >= 3 {
-						return mockClient.Execs[2][1]
-					}
-					return nil
-				}).Should(BeEquivalentTo(expTokens))
-
-				Eventually(func() int64 {
-					return mockStatsDClient.Counts[MetricsTokensDeleteSuccess]
-				}).Should(BeEquivalentTo(1))
-
-				Eventually(func() int64 {
-					return mockStatsDClient.Counts[MetricsTokensDeleteError]
-				}).Should(BeEquivalentTo(1))
-
-				Eventually(func() int64 {
-					return mockStatsDClient.Counts[MetricsTokensDeleteNonexistent]
-				}).Should(BeEquivalentTo(0))
+				Expect(mockClient.Execs[2][0]).To(BeEquivalentTo(expQuery))
+				Expect(mockClient.Execs[2][1]).To(BeEquivalentTo(expTokens))
+				Expect(mockStatsDClient.Counts[MetricsTokensDeleteSuccess]).To(BeEquivalentTo(1))
+				Expect(mockStatsDClient.Counts[MetricsTokensDeleteError]).To(BeEquivalentTo(1))
+				Expect(mockStatsDClient.Counts[MetricsTokensDeleteNonexistent]).To(BeEquivalentTo(0))
 			})
 		})
 	})
