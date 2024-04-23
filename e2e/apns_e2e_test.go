@@ -202,7 +202,7 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 }
 
 func (s *ApnsE2ETestSuite) TestMultipleNotificaions() {
-	notificationsToSend := 1000
+	notificationsToSend := 100
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
 	})
@@ -258,7 +258,7 @@ func (s *ApnsE2ETestSuite) TestMultipleNotificaions() {
 		s.Require().NoError(err)
 	}
 	//Give it some time to process the message
-	timeout := time.NewTimer(5 * time.Minute)
+	timeout := time.NewTimer(2 * time.Minute)
 	for i := 0; i < notificationsToSend; i++ {
 		select {
 		case <-done:

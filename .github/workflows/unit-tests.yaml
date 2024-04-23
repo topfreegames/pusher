@@ -48,7 +48,7 @@ jobs:
       - name: Build
         run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test go build -v -o bin/pusher main.go
       - name: Test
-        run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test ginkgo -v -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
+        run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test ginkgo -v -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" --skipPackage=e2e .
       - name: Lint
         continue-on-error: true
         run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test golangci-lint run
