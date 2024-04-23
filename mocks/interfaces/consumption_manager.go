@@ -1,4 +1,4 @@
-package interfaces
+package mock_interfaces
 
 import "github.com/topfreegames/pusher/interfaces"
 

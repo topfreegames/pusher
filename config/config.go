@@ -14,7 +14,13 @@ type (
 	// Config is the struct that holds all the configuration for the Pusher.
 	Config struct {
 		GCM                     GCM
+		Apns                    Apns
+		Queue                   Kafka
 		GracefulShutdownTimeout int
+	}
+
+	Kafka struct {
+		Brokers string
 	}
 
 	GCM struct {
@@ -23,6 +29,18 @@ type (
 		PingTimeout        int
 		MaxPendingMessages int
 		LogStatsInterval   int
+	}
+
+	Apns struct {
+		Apps  string
+		Certs map[string]Cert
+	}
+
+	Cert struct {
+		AuthKeyPath string
+		KeyID       string
+		TeamID      string
+		Topic       string
 	}
 )
 
@@ -45,8 +63,18 @@ func NewConfigAndViper(configFile string) (*Config, *viper.Viper, error) {
 	return config, v, nil
 }
 
-func (c *Config) GetAppsArray() []string {
+func (c *Config) GetGcmAppsArray() []string {
 	arr := strings.Split(c.GCM.Apps, ",")
+	res := make([]string, 0, len(arr))
+	for _, a := range arr {
+		res = append(res, strings.TrimSpace(a))
+	}
+
+	return res
+}
+
+func (c *Config) GetApnsAppsArray() []string {
+	arr := strings.Split(c.Apns.Apps, ",")
 	res := make([]string, 0, len(arr))
 	for _, a := range arr {
 		res = append(res, strings.TrimSpace(a))

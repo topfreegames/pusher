@@ -1,0 +1,92 @@
+---
+gracefulShutdownTimeout: 30
+apns:
+  concurrentWorkers: 300
+  connectionPoolSize: 1
+  logStatsInterval: 10000
+  apps: "game"
+  certs:
+    game:
+      authKeyPath: /certs/authkey.p8
+      keyID: "ABC123DEFG"
+      teamID: "ABC123DEFG"
+      topic: "com.game.test"
+gcm:
+  pingInterval: 30
+  pingTimeout: 10
+  maxPendingMessages: 100
+  logStatsInterval: 10000
+  apps: mygame
+  certs:
+    game:
+      apiKey: game-api-key
+      senderID: "1233456789"
+  firebaseCredentials:
+    mygame: "{}"
+queue:
+  topics:
+    - "^push-[^-_]+_(apns|gcm)[_-](single|massive)"
+  brokers: "localhost:9941"
+  group: testGroup
+  sessionTimeout: 6000
+  offsetResetStrategy: latest
+  handleAllMessagesBeforeExiting: false
+  channelSize: 100
+feedback:
+  reporters:
+    - kafka
+  kafka:
+    topics: "push-test_apns-feedbacks"
+    brokers: "localhost:9941"
+  cache:
+    requestTimeout: 1800000
+    cleaningInterval: 300000
+stats:
+  reporters:
+    - statsd
+  flush:
+    s: 5
+  statsd:
+    host: "localhost:8125"
+    prefix: "push"
+    buflen: 1
+invalidToken:
+  pg:
+    table: "test_apns"
+    host: localhost
+    port: 8585
+    user: pusher_user
+    pass: ""
+    poolSize: 20
+    maxRetries: 3
+    database: push
+    connectionTimeout: 100
+feedbackListeners:
+  queue:
+      topics:
+        - "^push-[^-_]+-(apns|gcm)-feedbacks"
+      brokers: "localhost:9941"
+      group: testGroup
+      sessionTimeout: 6000
+      fetch.min.bytes: 1
+      fetch.wait.max.ms: 100
+      offsetResetStrategy: latest
+      handleAllMessagesBeforeExiting: true
+  broker:
+    invalidTokenChan:
+      size: 999
+  invalidToken:
+    flush:
+      time:
+        ms: 2000
+    buffer:
+      size: 99
+    pg:
+      host: localhost
+      port: 8585
+      user: pusher_user
+      pass: ""
+      poolSize: 20
+      maxRetries: 3
+      database: push
+      connectionTimeout: 100

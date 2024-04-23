@@ -116,7 +116,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			a.Queue.PendingMessagesWaitGroup(),
 			a.StatsReporters,
 			a.feedbackReporters,
-			nil,
+			queue,
 			interfaces.ConsumptionManager(q),
 		)
 		if err == nil {

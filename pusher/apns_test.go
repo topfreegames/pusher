@@ -118,7 +118,7 @@ var _ = Describe("APNS Pusher", func() {
 					logger,
 					mockStatsDClient,
 					mockDB,
-					mockPushQueue,
+					nil,
 				)
 				Expect(err).To(HaveOccurred())
 			})

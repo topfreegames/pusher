@@ -105,7 +105,7 @@ test-unit:
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
 	@export $ACK_GINKGO_RC=true
-	@$(GINKGO) -trace -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
+	@$(GINKGO) -trace -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" --skipPackage=e2e .
 	@#$(MAKE) test-coverage-func
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
@@ -174,3 +174,6 @@ integration-test-container-dev: build-image-dev start-deps-container-dev test-db
 .PHONY: mocks
 mocks:
 	$(MOCKGENERATE) -source=interfaces/client.go -destination=mocks/firebase/client.go
+	$(MOCKGENERATE) -source=interfaces/apns.go -destination=mocks/interfaces/apns.go
+	$(MOCKGENERATE) -source=interfaces/statsd.go -destination=mocks/interfaces/statsd.go
+	$(MOCKGENERATE) -source=interfaces/feedback_reporter.go -destination=mocks/interfaces/feedback_reporter.go
