@@ -24,6 +24,7 @@ package feedback
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -135,10 +136,8 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 		"session.timeout.ms": q.SessionTimeout,
 		"fetch.min.bytes":    q.FetchMinBytes,
 		"fetch.wait.max.ms":  q.FetchWaitMaxMs,
-		"enable.auto.commit": true,
 		"default.topic.config": kafka.ConfigMap{
-			"auto.offset.reset":  q.OffsetResetStrategy,
-			"enable.auto.commit": true,
+			"auto.offset.reset": q.OffsetResetStrategy,
 		},
 		"topics": q.Topics,
 	})
@@ -151,10 +150,8 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 			"fetch.min.bytes":    q.FetchMinBytes,
 			"fetch.wait.max.ms":  q.FetchWaitMaxMs,
 			"session.timeout.ms": q.SessionTimeout,
-			"enable.auto.commit": true,
 			"default.topic.config": kafka.ConfigMap{
-				"auto.offset.reset":  q.OffsetResetStrategy,
-				"enable.auto.commit": true,
+				"auto.offset.reset": q.OffsetResetStrategy,
 			},
 		})
 
@@ -223,6 +220,11 @@ func (q *KafkaConsumer) ConsumeLoop(ctx context.Context) error {
 				continue
 			}
 			q.receiveMessage(message.TopicPartition, message.Value)
+			_, err = q.Consumer.CommitMessage(message)
+			if err != nil {
+				q.handleError(err)
+				return fmt.Errorf("error committing message: %s", err.Error())
+			}
 		}
 	}
 }

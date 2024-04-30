@@ -38,7 +38,7 @@ feedback:
     topics: "com.games.test.feedbacks"
     brokers: "kafka:9092"
   cache:
-    requestTimeout: 100
+    requestTimeout: 10000
     cleaningInterval: 20
 stats:
   reporters:

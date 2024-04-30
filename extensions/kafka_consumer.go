@@ -125,7 +125,6 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 		"session.timeout.ms": q.SessionTimeout,
 		"fetch.min.bytes":    q.FetchMinBytes,
 		"fetch.wait.max.ms":  q.FetchWaitMaxMs,
-		"enable.auto.commit": true,
 		"default.topic.config": kafka.ConfigMap{
 			"auto.offset.reset": q.OffsetResetStrategy,
 		},
@@ -140,10 +139,8 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 			"fetch.min.bytes":    q.FetchMinBytes,
 			"fetch.wait.max.ms":  q.FetchWaitMaxMs,
 			"session.timeout.ms": q.SessionTimeout,
-			"enable.auto.commit": true,
 			"default.topic.config": kafka.ConfigMap{
-				"auto.offset.reset":  q.OffsetResetStrategy,
-				"enable.auto.commit": true,
+				"auto.offset.reset": q.OffsetResetStrategy,
 			},
 		})
 		if err != nil {

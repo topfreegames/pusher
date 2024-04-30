@@ -51,13 +51,16 @@ func (s *ApnsE2ETestSuite) SetupTest() {
 	logger := logrus.New()
 	logger.Level = logrus.DebugLevel
 
+	s.assureTopicsExist()
+	time.Sleep(5 * time.Second)
+
 	apnsPusher, err := pusher.NewAPNSPusher(false, v, logger, s.statsdClientMock, nil, s.mockApnsClient)
 	s.Require().NoError(err)
 	ctx := context.Background()
 	ctx, s.stop = context.WithCancel(ctx)
 	go apnsPusher.Start(ctx)
 
-	time.Sleep(15 * time.Second)
+	time.Sleep(5 * time.Second)
 }
 
 func (s *ApnsE2ETestSuite) TearDownTest() {
@@ -273,4 +276,25 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	}
 	// Wait some time to make sure it won't call the push client again after everything is done
 	time.Sleep(30 * time.Second)
+}
+
+func (s *ApnsE2ETestSuite) assureTopicsExist() {
+	producer, err := kafka.NewProducer(&kafka.ConfigMap{
+		"bootstrap.servers": s.config.Queue.Brokers,
+	})
+	s.Require().NoError(err)
+
+	apnsApps := s.config.GetApnsAppsArray()
+	for _, a := range apnsApps {
+		topic := "push-" + a + "_apns-single"
+		err = producer.Produce(&kafka.Message{
+			TopicPartition: kafka.TopicPartition{
+				Topic:     &topic,
+				Partition: kafka.PartitionAny,
+			},
+			Value: []byte("not a notification"),
+		},
+			nil)
+		s.Require().NoError(err)
+	}
 }
