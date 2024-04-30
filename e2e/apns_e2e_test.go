@@ -12,6 +12,7 @@ import (
 	"github.com/topfreegames/pusher/pusher"
 	"github.com/topfreegames/pusher/structs"
 	"go.uber.org/mock/gomock"
+	"os"
 	"testing"
 	"time"
 )
@@ -32,7 +33,11 @@ func TestApnsE2eSuite(t *testing.T) {
 }
 
 func (s *ApnsE2ETestSuite) SetupTest() {
-	c, v, err := config.NewConfigAndViper("../config/e2e.yaml")
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
+	c, v, err := config.NewConfigAndViper(configFile)
 	s.Require().NoError(err)
 	s.config = c
 	s.responsesChannel = make(chan *structs.ResponseWithMetadata)
@@ -56,10 +61,6 @@ func (s *ApnsE2ETestSuite) SetupTest() {
 	time.Sleep(5 * time.Second)
 }
 
-func (s *ApnsE2ETestSuite) TearDownTest() {
-	s.stop()
-}
-
 func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
@@ -69,7 +70,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	app := s.config.GetApnsAppsArray()[0]
 	topic := "push-" + app + "_apns-single"
 	token := "token"
-	done := make(chan bool)
+	testDone := make(chan bool)
 	s.mockApnsClient.EXPECT().
 		Push(gomock.Any()).
 		DoAndReturn(func(notification *apns2.Notification) error {
@@ -96,7 +97,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	s.statsdClientMock.EXPECT().
 		Incr("ack", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
-			done <- true
+			testDone <- true
 			return nil
 		})
 
@@ -113,12 +114,14 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	//Give it some time to process the message
 	timeout := time.NewTimer(1 * time.Minute)
 	select {
-	case <-done:
-		// Wait some time to make sure it won't call the push client again after the done signal
+	case <-testDone:
+		// Wait some time to make sure it won't call the push client again after the testDone signal
 		time.Sleep(10 * time.Second)
 	case <-timeout.C:
 		s.Fail("Timeout waiting for Handler to report notification sent")
 	}
+
+	s.stop()
 }
 
 func (s *ApnsE2ETestSuite) TestNotificationRetry() {
