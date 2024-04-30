@@ -53,12 +53,11 @@ func (s *ApnsE2ETestSuite) SetupTest() {
 
 	apnsPusher, err := pusher.NewAPNSPusher(false, v, logger, s.statsdClientMock, nil, s.mockApnsClient)
 	s.Require().NoError(err)
-
 	ctx := context.Background()
 	ctx, s.stop = context.WithCancel(ctx)
 	go apnsPusher.Start(ctx)
 
-	time.Sleep(30 * time.Second)
+	time.Sleep(15 * time.Second)
 }
 
 func (s *ApnsE2ETestSuite) TearDownTest() {
@@ -123,7 +122,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 		// Wait some time to make sure it won't call the push client again after the testDone signal
 		time.Sleep(10 * time.Second)
 	case <-timeout.C:
-		s.Fail("Timeout waiting for Handler to report notification sent")
+		s.FailNow("Timeout waiting for Handler to report notification sent")
 	}
 }
 
@@ -203,11 +202,11 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 		// Wait some time to make sure it won't call the push client again after the done signal
 		time.Sleep(10 * time.Second)
 	case <-timeout.C:
-		s.Fail("Timeout waiting for Handler to report notification sent")
+		s.FailNow("Timeout waiting for Handler to report notification sent")
 	}
 }
 
-func (s *ApnsE2ETestSuite) TestMultipleNotificaions() {
+func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	notificationsToSend := 50
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
@@ -269,7 +268,7 @@ func (s *ApnsE2ETestSuite) TestMultipleNotificaions() {
 		select {
 		case <-done:
 		case <-timeout.C:
-			s.Fail("Timeout waiting for Handler to report notification sent")
+			s.FailNow("Timeout waiting for Handler to report notification sent")
 		}
 	}
 	// Wait some time to make sure it won't call the push client again after everything is done
