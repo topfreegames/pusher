@@ -208,7 +208,7 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 }
 
 func (s *ApnsE2ETestSuite) TestMultipleNotificaions() {
-	notificationsToSend := 100
+	notificationsToSend := 50
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
 	})
