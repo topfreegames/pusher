@@ -58,7 +58,12 @@ func (s *ApnsE2ETestSuite) SetupTest() {
 	ctx, s.stop = context.WithCancel(ctx)
 	go apnsPusher.Start(ctx)
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(30 * time.Second)
+}
+
+func (s *ApnsE2ETestSuite) TearDownTest() {
+	fmt.Println("Tearing down test")
+	s.stop()
 }
 
 func (s *ApnsE2ETestSuite) TestSimpleNotification() {
@@ -112,7 +117,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	s.Require().NoError(err)
 
 	//Give it some time to process the message
-	timeout := time.NewTimer(1 * time.Minute)
+	timeout := time.NewTimer(10 * time.Second)
 	select {
 	case <-testDone:
 		// Wait some time to make sure it won't call the push client again after the testDone signal
@@ -120,8 +125,6 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	case <-timeout.C:
 		s.Fail("Timeout waiting for Handler to report notification sent")
 	}
-
-	s.stop()
 }
 
 func (s *ApnsE2ETestSuite) TestNotificationRetry() {
@@ -194,7 +197,7 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 	s.Require().NoError(err)
 
 	//Give it some time to process the message
-	timeout := time.NewTimer(30 * time.Second)
+	timeout := time.NewTimer(10 * time.Second)
 	select {
 	case <-done:
 		// Wait some time to make sure it won't call the push client again after the done signal
