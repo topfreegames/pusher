@@ -26,7 +26,7 @@ gcm:
 queue:
   topics:
     - "^push-[^-_]+_(apns|gcm)[_-](single|massive)"
-  brokers: "localhost:9941"
+  brokers: "kafka:9941"
   group: testGroup
   sessionTimeout: 6000
   offsetResetStrategy: latest
@@ -37,7 +37,7 @@ feedback:
     - kafka
   kafka:
     topics: "push-test_apns-feedbacks"
-    brokers: "localhost:9941"
+    brokers: "kafka:9941"
   cache:
     requestTimeout: 1800000
     cleaningInterval: 300000
@@ -65,7 +65,7 @@ feedbackListeners:
   queue:
       topics:
         - "^push-[^-_]+-(apns|gcm)-feedbacks"
-      brokers: "localhost:9941"
+      brokers: "kafka:9941"
       group: testGroup
       sessionTimeout: 6000
       fetch.min.bytes: 1

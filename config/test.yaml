@@ -15,7 +15,7 @@ gcm:
   pingInterval: 30
   pingTimeout: 10
   maxPendingMessages: 3
-  logStatsInterval: 750
+  logStatsInterval: 200
   apps: "game"
   certs:
     game:
