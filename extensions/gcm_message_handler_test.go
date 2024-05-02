@@ -517,7 +517,7 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 
 		go handler.CleanMetadataCache()
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(2 * time.Duration(s.vConfig.GetInt("feedback.cache.requestTimeout")) * time.Millisecond)
 
 		s.True(handler.requestsHeap.Empty())
 		handler.inflightMessagesMetadataLock.Lock()
@@ -545,7 +545,7 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 		err = handler.handleGCMResponse(res)
 		s.Require().NoError(err)
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(2 * time.Duration(s.vConfig.GetInt("feedback.cache.requestTimeout")) * time.Millisecond)
 
 		s.True(handler.requestsHeap.Empty())
 		handler.inflightMessagesMetadataLock.Lock()
@@ -583,10 +583,10 @@ func (s *GCMMessageHandlerTestSuite) TestCleanCache() {
 
 		go handler.CleanMetadataCache()
 		go sendRequests()
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(2 * time.Duration(s.vConfig.GetInt("feedback.cache.requestTimeout")) * time.Millisecond)
 
 		go handleResponses()
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(2 * time.Duration(s.vConfig.GetInt("feedback.cache.requestTimeout")) * time.Millisecond)
 
 		s.True(handler.requestsHeap.Empty())
 		handler.inflightMessagesMetadataLock.Lock()

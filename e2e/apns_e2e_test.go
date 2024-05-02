@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sideshow/apns2"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"github.com/topfreegames/pusher/config"
 	mocks "github.com/topfreegames/pusher/mocks/interfaces"
@@ -19,26 +20,22 @@ import (
 	"time"
 )
 
-const wait = 15 * time.Second
+const wait = 5 * time.Second
 const timeout = 1 * time.Minute
 const topicTemplate = "push-%s_apns-single"
 
 type ApnsE2ETestSuite struct {
 	suite.Suite
 
-	statsdClientMock         *mocks.MockStatsDClient
-	config                   *config.Config
-	listenerStatsdClientMock *mocks.MockStatsDClient
-	mockApnsClient           *mocks.MockAPNSPushQueue
-	responsesChannel         chan *structs.ResponseWithMetadata
-	stop                     context.CancelFunc
+	config  *config.Config
+	vConfig *viper.Viper
 }
 
 func TestApnsE2eSuite(t *testing.T) {
 	suite.Run(t, new(ApnsE2ETestSuite))
 }
 
-func (s *ApnsE2ETestSuite) SetupTest() {
+func (s *ApnsE2ETestSuite) SetupSuite() {
 	configFile := os.Getenv("CONFIG_FILE")
 	if configFile == "" {
 		configFile = "../config/test.yaml"
@@ -46,40 +43,40 @@ func (s *ApnsE2ETestSuite) SetupTest() {
 	c, v, err := config.NewConfigAndViper(configFile)
 	s.Require().NoError(err)
 	s.config = c
+	s.vConfig = v
+}
 
-	appName := strings.Split(uuid.NewString(), "-")[0]
-	s.config.Apns.Apps = appName
-	v.Set("queue.topics", []string{fmt.Sprintf(topicTemplate, appName)})
-
-	s.responsesChannel = make(chan *structs.ResponseWithMetadata)
+func (s *ApnsE2ETestSuite) setupApnsPusher() (*mocks.MockAPNSPushQueue, *mocks.MockStatsDClient, chan *structs.ResponseWithMetadata) {
+	responsesChannel := make(chan *structs.ResponseWithMetadata)
 
 	ctrl := gomock.NewController(s.T())
-	s.mockApnsClient = mocks.NewMockAPNSPushQueue(ctrl)
-	s.mockApnsClient.EXPECT().ResponseChannel().Return(s.responsesChannel)
+	mockApnsClient := mocks.NewMockAPNSPushQueue(ctrl)
+	mockApnsClient.EXPECT().ResponseChannel().Return(responsesChannel)
 
-	s.statsdClientMock = mocks.NewMockStatsDClient(ctrl)
-	s.listenerStatsdClientMock = mocks.NewMockStatsDClient(ctrl)
+	statsdClientMock := mocks.NewMockStatsDClient(ctrl)
+
 	logger := logrus.New()
 	logger.Level = logrus.DebugLevel
 
 	s.assureTopicsExist()
 	time.Sleep(wait)
 
-	apnsPusher, err := pusher.NewAPNSPusher(false, v, c, logger, s.statsdClientMock, nil, s.mockApnsClient)
+	apnsPusher, err := pusher.NewAPNSPusher(false, s.vConfig, s.config, logger, statsdClientMock, nil, mockApnsClient)
 	s.Require().NoError(err)
 	ctx := context.Background()
-	ctx, s.stop = context.WithCancel(ctx)
 	go apnsPusher.Start(ctx)
 
 	time.Sleep(wait)
-}
 
-func (s *ApnsE2ETestSuite) TearDownTest() {
-	fmt.Println("Tearing down test")
-	s.stop()
+	return mockApnsClient, statsdClientMock, responsesChannel
 }
 
 func (s *ApnsE2ETestSuite) TestSimpleNotification() {
+	appName := strings.Split(uuid.NewString(), "-")[0]
+	s.config.Apns.Apps = appName
+	s.vConfig.Set("queue.topics", []string{fmt.Sprintf(topicTemplate, appName)})
+
+	mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
 	})
@@ -89,14 +86,14 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	topic := "push-" + app + "_apns-single"
 	token := "token"
 	testDone := make(chan bool)
-	s.mockApnsClient.EXPECT().
+	mockApnsClient.EXPECT().
 		Push(gomock.Any()).
 		DoAndReturn(func(notification *apns2.Notification) error {
 			s.Equal(token, notification.DeviceToken)
 			s.Equal(s.config.Apns.Certs[app].Topic, notification.Topic)
 
 			go func() {
-				s.responsesChannel <- &structs.ResponseWithMetadata{
+				responsesChannel <- &structs.ResponseWithMetadata{
 					ApnsID:      notification.ApnsID,
 					Sent:        true,
 					StatusCode:  200,
@@ -106,13 +103,13 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 			return nil
 		})
 
-	s.statsdClientMock.EXPECT().
+	statsdClientMock.EXPECT().
 		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
 		})
 
-	s.statsdClientMock.EXPECT().
+	statsdClientMock.EXPECT().
 		Incr("ack", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			testDone <- true
@@ -141,6 +138,12 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 }
 
 func (s *ApnsE2ETestSuite) TestNotificationRetry() {
+	appName := strings.Split(uuid.NewString(), "-")[0]
+	s.config.Apns.Apps = appName
+	s.vConfig.Set("queue.topics", []string{fmt.Sprintf(topicTemplate, appName)})
+
+	mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
 	})
@@ -151,14 +154,14 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 	token := "token"
 	done := make(chan bool)
 
-	s.mockApnsClient.EXPECT().
+	mockApnsClient.EXPECT().
 		Push(gomock.Any()).
 		DoAndReturn(func(notification *apns2.Notification) error {
 			s.Equal(token, notification.DeviceToken)
 			s.Equal(s.config.Apns.Certs[app].Topic, notification.Topic)
 
 			go func() {
-				s.responsesChannel <- &structs.ResponseWithMetadata{
+				responsesChannel <- &structs.ResponseWithMetadata{
 					ApnsID:      notification.ApnsID,
 					Sent:        true,
 					StatusCode:  429,
@@ -169,14 +172,14 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 			return nil
 		})
 
-	s.mockApnsClient.EXPECT().
+	mockApnsClient.EXPECT().
 		Push(gomock.Any()).
 		DoAndReturn(func(notification *apns2.Notification) error {
 			s.Equal(token, notification.DeviceToken)
 			s.Equal(s.config.Apns.Certs[app].Topic, notification.Topic)
 
 			go func() {
-				s.responsesChannel <- &structs.ResponseWithMetadata{
+				responsesChannel <- &structs.ResponseWithMetadata{
 					ApnsID:      notification.ApnsID,
 					Sent:        true,
 					StatusCode:  200,
@@ -186,13 +189,13 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 			return nil
 		})
 
-	s.statsdClientMock.EXPECT().
+	statsdClientMock.EXPECT().
 		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
 		})
 
-	s.statsdClientMock.EXPECT().
+	statsdClientMock.EXPECT().
 		Incr("ack", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			done <- true
@@ -221,6 +224,12 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 }
 
 func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
+	appName := strings.Split(uuid.NewString(), "-")[0]
+	s.config.Apns.Apps = appName
+	s.vConfig.Set("queue.topics", []string{fmt.Sprintf(topicTemplate, appName)})
+
+	mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+
 	notificationsToSend := 10
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
@@ -233,13 +242,13 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	done := make(chan bool)
 
 	for i := 0; i < notificationsToSend; i++ {
-		s.mockApnsClient.EXPECT().
+		mockApnsClient.EXPECT().
 			Push(gomock.Any()).
 			DoAndReturn(func(notification *apns2.Notification) error {
 				s.Equal(s.config.Apns.Certs[app].Topic, notification.Topic)
 
 				go func() {
-					s.responsesChannel <- &structs.ResponseWithMetadata{
+					responsesChannel <- &structs.ResponseWithMetadata{
 						ApnsID:      notification.ApnsID,
 						Sent:        true,
 						StatusCode:  200,
@@ -250,14 +259,14 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 			})
 	}
 
-	s.statsdClientMock.EXPECT().
+	statsdClientMock.EXPECT().
 		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
 		Times(notificationsToSend).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
 		})
 
-	s.statsdClientMock.EXPECT().
+	statsdClientMock.EXPECT().
 		Incr("ack", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
 		Times(notificationsToSend).
 		DoAndReturn(func(string, []string, float64) error {

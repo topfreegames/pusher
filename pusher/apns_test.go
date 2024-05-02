@@ -109,7 +109,7 @@ var _ = Describe("APNS Pusher", func() {
 			})
 
 			It("should not ignore failed handlers", func() {
-				vConfig.Set("apns.apps", "game,invalidgame")
+				cfg.Apns.Apps = "game,invalidgame"
 				vConfig.Set("apns.certs.invalidgame.authKeyPath", "../tls/authkey_invalid.p8")
 				vConfig.Set("apns.certs.invalidgame.keyID", "oiejowijefiowejf")
 				vConfig.Set("apns.certs.invalidgame.teamID", "aoijeoijfiowejfoij")

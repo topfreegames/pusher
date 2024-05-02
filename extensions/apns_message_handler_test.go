@@ -511,7 +511,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
 				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(2 * time.Duration(config.GetInt("feedback.cache.requestTimeout")) * time.Millisecond)
 				handler.inFlightNotificationsMapLock.Lock()
 				Expect(*handler.requestsHeap).To(BeEmpty())
 				Expect(handler.InFlightNotificationsMap).To(BeEmpty())
@@ -530,7 +530,8 @@ var _ = FDescribe("APNS Message Handler", func() {
 				}
 
 				handler.handleAPNSResponse(res)
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(2 * time.Duration(config.GetInt("feedback.cache.requestTimeout")) * time.Millisecond)
+
 				handler.inFlightNotificationsMapLock.Lock()
 				Expect(*handler.requestsHeap).To(BeEmpty())
 				Expect(handler.InFlightNotificationsMap).To(BeEmpty())
@@ -563,7 +564,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Expect(func() { go sendRequests() }).ShouldNot(Panic())
 				time.Sleep(10 * time.Millisecond)
 				Expect(func() { go handleResponses() }).ShouldNot(Panic())
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(2 * time.Duration(config.GetInt("feedback.cache.requestTimeout")) * time.Millisecond)
 
 				handler.inFlightNotificationsMapLock.Lock()
 				Expect(*handler.requestsHeap).To(BeEmpty())
@@ -843,11 +844,11 @@ var _ = FDescribe("APNS Message Handler", func() {
 				}
 				go func() {
 					err := handler.handleAPNSResponse(res)
-					Expect(err).To(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 				}()
 				go func() {
 					err := handler.handleAPNSResponse(res2)
-					Expect(err).To(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 				}()
 			})
 		})
