@@ -25,10 +25,9 @@ package pusher
 import (
 	"errors"
 	"fmt"
-	"strings"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/config"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/interfaces"
 )
@@ -41,7 +40,8 @@ type APNSPusher struct {
 // NewAPNSPusher for getting a new APNSPusher instance
 func NewAPNSPusher(
 	isProduction bool,
-	config *viper.Viper,
+	vConfig *viper.Viper,
+	config *config.Config,
 	logger *logrus.Logger,
 	statsdClientOrNil interfaces.StatsDClient,
 	db interfaces.DB,
@@ -49,7 +49,8 @@ func NewAPNSPusher(
 ) (*APNSPusher, error) {
 	a := &APNSPusher{
 		Pusher: Pusher{
-			ViperConfig:  config,
+			ViperConfig:  vConfig,
+			Config:       config,
 			IsProduction: isProduction,
 			Logger:       logger,
 			stopChannel:  make(chan struct{}),
@@ -91,7 +92,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	a.MessageHandler = make(map[string]interfaces.MessageHandler)
 	a.Queue = q
 	l.Info("Configuring messageHandler")
-	for _, k := range strings.Split(a.ViperConfig.GetString("apns.apps"), ",") {
+	for _, k := range a.Config.GetApnsAppsArray() {
 		authKeyPath := a.ViperConfig.GetString("apns.certs." + k + ".authKeyPath")
 		keyID := a.ViperConfig.GetString("apns.certs." + k + ".keyID")
 		teamID := a.ViperConfig.GetString("apns.certs." + k + ".teamID")

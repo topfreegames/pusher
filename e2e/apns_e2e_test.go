@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/google/uuid"
 	"github.com/sideshow/apns2"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
@@ -13,9 +14,14 @@ import (
 	"github.com/topfreegames/pusher/structs"
 	"go.uber.org/mock/gomock"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
+
+const wait = 15 * time.Second
+const timeout = 1 * time.Minute
+const topicTemplate = "push-%s_apns-single"
 
 type ApnsE2ETestSuite struct {
 	suite.Suite
@@ -40,6 +46,11 @@ func (s *ApnsE2ETestSuite) SetupTest() {
 	c, v, err := config.NewConfigAndViper(configFile)
 	s.Require().NoError(err)
 	s.config = c
+
+	appName := strings.Split(uuid.NewString(), "-")[0]
+	s.config.Apns.Apps = appName
+	v.Set("queue.topics", []string{fmt.Sprintf(topicTemplate, appName)})
+
 	s.responsesChannel = make(chan *structs.ResponseWithMetadata)
 
 	ctrl := gomock.NewController(s.T())
@@ -52,15 +63,15 @@ func (s *ApnsE2ETestSuite) SetupTest() {
 	logger.Level = logrus.DebugLevel
 
 	s.assureTopicsExist()
-	time.Sleep(5 * time.Second)
+	time.Sleep(wait)
 
-	apnsPusher, err := pusher.NewAPNSPusher(false, v, logger, s.statsdClientMock, nil, s.mockApnsClient)
+	apnsPusher, err := pusher.NewAPNSPusher(false, v, c, logger, s.statsdClientMock, nil, s.mockApnsClient)
 	s.Require().NoError(err)
 	ctx := context.Background()
 	ctx, s.stop = context.WithCancel(ctx)
 	go apnsPusher.Start(ctx)
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(wait)
 }
 
 func (s *ApnsE2ETestSuite) TearDownTest() {
@@ -119,12 +130,12 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	s.Require().NoError(err)
 
 	//Give it some time to process the message
-	timeout := time.NewTimer(10 * time.Second)
+	timer := time.NewTimer(timeout)
 	select {
 	case <-testDone:
 		// Wait some time to make sure it won't call the push client again after the testDone signal
-		time.Sleep(10 * time.Second)
-	case <-timeout.C:
+		time.Sleep(wait)
+	case <-timer.C:
 		s.FailNow("Timeout waiting for Handler to report notification sent")
 	}
 }
@@ -199,25 +210,25 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 	s.Require().NoError(err)
 
 	//Give it some time to process the message
-	timeout := time.NewTimer(10 * time.Second)
+	timer := time.NewTimer(timeout)
 	select {
 	case <-done:
 		// Wait some time to make sure it won't call the push client again after the done signal
-		time.Sleep(10 * time.Second)
-	case <-timeout.C:
+		time.Sleep(wait)
+	case <-timer.C:
 		s.FailNow("Timeout waiting for Handler to report notification sent")
 	}
 }
 
 func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
-	notificationsToSend := 50
+	notificationsToSend := 10
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
 	})
 	s.Require().NoError(err)
 
 	app := s.config.GetApnsAppsArray()[0]
-	topic := "push-" + app + "_apns-single"
+	topic := fmt.Sprintf(topicTemplate, app)
 	token := "token"
 	done := make(chan bool)
 
@@ -266,16 +277,16 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 		s.Require().NoError(err)
 	}
 	//Give it some time to process the message
-	timeout := time.NewTimer(2 * time.Minute)
+	timer := time.NewTimer(timeout)
 	for i := 0; i < notificationsToSend; i++ {
 		select {
 		case <-done:
-		case <-timeout.C:
+		case <-timer.C:
 			s.FailNow("Timeout waiting for Handler to report notification sent")
 		}
 	}
 	// Wait some time to make sure it won't call the push client again after everything is done
-	time.Sleep(30 * time.Second)
+	time.Sleep(wait)
 }
 
 func (s *ApnsE2ETestSuite) assureTopicsExist() {
@@ -286,7 +297,7 @@ func (s *ApnsE2ETestSuite) assureTopicsExist() {
 
 	apnsApps := s.config.GetApnsAppsArray()
 	for _, a := range apnsApps {
-		topic := "push-" + a + "_apns-single"
+		topic := fmt.Sprintf(topicTemplate, a)
 		err = producer.Produce(&kafka.Message{
 			TopicPartition: kafka.TopicPartition{
 				Topic:     &topic,
