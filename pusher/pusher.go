@@ -123,7 +123,7 @@ func (p *Pusher) Start(ctx context.Context) {
 	}
 	//nolint[:errcheck]
 	go p.Queue.ConsumeLoop(ctx)
-	//go p.reportGoStats()
+	go p.reportGoStats()
 
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)

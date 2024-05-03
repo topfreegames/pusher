@@ -173,7 +173,11 @@ func (a *APNSMessageHandler) loadConfigurationDefaults() {
 // HandleResponses from apns.
 func (a *APNSMessageHandler) HandleResponses() {
 	for response := range a.PushQueue.ResponseChannel() {
-		_ = a.handleAPNSResponse(response)
+		err := a.handleAPNSResponse(response)
+		a.Logger.
+			WithField("method", "HandleResponses").
+			WithError(err).
+			Error("error handling response")
 	}
 }
 
