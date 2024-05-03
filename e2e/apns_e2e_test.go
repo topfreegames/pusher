@@ -54,6 +54,8 @@ func (s *ApnsE2ETestSuite) setupApnsPusher() (*mocks.MockAPNSPushQueue, *mocks.M
 	mockApnsClient.EXPECT().ResponseChannel().Return(responsesChannel)
 
 	statsdClientMock := mocks.NewMockStatsDClient(ctrl)
+	// Gauge can be called any times from the go stats report
+	statsdClientMock.EXPECT().Gauge(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 
 	logger := logrus.New()
 	logger.Level = logrus.DebugLevel
