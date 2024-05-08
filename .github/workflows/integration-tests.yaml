@@ -23,9 +23,9 @@ jobs:
       image: tfgco/pusher:ci-test
     services:
       zookeeper:
-        image: wurstmeister/zookeeper
+        image: confluentinc/cp-zookeeper:7.4.0
       kafka:
-        image: wurstmeister/kafka:0.10.1.0-2
+        image: confluentinc/cp-kafka:7.4.0
         env:
           KAFKA_ADVERTISED_HOST_NAME: kafka
           KAFKA_ADVERTISED_PORT: 9092
