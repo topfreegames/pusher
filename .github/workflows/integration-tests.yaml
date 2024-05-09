@@ -24,9 +24,10 @@ jobs:
     services:
       zookeeper:
         image: confluentinc/cp-zookeeper:7.4.0
+        options: --hostname zookeeper --p 2181:2181
       kafka:
         image: confluentinc/cp-kafka:7.4.0
-        options: --hostname kafka
+        options: --hostname kafka --p 9092:9092
         env:
           KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
           KAFKA_ADVERTISED_PORT: 9092
