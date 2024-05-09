@@ -843,14 +843,14 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonTooManyRequests,
 				}
 				go func() {
+					defer GinkgoRecover()
 					err := handler.handleAPNSResponse(res)
 					Expect(err).NotTo(HaveOccurred())
-					defer GinkgoRecover()
 				}()
 				go func() {
+					defer GinkgoRecover()
 					err := handler.handleAPNSResponse(res2)
 					Expect(err).NotTo(HaveOccurred())
-					defer GinkgoRecover()
 				}()
 			})
 		})
