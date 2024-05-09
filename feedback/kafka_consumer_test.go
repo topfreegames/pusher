@@ -232,6 +232,7 @@ var _ = Describe("Kafka Consumer", func() {
 				p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": client.Brokers})
 				err = p.Produce(&kafka.Message{TopicPartition: kafka.TopicPartition{Topic: &client.Topics[0], Partition: kafka.PartitionAny}, Value: value}, nil)
 				Expect(err).NotTo(HaveOccurred())
+				time.Sleep(5 * time.Second)
 
 				go func() {
 					goFuncErr := client.ConsumeLoop(context.Background())
