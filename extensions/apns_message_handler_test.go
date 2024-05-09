@@ -844,11 +844,11 @@ var _ = FDescribe("APNS Message Handler", func() {
 				}
 				go func() {
 					err := handler.handleAPNSResponse(res)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(HaveOccurred())
 				}()
 				go func() {
 					err := handler.handleAPNSResponse(res2)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(HaveOccurred())
 				}()
 			})
 		})
