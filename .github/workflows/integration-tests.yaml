@@ -28,7 +28,7 @@ jobs:
         image: confluentinc/cp-kafka:7.4.0
         options: --hostname kafka
         env:
-          KAFKA_ADVERTISED_HOST_NAME: kafka
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
           KAFKA_ADVERTISED_PORT: 9092
           KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
           KAFKA_NUM_PARTITIONS: 5
