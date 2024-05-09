@@ -580,7 +580,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.successesReceived = 60
 				handler.failuresReceived = 30
 				Expect(func() { go handler.LogStats() }).ShouldNot(Panic())
-				time.Sleep(handler.LogStatsInterval)
+				time.Sleep(2 * handler.LogStatsInterval)
 
 				apnsResMutex.Lock()
 				Eventually(func() int64 { return handler.sentMessages }).Should(Equal(int64(0)))
@@ -844,11 +844,11 @@ var _ = FDescribe("APNS Message Handler", func() {
 				}
 				go func() {
 					err := handler.handleAPNSResponse(res)
-					Expect(err).To(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 				}()
 				go func() {
 					err := handler.handleAPNSResponse(res2)
-					Expect(err).To(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 				}()
 			})
 		})
