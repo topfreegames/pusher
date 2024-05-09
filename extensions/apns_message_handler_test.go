@@ -845,10 +845,12 @@ var _ = FDescribe("APNS Message Handler", func() {
 				go func() {
 					err := handler.handleAPNSResponse(res)
 					Expect(err).NotTo(HaveOccurred())
+					defer GinkgoRecover()
 				}()
 				go func() {
 					err := handler.handleAPNSResponse(res2)
 					Expect(err).NotTo(HaveOccurred())
+					defer GinkgoRecover()
 				}()
 			})
 		})
