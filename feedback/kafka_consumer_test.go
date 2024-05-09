@@ -229,16 +229,19 @@ var _ = Describe("Kafka Consumer", func() {
 				client, err := NewKafkaConsumer(config, logger, &stopChannel)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(client).NotTo(BeNil())
-				defer client.StopConsuming()
+				p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": client.Brokers})
+				err = p.Produce(&kafka.Message{TopicPartition: kafka.TopicPartition{Topic: &client.Topics[0], Partition: kafka.PartitionAny}, Value: value}, nil)
+				Expect(err).NotTo(HaveOccurred())
+
 				go func() {
 					goFuncErr := client.ConsumeLoop(context.Background())
 					Expect(goFuncErr).NotTo(HaveOccurred())
 				}()
+				defer client.StopConsuming()
 
 				// Required to assure the consumer to be ready before producing a message
-				time.Sleep(15 * time.Second)
+				time.Sleep(5 * time.Second)
 
-				p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": client.Brokers})
 				Expect(err).NotTo(HaveOccurred())
 				err = p.Produce(
 					&kafka.Message{
@@ -250,7 +253,7 @@ var _ = Describe("Kafka Consumer", func() {
 					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(client.msgChan, 100*time.Millisecond).WithTimeout(5 * time.Second).Should(Receive(Equal(KafkaMessage{
+				Eventually(client.msgChan, 100*time.Millisecond).WithTimeout(5 * time.Second).Should(Receive(Equal(&KafkaMessage{
 					Game:     game,
 					Platform: platform,
 					Value:    value,
