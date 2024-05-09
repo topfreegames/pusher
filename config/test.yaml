@@ -38,7 +38,7 @@ feedback:
     topics: "com.games.test.feedbacks"
     brokers: "localhost:9941"
   cache:
-    requestTimeout: 3000
+    requestTimeout: 1000
     cleaningInterval: 20
 stats:
   reporters:
