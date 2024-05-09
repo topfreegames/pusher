@@ -28,7 +28,7 @@ jobs:
           ZOOKEEPER_CLIENT_PORT: 2181
       kafka:
         image: confluentinc/cp-kafka:7.4.0
-        options: --health-cmd "kafka-topics --list --bootstrap-server localhost:9092"
+        options: --health-cmd "kafka-topics --list --bootstrap-server localhost:9092" --health-interval 10s --health-timeout 10s --health-retries 15
         env:
           KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://kafka:29092
           KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
