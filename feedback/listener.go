@@ -23,6 +23,7 @@
 package feedback
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -127,7 +128,7 @@ func (l *Listener) Start() {
 	)
 	log.Info("starting the feedback listener...")
 
-	go l.Queue.ConsumeLoop()
+	go l.Queue.ConsumeLoop(context.Background())
 	l.Broker.Start()
 	l.InvalidTokenHandler.Start()
 
@@ -146,7 +147,7 @@ func (l *Listener) Start() {
 			log.WithField("signal", sig.String()).Warn("terminating due to caught signal")
 			l.run = false
 		case <-l.stopChannel:
-			log.Warn("Stop channel closed\n")
+			log.Warn("Stop channel closed")
 			l.run = false
 		case <-flushTicker.C:
 			l.flushStats()
@@ -163,8 +164,12 @@ func (l *Listener) flushStats() {
 		"broker_in_channel", float64(len(l.Broker.InChan)), "", "")
 	statsReporterReportMetricGauge(l.StatsReporters,
 		"broker_invalid_token_channel", float64(len(l.Broker.InvalidTokenOutChan)), "", "")
+
+	l.InvalidTokenHandler.BufferLock.Lock()
+	bufferSize := float64(len(l.InvalidTokenHandler.Buffer))
+	l.InvalidTokenHandler.BufferLock.Unlock()
 	statsReporterReportMetricGauge(l.StatsReporters,
-		"invalid_token_handler_buffer", float64(len(l.InvalidTokenHandler.Buffer)), "", "")
+		"invalid_token_handler_buffer", bufferSize, "", "")
 }
 
 // Cleanup ends the Listener execution

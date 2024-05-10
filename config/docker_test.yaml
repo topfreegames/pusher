@@ -24,7 +24,7 @@ gcm:
 queue:
   topics:
     - "^push-[^-_]+_(apns|gcm)[_-](single|massive)"
-  brokers: "kafka:9092"
+  brokers: "kafka:29092"
   group: testGroup
   sessionTimeout: 6000
   fetch.min.bytes: 1
@@ -36,10 +36,10 @@ feedback:
     - kafka
   kafka:
     topics: "com.games.test.feedbacks"
-    brokers: "kafka:9092"
+    brokers: "kafka:29092"
   cache:
-    requestTimeout: 100
-    cleaningInterval: 20
+    requestTimeout: 3000
+    cleaningInterval: 600
 stats:
   reporters:
     - statsd
@@ -65,7 +65,7 @@ feedbackListeners:
   queue:
       topics:
         - "^push-[^-_]+-(apns|gcm)-feedbacks"
-      brokers: "kafka:9092"
+      brokers: "kafka:29092"
       group: testGroup
       sessionTimeout: 6000
       fetch.min.bytes: 1

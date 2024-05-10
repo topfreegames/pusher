@@ -25,6 +25,7 @@ package feedback
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/getsentry/raven-go"
@@ -62,9 +63,9 @@ type InvalidTokenHandler struct {
 
 	InChan     chan *InvalidToken
 	Buffer     []*InvalidToken
+	BufferLock sync.Mutex
 	bufferSize int
 
-	run      bool
 	stopChan chan bool
 }
 
@@ -127,13 +128,11 @@ func (i *InvalidTokenHandler) Start() {
 	)
 	l.Info("starting invalid token handler")
 
-	i.run = true
 	go i.processMessages()
 }
 
 // Stop stops the Handler from consuming messages from the intake channel
 func (i *InvalidTokenHandler) Stop() {
-	i.run = false
 	close(i.stopChan)
 }
 
@@ -145,10 +144,11 @@ func (i *InvalidTokenHandler) processMessages() {
 	flushTicker := time.NewTicker(i.flushTime)
 	defer flushTicker.Stop()
 
-	for i.run {
+	for {
 		select {
 		case tk, ok := <-i.InChan:
 			if ok {
+				i.BufferLock.Lock()
 				i.Buffer = append(i.Buffer, tk)
 
 				if len(i.Buffer) >= i.bufferSize {
@@ -156,19 +156,21 @@ func (i *InvalidTokenHandler) processMessages() {
 					i.deleteTokens(i.Buffer)
 					i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
 				}
+				i.BufferLock.Unlock()
 			}
 
 		case <-flushTicker.C:
-			l.Debug("flush ticker")
+			i.BufferLock.Lock()
 			i.deleteTokens(i.Buffer)
 			i.Buffer = make([]*InvalidToken, 0, i.bufferSize)
+			i.BufferLock.Unlock()
 
 		case <-i.stopChan:
-			break
+			l.Info("stop processing Invalid Token Handler's in channel")
+			return
 		}
 	}
 
-	l.Info("stop processing Invalid Token Handler's in channel")
 }
 
 // deleteTokens groups tokens by game and platform and deletes them from the

@@ -24,6 +24,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/topfreegames/pusher/config"
 	"os"
 
 	. "github.com/onsi/ginkgo"
@@ -31,23 +32,23 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/mocks"
-	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("APNS", func() {
-	cfg := os.Getenv("CONFIG_FILE")
-	if cfg == "" {
-		cfg = "../config/test.yaml"
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
 	}
 
-	var config *viper.Viper
+	var vConfig *viper.Viper
+	var cfg *config.Config
 	var mockPushQueue *mocks.APNSPushQueueMock
 	var mockDB *mocks.PGMock
 	var mockStatsDClient *mocks.StatsDClientMock
 
 	BeforeEach(func() {
 		var err error
-		config, err = util.NewViperWithConfigFile(cfg)
+		cfg, vConfig, err = config.NewConfigAndViper(configFile)
 		Expect(err).NotTo(HaveOccurred())
 		mockDB = mocks.NewPGMock(0, 1)
 		mockPushQueue = mocks.NewAPNSPushQueueMock()
@@ -56,7 +57,7 @@ var _ = Describe("APNS", func() {
 
 	Describe("[Unit]", func() {
 		It("Should return apnsPusher without errors", func() {
-			apnsPusher, err := startApns(false, false, false, config, mockStatsDClient, mockDB, mockPushQueue)
+			apnsPusher, err := startApns(false, false, false, vConfig, cfg, mockStatsDClient, mockDB, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
 			Expect(apnsPusher.ViperConfig).NotTo(BeNil())
@@ -66,21 +67,21 @@ var _ = Describe("APNS", func() {
 		})
 
 		It("Should set log to json format", func() {
-			apnsPusher, err := startApns(false, true, false, config, mockStatsDClient, mockDB, mockPushQueue)
+			apnsPusher, err := startApns(false, true, false, vConfig, cfg, mockStatsDClient, mockDB, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
 			Expect(fmt.Sprintf("%T", apnsPusher.Logger.Formatter)).To(Equal(fmt.Sprintf("%T", &logrus.JSONFormatter{})))
 		})
 
 		It("Should set log to debug", func() {
-			apnsPusher, err := startApns(true, false, false, config, mockStatsDClient, mockDB, mockPushQueue)
+			apnsPusher, err := startApns(true, false, false, vConfig, cfg, mockStatsDClient, mockDB, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
 			Expect(apnsPusher.Logger.Level).To(Equal(logrus.DebugLevel))
 		})
 
 		It("Should set log to production", func() {
-			apnsPusher, err := startApns(false, false, true, config, mockStatsDClient, mockDB, mockPushQueue)
+			apnsPusher, err := startApns(false, false, true, vConfig, cfg, mockStatsDClient, mockDB, mockPushQueue)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(apnsPusher).NotTo(BeNil())
 			Expect(apnsPusher.IsProduction).To(BeTrue())

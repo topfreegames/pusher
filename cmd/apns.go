@@ -28,6 +28,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/config"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/pusher"
 	"github.com/topfreegames/pusher/util"
@@ -35,7 +36,8 @@ import (
 
 func startApns(
 	debug, json, production bool,
-	config *viper.Viper,
+	vConfig *viper.Viper,
+	config *config.Config,
 	statsdClientOrNil interfaces.StatsDClient,
 	dbOrNil interfaces.DB,
 	queueOrNil interfaces.APNSPushQueue,
@@ -49,7 +51,7 @@ func startApns(
 	} else {
 		log.Level = logrus.InfoLevel
 	}
-	return pusher.NewAPNSPusher(production, config, log, statsdClientOrNil, dbOrNil, queueOrNil)
+	return pusher.NewAPNSPusher(production, vConfig, config, log, statsdClientOrNil, dbOrNil, queueOrNil)
 }
 
 // apnsCmd represents the apns command
@@ -58,19 +60,19 @@ var apnsCmd = &cobra.Command{
 	Short: "starts pusher in apns mode",
 	Long:  `starts pusher in apns mode`,
 	Run: func(cmd *cobra.Command, args []string) {
-		config, err := util.NewViperWithConfigFile(cfgFile)
+		config, vConfig, err := config.NewConfigAndViper(cfgFile)
 		if err != nil {
 			panic(err)
 		}
 
-		sentryURL := config.GetString("sentry.url")
+		sentryURL := vConfig.GetString("sentry.url")
 		if sentryURL != "" {
 			raven.SetDSN(sentryURL)
 		}
 
 		ctx := context.Background()
 
-		apnsPusher, err := startApns(debug, json, production, config, nil, nil, nil)
+		apnsPusher, err := startApns(debug, json, production, vConfig, config, nil, nil, nil)
 		if err != nil {
 			raven.CaptureErrorAndWait(err, map[string]string{
 				"version": util.Version,

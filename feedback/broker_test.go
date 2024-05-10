@@ -30,19 +30,16 @@ import (
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sideshow/apns2"
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/go-gcm"
 	"github.com/topfreegames/pusher/structs"
-	"github.com/topfreegames/pusher/testing"
-
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("Broker", func() {
 	var logger *logrus.Logger
-	var hook *test.Hook
 	var inChan chan QueueMessage
 	var config *viper.Viper
 	var err error
@@ -53,7 +50,7 @@ var _ = Describe("Broker", func() {
 	}
 
 	BeforeEach(func() {
-		logger, hook = test.NewNullLogger()
+		logger, _ = test.NewNullLogger()
 
 		config, err = util.NewViperWithConfigFile(configFile)
 		Expect(err).NotTo(HaveOccurred())
@@ -70,8 +67,7 @@ var _ = Describe("Broker", func() {
 
 			close(inChan)
 			broker.Stop()
-			Eventually(func() []logrus.Entry { return hook.Entries }).
-				Should(testing.ContainLogMessage("stop processing Broker's in channel"))
+			Expect(broker.stopChannel).To(BeClosed())
 		})
 
 		Describe("APNS Feedback Messages", func() {

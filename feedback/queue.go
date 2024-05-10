@@ -22,7 +22,10 @@
 
 package feedback
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 // QueueMessage defines the interface that should be implemented by the type
 // produced by a Queue
@@ -35,7 +38,7 @@ type QueueMessage interface {
 // Queue interface for making new queues pluggable easily
 type Queue interface {
 	MessagesChannel() chan QueueMessage
-	ConsumeLoop() error
+	ConsumeLoop(ctx context.Context) error
 	StopConsuming()
 	Cleanup() error
 	PendingMessagesWaitGroup() *sync.WaitGroup

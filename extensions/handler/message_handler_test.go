@@ -88,9 +88,11 @@ func (s *MessageHandlerTestSuite) TestSendMessage() {
 		}
 		s.handler.HandleMessages(ctx, message)
 
+		s.handler.statsMutex.Lock()
 		s.Equal(int64(0), s.handler.stats.sent)
 		s.Equal(int64(0), s.handler.stats.failures)
 		s.Equal(int64(0), s.handler.stats.ignored)
+		s.handler.statsMutex.Unlock()
 	})
 
 	s.Run("should ignore message if it has expired", func() {
@@ -103,7 +105,9 @@ func (s *MessageHandlerTestSuite) TestSendMessage() {
 		s.Require().NoError(err)
 
 		s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes})
+		s.handler.statsMutex.Lock()
 		s.Equal(int64(1), s.handler.stats.ignored)
+		s.handler.statsMutex.Unlock()
 	})
 
 	s.Run("should report failure if cannot send message", func() {
@@ -160,7 +164,10 @@ func (s *MessageHandlerTestSuite) TestSendMessage() {
 			s.Fail("did not send feedback to kafka")
 		}
 
+		s.handler.statsMutex.Lock()
 		s.Equal(int64(1), s.handler.stats.failures)
+		s.handler.statsMutex.Unlock()
+
 		s.Equal(int64(1), s.mockStatsdClient.Counts["failed"])
 	})
 
@@ -218,7 +225,9 @@ func (s *MessageHandlerTestSuite) TestSendMessage() {
 			s.Fail("did not send feedback to kafka")
 		}
 
+		s.handler.statsMutex.Lock()
 		s.Equal(int64(1), s.handler.stats.sent)
+		s.handler.statsMutex.Unlock()
 		s.Equal(int64(1), s.mockStatsdClient.Counts["sent"])
 		s.Equal(int64(1), s.mockStatsdClient.Counts["ack"])
 	})

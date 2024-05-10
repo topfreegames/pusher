@@ -229,7 +229,7 @@ var _ = Describe("Feedback Listener", func() {
 				})
 
 				It("should delete a batch of tokens from a single game", func() {
-					logger, _ := test.NewNullLogger()
+					logger := logrus.New()
 					logger.Level = logrus.DebugLevel
 
 					config.Set("feedbackListeners.queue.group", fmt.Sprintf("group-%s", uuid.NewV4().String()))

@@ -108,7 +108,6 @@ func (b *Broker) Start() {
 
 // Stop stops all routines from processing the in channel and closes all output channels.
 func (b *Broker) Stop() {
-	b.run = false
 	close(b.stopChannel)
 	close(b.InvalidTokenOutChan)
 }
@@ -118,7 +117,7 @@ func (b *Broker) processMessages() {
 		"method", "processMessages",
 	)
 
-	for b.run {
+	for {
 		select {
 		case msg, ok := <-b.InChan:
 			if ok {
@@ -144,11 +143,11 @@ func (b *Broker) processMessages() {
 			}
 
 		case <-b.stopChannel:
-			break
+			l.Info("stop processing Broker's in channel")
+			return
 		}
 	}
 
-	l.Info("stop processing Broker's in channel")
 }
 
 func (b *Broker) routeAPNSMessage(msg *structs.ResponseWithMetadata, game string) {

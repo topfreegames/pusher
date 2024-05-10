@@ -23,8 +23,10 @@
 package extensions
 
 import (
+	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/getsentry/raven-go"
@@ -46,12 +48,10 @@ type KafkaConsumer struct {
 	Logger                         *logrus.Logger
 	FetchMinBytes                  int
 	FetchWaitMaxMs                 int
-	messagesReceived               int64
 	msgChan                        chan interfaces.KafkaMessage
 	SessionTimeout                 int
 	pendingMessagesWG              *sync.WaitGroup
 	stopChannel                    chan struct{}
-	run                            bool
 	HandleAllMessagesBeforeExiting bool
 }
 
@@ -64,8 +64,7 @@ func NewKafkaConsumer(
 ) (*KafkaConsumer, error) {
 	q := &KafkaConsumer{
 		Config:            config,
-		Logger:            logger,
-		messagesReceived:  0,
+		Logger:            logger.WithField("source", "extensions.KafkaConsumer").Logger,
 		pendingMessagesWG: nil,
 		stopChannel:       *stopChannel,
 	}
@@ -126,7 +125,6 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 		"session.timeout.ms": q.SessionTimeout,
 		"fetch.min.bytes":    q.FetchMinBytes,
 		"fetch.wait.max.ms":  q.FetchWaitMaxMs,
-		"enable.auto.commit": true,
 		"default.topic.config": kafka.ConfigMap{
 			"auto.offset.reset": q.OffsetResetStrategy,
 		},
@@ -141,10 +139,8 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 			"fetch.min.bytes":    q.FetchMinBytes,
 			"fetch.wait.max.ms":  q.FetchWaitMaxMs,
 			"session.timeout.ms": q.SessionTimeout,
-			"enable.auto.commit": true,
 			"default.topic.config": kafka.ConfigMap{
-				"auto.offset.reset":  q.OffsetResetStrategy,
-				"enable.auto.commit": true,
+				"auto.offset.reset": q.OffsetResetStrategy,
 			},
 		})
 		if err != nil {
@@ -166,7 +162,7 @@ func (q *KafkaConsumer) PendingMessagesWaitGroup() *sync.WaitGroup {
 
 // StopConsuming stops consuming messages from the queue
 func (q *KafkaConsumer) StopConsuming() {
-	q.run = false
+	close(q.stopChannel)
 }
 
 func (q *KafkaConsumer) Pause(topic string) error {
@@ -209,14 +205,16 @@ func (q *KafkaConsumer) MessagesChannel() *chan interfaces.KafkaMessage {
 }
 
 // ConsumeLoop consume messages from the queue and put in messages to send channel
-func (q *KafkaConsumer) ConsumeLoop() error {
-	q.run = true
+func (q *KafkaConsumer) ConsumeLoop(ctx context.Context) error {
 	l := q.Logger.WithFields(logrus.Fields{
 		"method": "ConsumeLoop",
 		"topics": q.Topics,
 	})
 
-	err := q.Consumer.SubscribeTopics(q.Topics, nil)
+	err := q.Consumer.SubscribeTopics(q.Topics, func(_ *kafka.Consumer, event kafka.Event) error {
+		l.WithField("event", event.String()).Debug("got event from Kafka")
+		return nil
+	})
 
 	if err != nil {
 		l.WithError(err).Error("error subscribing to topics")
@@ -226,33 +224,46 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 	l.Info("successfully subscribed to topics")
 
 	//nolint[:gosimple]
-	for q.run {
-		message, err := q.Consumer.ReadMessage(100)
-		if message == nil && err.(kafka.Error).IsTimeout() {
-			continue
+	for {
+		select {
+		case <-q.stopChannel:
+			l.Info("stopping kafka consumer")
+			return nil
+		case <-ctx.Done():
+			l.Info("context done. Will stop consuming messages.")
+			return nil
+		default:
+			message, err := q.Consumer.ReadMessage(100 * time.Millisecond)
+			if message == nil && err.(kafka.Error).IsTimeout() {
+				continue
+			}
+			if err != nil {
+				q.handleError(err)
+				continue
+			}
+			l.Debug("got message from Kafka")
+			q.receiveMessage(message.TopicPartition, message.Value)
+
+			_, err = q.Consumer.CommitMessage(message)
+			if err != nil {
+				q.handleError(err)
+				return fmt.Errorf("error committing message: %s", err.Error())
+			}
 		}
-		if err != nil {
-			q.handleError(err)
-			continue
-		}
-		q.receiveMessage(message.TopicPartition, message.Value)
 	}
 
-	return nil
 }
 
 func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, value []byte) {
 	l := q.Logger.WithFields(logrus.Fields{
-		"method": "receiveMessage",
+		"method":       "receiveMessage",
+		"topic":        *topicPartition.Topic,
+		"partitionKey": topicPartition.Partition,
+		"jsonValue":    string(value),
 	})
 
 	l.Debug("Processing received message...")
 
-	q.messagesReceived++
-	if q.messagesReceived%1000 == 0 {
-		l.Infof("messages from kafka: %d", q.messagesReceived)
-	}
-	l.Debugf("message on %s:\n%s\n", topicPartition, string(value))
 	if q.pendingMessagesWG != nil {
 		q.pendingMessagesWG.Add(1)
 	}
@@ -265,7 +276,7 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 
 	q.msgChan <- message
 
-	l.Debug("Received message processed.")
+	l.Debug("added message to channel")
 }
 
 func (q *KafkaConsumer) handleError(err error) {
@@ -282,9 +293,6 @@ func (q *KafkaConsumer) handleError(err error) {
 
 // Cleanup closes kafka consumer connection
 func (q *KafkaConsumer) Cleanup() error {
-	if q.run {
-		q.StopConsuming()
-	}
 	if q.Consumer != nil {
 		err := q.Consumer.Close()
 		if err != nil {

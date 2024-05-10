@@ -25,6 +25,7 @@ package mocks
 import (
 	"github.com/sideshow/apns2"
 	"github.com/topfreegames/pusher/structs"
+	"sync"
 )
 
 // APNSPushQueueMock should be used for tests that need to send pushs to APNS.
@@ -32,18 +33,22 @@ type APNSPushQueueMock struct {
 	responseChannel    chan *structs.ResponseWithMetadata
 	Closed             bool
 	PushedNotification *apns2.Notification
+	internalLock       sync.Mutex
 }
 
 // NewAPNSPushQueueMock creates a new instance.
 func NewAPNSPushQueueMock() *APNSPushQueueMock {
 	return &APNSPushQueueMock{
 		responseChannel: make(chan *structs.ResponseWithMetadata),
+		internalLock:    sync.Mutex{},
 	}
 }
 
 // Push records the sent message in the MessagesSent collection
 func (m *APNSPushQueueMock) Push(n *apns2.Notification) {
+	m.internalLock.Lock()
 	m.PushedNotification = n
+	m.internalLock.Unlock()
 }
 
 func (m *APNSPushQueueMock) Configure() error {

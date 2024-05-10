@@ -90,8 +90,10 @@ func (th *TimeoutHeap) Pop() interface{} {
 	return node
 }
 
-// Returns true if heap is empty
-func (th *TimeoutHeap) empty() bool {
+// Empty returns true if heap has  no elements
+func (th *TimeoutHeap) Empty() bool {
+	mutex.Lock()
+	defer mutex.Unlock()
 	return th.Len() == 0
 }
 
@@ -99,7 +101,7 @@ func (th *TimeoutHeap) completeHasExpiredRequest() (string, int64, bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if th.empty() {
+	if len(*th) == 0 {
 		return "", 0, false
 	}
 

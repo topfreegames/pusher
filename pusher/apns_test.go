@@ -24,6 +24,7 @@ package pusher
 
 import (
 	"context"
+	"github.com/topfreegames/pusher/config"
 	"os"
 	"time"
 
@@ -32,11 +33,11 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/mocks"
-	"github.com/topfreegames/pusher/util"
 )
 
 var _ = Describe("APNS Pusher", func() {
-	var config *viper.Viper
+	var vConfig *viper.Viper
+	var cfg *config.Config
 	configFile := os.Getenv("CONFIG_FILE")
 	if configFile == "" {
 		configFile = "../config/test.yaml"
@@ -46,7 +47,7 @@ var _ = Describe("APNS Pusher", func() {
 
 	BeforeEach(func() {
 		var err error
-		config, err = util.NewViperWithConfigFile(configFile)
+		cfg, vConfig, err = config.NewConfigAndViper(configFile)
 		Expect(err).NotTo(HaveOccurred())
 		hook.Reset()
 	})
@@ -67,7 +68,8 @@ var _ = Describe("APNS Pusher", func() {
 			It("should return configured pusher", func() {
 				pusher, err := NewAPNSPusher(
 					isProduction,
-					config,
+					vConfig,
+					cfg,
 					logger,
 					mockStatsDClient,
 					mockDB,
@@ -76,7 +78,6 @@ var _ = Describe("APNS Pusher", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pusher).NotTo(BeNil())
 				Expect(pusher.IsProduction).To(Equal(isProduction))
-				Expect(pusher.run).To(BeFalse())
 				Expect(pusher.Queue).NotTo(BeNil())
 				Expect(pusher.ViperConfig).NotTo(BeNil())
 				Expect(pusher.MessageHandler).NotTo(BeNil())
@@ -90,7 +91,8 @@ var _ = Describe("APNS Pusher", func() {
 			It("should launch go routines and run forever", func() {
 				pusher, err := NewAPNSPusher(
 					isProduction,
-					config,
+					vConfig,
+					cfg,
 					logger,
 					mockStatsDClient,
 					mockDB,
@@ -99,25 +101,28 @@ var _ = Describe("APNS Pusher", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(pusher.MessageHandler)).To(Equal(1))
 				Expect(pusher).NotTo(BeNil())
-				defer func() { pusher.run = false }()
-				go pusher.Start(context.Background())
+				ctx := context.Background()
+				ctx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				go pusher.Start(ctx)
 				time.Sleep(50 * time.Millisecond)
 			})
 
 			It("should not ignore failed handlers", func() {
-				config.Set("apns.apps", "game,invalidgame")
-				config.Set("apns.certs.invalidgame.authKeyPath", "../tls/authkey_invalid.p8")
-				config.Set("apns.certs.invalidgame.keyID", "oiejowijefiowejf")
-				config.Set("apns.certs.invalidgame.teamID", "aoijeoijfiowejfoij")
-				config.Set("apns.certs.invalidgame.teamID", "com.invalidgame.test")
+				cfg.Apns.Apps = "game,invalidgame"
+				vConfig.Set("apns.certs.invalidgame.authKeyPath", "../tls/authkey_invalid.p8")
+				vConfig.Set("apns.certs.invalidgame.keyID", "oiejowijefiowejf")
+				vConfig.Set("apns.certs.invalidgame.teamID", "aoijeoijfiowejfoij")
+				vConfig.Set("apns.certs.invalidgame.teamID", "com.invalidgame.test")
 
 				_, err := NewAPNSPusher(
 					isProduction,
-					config,
+					vConfig,
+					cfg,
 					logger,
 					mockStatsDClient,
 					mockDB,
-					mockPushQueue,
+					nil,
 				)
 				Expect(err).To(HaveOccurred())
 			})

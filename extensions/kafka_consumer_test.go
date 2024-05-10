@@ -1,6 +1,7 @@
 package extensions
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -31,7 +32,8 @@ var _ = Describe("Kafka Extension", func() {
 		startConsuming := func() {
 			go func() {
 				defer GinkgoRecover()
-				consumer.ConsumeLoop()
+				goFuncErr := consumer.ConsumeLoop(context.Background())
+				Expect(goFuncErr).NotTo(HaveOccurred())
 			}()
 			time.Sleep(5 * time.Millisecond)
 		}
@@ -74,24 +76,27 @@ var _ = Describe("Kafka Extension", func() {
 
 		Describe("Stop consuming", func() {
 			It("should stop consuming", func() {
-				consumer.run = true
 				consumer.StopConsuming()
-				Expect(consumer.run).To(BeFalse())
+				Expect(consumer.stopChannel).To(BeClosed())
 			})
 		})
 
 		Describe("Consume loop", func() {
 			It("should fail if subscribing to topic fails", func() {
 				kafkaConsumerClientMock.Error = fmt.Errorf("could not subscribe")
-				err := consumer.ConsumeLoop()
+				err := consumer.ConsumeLoop(context.Background())
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("could not subscribe"))
 			})
 
 			It("should subscribe to topic", func() {
 				startConsuming()
-				defer consumer.StopConsuming()
-				Eventually(kafkaConsumerClientMock.SubscribedTopics, 5).Should(HaveKey("com.games.test"))
+
+				time.Sleep(100 * time.Millisecond)
+				consumer.StopConsuming()
+				time.Sleep(100 * time.Millisecond)
+
+				Expect(kafkaConsumerClientMock.SubscribedTopics).To(HaveKey("com.games.test"))
 			})
 
 			It("should receive message", func() {
@@ -104,14 +109,12 @@ var _ = Describe("Kafka Extension", func() {
 				}
 				val := []byte("test")
 				event := &kafka.Message{TopicPartition: part, Value: val}
-				consumer.messagesReceived = 999
 
 				publishEvent(event)
 				Eventually(consumer.msgChan, 5).Should(Receive(&interfaces.KafkaMessage{
 					Topic: topic,
 					Value: val,
 				}))
-				Expect(consumer.messagesReceived).To(BeEquivalentTo(1000))
 			})
 		})
 
@@ -134,17 +137,15 @@ var _ = Describe("Kafka Extension", func() {
 
 		Describe("Pending Messages Waiting Group", func() {
 			It("should return the waiting group", func() {
-				pmwg := consumer.PendingMessagesWaitGroup()
-				Expect(pmwg).NotTo(BeNil())
+				pendingMessagesWaitGroup := consumer.PendingMessagesWaitGroup()
+				Expect(pendingMessagesWaitGroup).NotTo(BeNil())
 			})
 		})
 
 		Describe("Cleanup", func() {
 			It("should stop running upon cleanup", func() {
-				consumer.run = true
 				err := consumer.Cleanup()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(consumer.run).To(BeFalse())
 			})
 
 			It("should close connection to kafka upon cleanup", func() {
@@ -195,7 +196,10 @@ var _ = Describe("Kafka Extension", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(client).NotTo(BeNil())
 				defer client.StopConsuming()
-				go client.ConsumeLoop()
+				go func() {
+					goFuncErr := client.ConsumeLoop(context.Background())
+					Expect(goFuncErr).NotTo(HaveOccurred())
+				}()
 
 				// Required to assure the consumer to be ready before producing a message
 				time.Sleep(5 * time.Second)

@@ -23,6 +23,7 @@
 package feedback
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -52,7 +53,8 @@ var _ = Describe("Kafka Consumer", func() {
 		startConsuming := func() {
 			go func() {
 				defer GinkgoRecover()
-				consumer.ConsumeLoop()
+				err := consumer.ConsumeLoop(context.Background())
+				Expect(err).NotTo(HaveOccurred())
 			}()
 			time.Sleep(5 * time.Millisecond)
 		}
@@ -95,23 +97,25 @@ var _ = Describe("Kafka Consumer", func() {
 
 		Describe("Stop consuming", func() {
 			It("should stop consuming", func() {
-				consumer.run = true
 				consumer.StopConsuming()
-				Expect(consumer.run).To(BeFalse())
+				Expect(consumer.consumerContext.Done()).To(BeClosed())
 			})
 		})
 
 		Describe("Consume loop", func() {
 			It("should fail if subscribing to topic fails", func() {
 				kafkaConsumerClientMock.Error = fmt.Errorf("could not subscribe")
-				err := consumer.ConsumeLoop()
+				err := consumer.ConsumeLoop(context.Background())
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("could not subscribe"))
 			})
 
 			It("should subscribe to topic", func() {
 				startConsuming()
-				defer consumer.StopConsuming()
+				time.Sleep(100 * time.Millisecond)
+				consumer.StopConsuming()
+				time.Sleep(100 * time.Millisecond)
+
 				Eventually(kafkaConsumerClientMock.SubscribedTopics, 5).Should(HaveKey("com.games.test"))
 			})
 
@@ -163,10 +167,9 @@ var _ = Describe("Kafka Consumer", func() {
 
 		Describe("Cleanup", func() {
 			It("should stop running upon cleanup", func() {
-				consumer.run = true
 				err := consumer.Cleanup()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(consumer.run).To(BeFalse())
+				Expect(consumer.consumerContext.Done()).To(BeClosed())
 			})
 
 			It("should close connection to kafka upon cleanup", func() {
@@ -213,7 +216,7 @@ var _ = Describe("Kafka Consumer", func() {
 
 		Describe("ConsumeLoop", func() {
 			It("should consume message and add it to msgChan", func() {
-				logger, _ := test.NewNullLogger()
+				logger := logrus.New()
 				logger.Level = logrus.DebugLevel
 				stopChannel := make(chan struct{})
 
@@ -226,13 +229,20 @@ var _ = Describe("Kafka Consumer", func() {
 				client, err := NewKafkaConsumer(config, logger, &stopChannel)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(client).NotTo(BeNil())
+				p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": client.Brokers})
+				err = p.Produce(&kafka.Message{TopicPartition: kafka.TopicPartition{Topic: &client.Topics[0], Partition: kafka.PartitionAny}, Value: value}, nil)
+				Expect(err).NotTo(HaveOccurred())
+				time.Sleep(5 * time.Second)
+
+				go func() {
+					goFuncErr := client.ConsumeLoop(context.Background())
+					Expect(goFuncErr).NotTo(HaveOccurred())
+				}()
 				defer client.StopConsuming()
-				go client.ConsumeLoop()
 
 				// Required to assure the consumer to be ready before producing a message
 				time.Sleep(5 * time.Second)
 
-				p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": client.Brokers})
 				Expect(err).NotTo(HaveOccurred())
 				err = p.Produce(
 					&kafka.Message{
@@ -244,7 +254,7 @@ var _ = Describe("Kafka Consumer", func() {
 					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(client.msgChan, 10*time.Second).Should(Receive(Equal(&KafkaMessage{
+				Eventually(client.msgChan, 100*time.Millisecond).WithTimeout(5 * time.Second).Should(Receive(Equal(&KafkaMessage{
 					Game:     game,
 					Platform: platform,
 					Value:    value,

@@ -26,19 +26,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	uuid "github.com/satori/go.uuid"
+	"github.com/sideshow/apns2"
+	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
 	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
-	"github.com/sideshow/apns2"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/mocks"
 	"github.com/topfreegames/pusher/structs"
-	. "github.com/topfreegames/pusher/testing"
 	"github.com/topfreegames/pusher/util"
 )
 
@@ -50,6 +50,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 	var mockPushQueue *mocks.APNSPushQueueMock
 	var mockStatsDClient *mocks.StatsDClientMock
 	var statsClients []interfaces.StatsReporter
+	mockConsumptionManager := mock_interfaces.NewMockConsumptionManager()
 	ctx := context.Background()
 
 	configFile := os.Getenv("CONFIG_FILE")
@@ -96,7 +97,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				statsClients,
 				feedbackClients,
 				mockPushQueue,
-				nil,
+				mockConsumptionManager,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			db.(*mocks.PGMock).RowsReturned = 0
@@ -109,8 +110,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Expect(handler).NotTo(BeNil())
 				Expect(handler.Config).NotTo(BeNil())
 				Expect(handler.IsProduction).To(Equal(isProduction))
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(0)))
 				Expect(handler.sentMessages).To(Equal(int64(0)))
+				apnsResMutex.Unlock()
 			})
 		})
 
@@ -129,8 +132,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					ApnsID:     apnsID,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.successesReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ReasonUnregistered", func() {
@@ -148,8 +153,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonUnregistered,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ErrBadDeviceToken", func() {
@@ -167,8 +174,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonBadDeviceToken,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ErrBadCertificate", func() {
@@ -186,8 +195,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonBadCertificate,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ErrBadCertificateEnvironment", func() {
@@ -205,8 +216,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonBadCertificateEnvironment,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ErrForbidden", func() {
@@ -224,8 +237,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonForbidden,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ErrMissingTopic", func() {
@@ -243,8 +258,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonMissingTopic,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ErrTopicDisallowed", func() {
@@ -262,8 +279,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonTopicDisallowed,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ErrDeviceTokenNotForTopic", func() {
@@ -281,8 +300,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonDeviceTokenNotForTopic,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ErrIdleTimeout", func() {
@@ -300,8 +321,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonIdleTimeout,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ErrShutdown", func() {
@@ -319,8 +342,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonShutdown,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ErrInternalServerError", func() {
@@ -338,8 +363,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonInternalServerError,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has error push.ErrServiceUnavailable", func() {
@@ -357,8 +384,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonServiceUnavailable,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 
 			It("if response has untracked error", func() {
@@ -376,8 +405,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Reason:     apns2.ReasonMethodNotAllowed,
 				}
 				handler.handleAPNSResponse(res)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
 				Expect(handler.failuresReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 		})
 
@@ -480,9 +511,11 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
 				Expect(func() { go handler.CleanMetadataCache() }).ShouldNot(Panic())
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(2 * time.Duration(config.GetInt("feedback.cache.requestTimeout")) * time.Millisecond)
+				handler.inFlightNotificationsMapLock.Lock()
 				Expect(*handler.requestsHeap).To(BeEmpty())
 				Expect(handler.InFlightNotificationsMap).To(BeEmpty())
+				handler.inFlightNotificationsMapLock.Unlock()
 			})
 
 			It("should not panic if a request got a response", func() {
@@ -497,9 +530,12 @@ var _ = FDescribe("APNS Message Handler", func() {
 				}
 
 				handler.handleAPNSResponse(res)
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(2 * time.Duration(config.GetInt("feedback.cache.requestTimeout")) * time.Millisecond)
+
+				handler.inFlightNotificationsMapLock.Lock()
 				Expect(*handler.requestsHeap).To(BeEmpty())
 				Expect(handler.InFlightNotificationsMap).To(BeEmpty())
+				handler.inFlightNotificationsMapLock.Unlock()
 			})
 
 			It("should handle all responses or remove them after timeout", func() {
@@ -528,10 +564,12 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Expect(func() { go sendRequests() }).ShouldNot(Panic())
 				time.Sleep(10 * time.Millisecond)
 				Expect(func() { go handleResponses() }).ShouldNot(Panic())
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(2 * time.Duration(config.GetInt("feedback.cache.requestTimeout")) * time.Millisecond)
 
+				handler.inFlightNotificationsMapLock.Lock()
 				Expect(*handler.requestsHeap).To(BeEmpty())
 				Expect(handler.InFlightNotificationsMap).To(BeEmpty())
+				handler.inFlightNotificationsMapLock.Unlock()
 			})
 		})
 
@@ -542,11 +580,14 @@ var _ = FDescribe("APNS Message Handler", func() {
 				handler.successesReceived = 60
 				handler.failuresReceived = 30
 				Expect(func() { go handler.LogStats() }).ShouldNot(Panic())
-				Eventually(func() []logrus.Entry { return hook.Entries }).Should(ContainLogMessage("flushing stats"))
+				time.Sleep(2 * handler.LogStatsInterval)
+
+				apnsResMutex.Lock()
 				Eventually(func() int64 { return handler.sentMessages }).Should(Equal(int64(0)))
 				Eventually(func() int64 { return handler.responsesReceived }).Should(Equal(int64(0)))
 				Eventually(func() int64 { return handler.successesReceived }).Should(Equal(int64(0)))
 				Eventually(func() int64 { return handler.failuresReceived }).Should(Equal(int64(0)))
+				apnsResMutex.Unlock()
 			})
 		})
 
@@ -606,7 +647,6 @@ var _ = FDescribe("APNS Message Handler", func() {
 		Describe("Feedback Reporter sent message", func() {
 			BeforeEach(func() {
 				mockKafkaProducerClient = mocks.NewKafkaProducerClientMock()
-
 				kc, err := NewKafkaProducer(config, logger, mockKafkaProducerClient)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -627,7 +667,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 					statsClients,
 					feedbackClients,
 					mockPushQueue,
-					nil,
+					mockConsumptionManager,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -643,7 +683,9 @@ var _ = FDescribe("APNS Message Handler", func() {
 					"game":      "game",
 					"platform":  "apns",
 				}
+				handler.inFlightNotificationsMapLock.Lock()
 				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
+				handler.inFlightNotificationsMapLock.Unlock()
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 200,
 					ApnsID:     "idTest1",
@@ -665,7 +707,9 @@ var _ = FDescribe("APNS Message Handler", func() {
 					"game":      "game",
 					"platform":  "apns",
 				}
+				handler.inFlightNotificationsMapLock.Lock()
 				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
+				handler.inFlightNotificationsMapLock.Unlock()
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 200,
 					ApnsID:     "idTest1",
@@ -680,6 +724,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 			})
 
 			It("should send feedback if success and metadata is not present", func() {
+				handler.inFlightNotificationsMapLock.Lock()
 				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{
 					notification: &Notification{
 						Metadata: map[string]interface{}{
@@ -687,6 +732,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 						},
 					},
 				}
+				handler.inFlightNotificationsMapLock.Unlock()
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 200,
 					ApnsID:     "idTest1",
@@ -708,7 +754,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					"game":      "game",
 					"platform":  "apns",
 				}
+				handler.inFlightNotificationsMapLock.Lock()
 				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
+				handler.inFlightNotificationsMapLock.Unlock()
+
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
 					ApnsID:     "idTest1",
@@ -732,7 +781,11 @@ var _ = FDescribe("APNS Message Handler", func() {
 					"game":      "game",
 					"platform":  "apns",
 				}
+
+				handler.inFlightNotificationsMapLock.Lock()
 				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
+				handler.inFlightNotificationsMapLock.Unlock()
+
 				res := &structs.ResponseWithMetadata{
 					StatusCode: 400,
 					ApnsID:     "idTest1",
@@ -764,6 +817,41 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Expect(fromKafka.ApnsID).To(Equal(res.ApnsID))
 				Expect(fromKafka.Metadata).To(BeNil())
 				Expect(string(msg.Value)).To(ContainSubstring("BadDeviceToken"))
+			})
+
+			It("should not deadlock on handle retry for handle apns response", func() {
+				metadata := map[string]interface{}{
+					"some":      "metadata",
+					"timestamp": time.Now().Unix(),
+					"game":      "game",
+					"platform":  "apns",
+				}
+				handler.inFlightNotificationsMapLock.Lock()
+				handler.InFlightNotificationsMap["idTest1"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
+				handler.InFlightNotificationsMap["idTest2"] = &inFlightNotification{notification: &Notification{Metadata: metadata}}
+				handler.inFlightNotificationsMapLock.Unlock()
+
+				res := &structs.ResponseWithMetadata{
+					StatusCode: 429,
+					ApnsID:     "idTest1",
+					Reason:     apns2.ReasonTooManyRequests,
+				}
+
+				res2 := &structs.ResponseWithMetadata{
+					StatusCode: 429,
+					ApnsID:     "idTest2",
+					Reason:     apns2.ReasonTooManyRequests,
+				}
+				go func() {
+					defer GinkgoRecover()
+					err := handler.handleAPNSResponse(res)
+					Expect(err).NotTo(HaveOccurred())
+				}()
+				go func() {
+					defer GinkgoRecover()
+					err := handler.handleAPNSResponse(res2)
+					Expect(err).NotTo(HaveOccurred())
+				}()
 			})
 		})
 
@@ -803,9 +891,23 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Topic: "push-game_apns",
 					Value: []byte(`{ "aps" : { "alert" : "Hello HTTP/2" } }`),
 				})
+
+				apnsResMutex.Lock()
 				Expect(handler.ignoredMessages).To(Equal(int64(0)))
 				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).Should(Receive())
 				Expect(handler.sentMessages).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
+			})
+
+			It("should be able to call HandleMessages concurrently with no errors", func() {
+				msg := interfaces.KafkaMessage{
+					Topic: "push-game_apns",
+					Value: []byte(`{ "aps" : { "alert" : "Hello" } }`),
+				}
+
+				go handler.HandleMessages(context.Background(), msg)
+				go handler.HandleMessages(context.Background(), msg)
+				go handler.HandleMessages(context.Background(), msg)
 			})
 		})
 
@@ -816,8 +918,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d }`, MakeTimestamp()-int64(100))),
 				})
 				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).ShouldNot(Receive())
+				apnsResMutex.Lock()
 				Expect(handler.sentMessages).To(Equal(int64(0)))
 				Expect(handler.ignoredMessages).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 			It("should send message if PushExpiry is in the future", func() {
 				handler.HandleMessages(ctx, interfaces.KafkaMessage{
@@ -825,7 +929,10 @@ var _ = FDescribe("APNS Message Handler", func() {
 					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d}`, MakeTimestamp()+int64(100))),
 				})
 				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).ShouldNot(Receive())
+
+				apnsResMutex.Lock()
 				Expect(handler.sentMessages).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 		})
 
@@ -834,7 +941,9 @@ var _ = FDescribe("APNS Message Handler", func() {
 				Expect(func() { go handler.HandleResponses() }).ShouldNot(Panic())
 				handler.PushQueue.ResponseChannel() <- &structs.ResponseWithMetadata{}
 				time.Sleep(50 * time.Millisecond)
+				apnsResMutex.Lock()
 				Expect(handler.responsesReceived).To(Equal(int64(1)))
+				apnsResMutex.Unlock()
 			})
 		})
 

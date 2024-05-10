@@ -32,7 +32,7 @@ import (
 	"github.com/topfreegames/pusher/util"
 )
 
-var _ = Describe("APNS Message Handler", func() {
+var _ = Describe("APNS Push Queue", func() {
 	var queue *APNSPushQueue
 
 	configFile := os.Getenv("CONFIG_FILE")

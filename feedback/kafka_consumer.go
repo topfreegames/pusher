@@ -23,10 +23,12 @@
 package feedback
 
 import (
+	"context"
+	"fmt"
 	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	raven "github.com/getsentry/raven-go"
+	"github.com/getsentry/raven-go"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/extensions"
@@ -53,6 +55,8 @@ type KafkaConsumer struct {
 	stopChannel                    chan struct{}
 	run                            bool
 	HandleAllMessagesBeforeExiting bool
+	consumerContext                context.Context
+	stopFunc                       context.CancelFunc
 }
 
 // NewKafkaConsumer for creating a new KafkaConsumer instance
@@ -64,7 +68,7 @@ func NewKafkaConsumer(
 ) (*KafkaConsumer, error) {
 	q := &KafkaConsumer{
 		Config:            config,
-		Logger:            logger,
+		Logger:            logger.WithField("source", "feedback.KafkaConsumer").Logger,
 		messagesReceived:  0,
 		pendingMessagesWG: nil,
 		stopChannel:       *stopChannel,
@@ -79,6 +83,8 @@ func NewKafkaConsumer(
 	if err != nil {
 		return nil, err
 	}
+
+	q.consumerContext, q.stopFunc = context.WithCancel(context.Background())
 
 	return q, nil
 }
@@ -130,14 +136,12 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 		"session.timeout.ms": q.SessionTimeout,
 		"fetch.min.bytes":    q.FetchMinBytes,
 		"fetch.wait.max.ms":  q.FetchWaitMaxMs,
-		"enable.auto.commit": true,
 		"default.topic.config": kafka.ConfigMap{
-			"auto.offset.reset":  q.OffsetResetStrategy,
-			"enable.auto.commit": true,
+			"auto.offset.reset": q.OffsetResetStrategy,
 		},
 		"topics": q.Topics,
 	})
-	l.Debug("configuring kafka queue extension")
+	l.Debug("configuring kafka queue")
 
 	if client == nil {
 		c, err := kafka.NewConsumer(&kafka.ConfigMap{
@@ -146,10 +150,8 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 			"fetch.min.bytes":    q.FetchMinBytes,
 			"fetch.wait.max.ms":  q.FetchWaitMaxMs,
 			"session.timeout.ms": q.SessionTimeout,
-			"enable.auto.commit": true,
 			"default.topic.config": kafka.ConfigMap{
-				"auto.offset.reset":  q.OffsetResetStrategy,
-				"enable.auto.commit": true,
+				"auto.offset.reset": q.OffsetResetStrategy,
 			},
 		})
 
@@ -174,7 +176,7 @@ func (q *KafkaConsumer) PendingMessagesWaitGroup() *sync.WaitGroup {
 
 // StopConsuming stops consuming messages from the queue
 func (q *KafkaConsumer) StopConsuming() {
-	q.run = false
+	q.stopFunc()
 }
 
 // MessagesChannel returns the channel that will receive all messages got from kafka
@@ -183,7 +185,7 @@ func (q *KafkaConsumer) MessagesChannel() chan QueueMessage {
 }
 
 // ConsumeLoop consume messages from the queue and put in messages to send channel
-func (q *KafkaConsumer) ConsumeLoop() error {
+func (q *KafkaConsumer) ConsumeLoop(ctx context.Context) error {
 	l := q.Logger.WithFields(logrus.Fields{
 		"method": "ConsumeLoop",
 		"topics": q.Topics,
@@ -197,20 +199,34 @@ func (q *KafkaConsumer) ConsumeLoop() error {
 
 	l.Info("successfully subscribed to topics")
 
-	q.run = true
-	for q.run {
-		message, err := q.Consumer.ReadMessage(100)
-		if message == nil && err.(kafka.Error).IsTimeout() {
-			continue
+	for {
+		select {
+		case <-q.consumerContext.Done():
+			l.Info("context done, stopping consuming")
+			return nil
+		case <-q.stopChannel:
+			l.Info("stop channel closed, stopping consuming")
+			return nil
+		case <-ctx.Done():
+			l.Info("context done, stopping consuming")
+			return nil
+		default:
+			message, err := q.Consumer.ReadMessage(100)
+			if message == nil && err.(kafka.Error).IsTimeout() {
+				continue
+			}
+			if err != nil {
+				q.handleError(err)
+				continue
+			}
+			q.receiveMessage(message.TopicPartition, message.Value)
+			_, err = q.Consumer.CommitMessage(message)
+			if err != nil {
+				q.handleError(err)
+				return fmt.Errorf("error committing message: %s", err.Error())
+			}
 		}
-		if err != nil {
-			q.handleError(err)
-			continue
-		}
-		q.receiveMessage(message.TopicPartition, message.Value)
 	}
-
-	return nil
 }
 
 func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, value []byte) {
@@ -254,9 +270,12 @@ func (q *KafkaConsumer) handleError(err error) {
 
 // Cleanup closes kafka consumer connection
 func (q *KafkaConsumer) Cleanup() error {
-	if q.run {
+	select {
+	case <-q.consumerContext.Done():
+	default:
 		q.StopConsuming()
 	}
+
 	if q.Consumer != nil {
 		err := q.Consumer.Close()
 		if err != nil {

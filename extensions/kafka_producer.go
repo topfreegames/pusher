@@ -52,6 +52,11 @@ func NewKafkaProducer(config *viper.Viper, logger *log.Logger, clientOrNil ...in
 	if len(clientOrNil) == 1 {
 		producer = clientOrNil[0]
 	}
+
+	if q.Logger != nil {
+		q.Logger = q.Logger.WithField("source", "extensions.KafkaProducer").Logger
+	}
+
 	err := q.configure(producer)
 	return q, err
 }
@@ -125,6 +130,10 @@ func (q *KafkaProducer) listenForKafkaResponses() {
 // SendFeedback sends the feedback to the kafka Queue
 func (q *KafkaProducer) SendFeedback(game string, platform string, feedback []byte) {
 	topic := "push-" + game + "-" + platform + "-feedbacks"
+	l := q.Logger.WithFields(log.Fields{
+		"method": "SendFeedback",
+		"topic":  topic,
+	})
 	m := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &topic,
@@ -133,4 +142,5 @@ func (q *KafkaProducer) SendFeedback(game string, platform string, feedback []by
 		Value: feedback,
 	}
 	q.Producer.ProduceChannel() <- m
+	l.Debug("feedback sent to ProduceChannel")
 }

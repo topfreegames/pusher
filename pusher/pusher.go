@@ -48,7 +48,6 @@ type Pusher struct {
 	MessageHandler          map[string]interfaces.MessageHandler
 	stopChannel             chan struct{}
 	IsProduction            bool
-	run                     bool
 }
 
 func (p *Pusher) loadConfigurationDefaults() {
@@ -79,25 +78,39 @@ func (p *Pusher) configureStatsReporters(clientOrNil interfaces.StatsDClient) er
 }
 
 func (p *Pusher) routeMessages(ctx context.Context, msgChan *chan interfaces.KafkaMessage) {
+	l := p.Logger.WithFields(logrus.Fields{
+		"method": "routeMessages",
+		"source": "pusher",
+	})
 	//nolint[:gosimple]
-	for p.run {
+	for {
 		select {
 		case message := <-*msgChan:
+			l = l.WithFields(logrus.Fields{
+				"game":      message.Game,
+				"jsonValue": string(message.Value),
+				"topic":     message.Topic,
+			})
+
+			l.Debug("got message from message channel")
+
 			if handler, ok := p.MessageHandler[message.Game]; ok {
 				handler.HandleMessages(ctx, message)
 			} else {
-				p.Logger.WithFields(logrus.Fields{
-					"method": "routeMessages",
-					"game":   message.Game,
-				}).Error("Game not found")
+				l.Error("Game not found")
 			}
+		case <-ctx.Done():
+			l.Info("Context done. Will stop routing messages.")
+			return
+		case <-p.stopChannel:
+			l.Info("Stop channel closed. Will stop routing messages.")
+			return
 		}
 	}
 }
 
 // Start starts pusher
 func (p *Pusher) Start(ctx context.Context) {
-	p.run = true
 	l := p.Logger.WithFields(logrus.Fields{
 		"method": "start",
 	})
@@ -109,21 +122,17 @@ func (p *Pusher) Start(ctx context.Context) {
 		go v.CleanMetadataCache()
 	}
 	//nolint[:errcheck]
-	go p.Queue.ConsumeLoop()
+	go p.Queue.ConsumeLoop(ctx)
 	go p.reportGoStats()
 
 	sigchan := make(chan os.Signal)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	for p.run {
-		select {
-		case sig := <-sigchan:
-			l.Warnf("caught signal %v: terminating\n", sig)
-			p.run = false
-		case <-p.stopChannel:
-			l.Warn("Stop channel closed\n")
-			p.run = false
-		}
+	select {
+	case sig := <-sigchan:
+		l.Infof("caught signal %v: terminating", sig)
+	case <-ctx.Done():
+		l.Info("Context done. Will stop consuming.")
 	}
 	p.Queue.StopConsuming()
 	GracefulShutdown(p.Queue.PendingMessagesWaitGroup(), time.Duration(p.GracefulShutdownTimeout)*time.Second)

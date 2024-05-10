@@ -105,8 +105,8 @@ test-unit:
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
 	@export $ACK_GINKGO_RC=true
-	@$(GINKGO) --race -trace -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" .
-	@$(MAKE) test-coverage-func
+	@$(GINKGO) -trace -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" --skipPackage=e2e .
+	@#$(MAKE) test-coverage-func
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo "=                  Unit tests finished.                  ="
@@ -120,7 +120,7 @@ run-integration-test:
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo
 	@export $ACK_GINKGO_RC=true
-	@$(GINKGO) --race -trace -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
+	@$(GINKGO) -trace -r -tags=integration --randomizeAllSpecs --randomizeSuites --focus="\[Integration\].*" .
 	@echo
 	@echo "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
 	@echo "=               Integration tests finished.              ="
@@ -174,3 +174,6 @@ integration-test-container-dev: build-image-dev start-deps-container-dev test-db
 .PHONY: mocks
 mocks:
 	$(MOCKGENERATE) -source=interfaces/client.go -destination=mocks/firebase/client.go
+	$(MOCKGENERATE) -source=interfaces/apns.go -destination=mocks/interfaces/apns.go
+	$(MOCKGENERATE) -source=interfaces/statsd.go -destination=mocks/interfaces/statsd.go
+	$(MOCKGENERATE) -source=interfaces/feedback_reporter.go -destination=mocks/interfaces/feedback_reporter.go

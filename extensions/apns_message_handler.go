@@ -61,7 +61,7 @@ type APNSMessageHandler struct {
 	teamID                       string
 	appName                      string
 	PushQueue                    interfaces.APNSPushQueue
-	Topic                        string
+	ApnsTopic                    string
 	Config                       *viper.Viper
 	failuresReceived             int64
 	InFlightNotificationsMap     map[string]*inFlightNotification
@@ -99,7 +99,7 @@ func NewAPNSMessageHandler(
 		authKeyPath:                  authKeyPath,
 		keyID:                        keyID,
 		teamID:                       teamID,
-		Topic:                        topic,
+		ApnsTopic:                    topic,
 		appName:                      appName,
 		Config:                       config,
 		failuresReceived:             0,
@@ -118,6 +118,14 @@ func NewAPNSMessageHandler(
 		PushQueue:                    pushQueue,
 		consumptionManager:           consumptionManager,
 	}
+
+	if a.Logger != nil {
+		a.Logger = a.Logger.WithFields(log.Fields{
+			"source": "APNSMessageHandler",
+			"game":   appName,
+		}).Logger
+	}
+
 	if err := a.configure(); err != nil {
 		return nil, err
 	}
@@ -165,7 +173,13 @@ func (a *APNSMessageHandler) loadConfigurationDefaults() {
 // HandleResponses from apns.
 func (a *APNSMessageHandler) HandleResponses() {
 	for response := range a.PushQueue.ResponseChannel() {
-		a.handleAPNSResponse(response)
+		err := a.handleAPNSResponse(response)
+		if err != nil {
+			a.Logger.
+				WithField("method", "HandleResponses").
+				WithError(err).
+				Error("error handling response")
+		}
 	}
 }
 
@@ -193,8 +207,13 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 }
 
 // HandleMessages get messages from msgChan and send to APNS.
-func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfaces.KafkaMessage) {
-	a.Logger.WithField("message", message).Debug("received message to send to apns")
+func (a *APNSMessageHandler) HandleMessages(_ context.Context, message interfaces.KafkaMessage) {
+	l := a.Logger.WithFields(log.Fields{
+		"method":    "HandleMessages",
+		"jsonValue": string(message.Value),
+		"topic":     message.Topic,
+	})
+	l.Debug("received message to send to apns")
 	notification, err := a.buildNotification(message)
 	if err != nil {
 		return
@@ -203,7 +222,11 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 		return
 	}
 	statsReporterHandleNotificationSent(a.StatsReporters, a.appName, "apns")
+
+	apnsResMutex.Lock()
 	a.sentMessages++
+	apnsResMutex.Unlock()
+
 	a.inFlightNotificationsMapLock.Lock()
 	ifn := &inFlightNotification{
 		notification: notification,
@@ -244,7 +267,11 @@ func (a *APNSMessageHandler) sendNotification(notification *Notification) error 
 	l := a.Logger.WithField("method", "sendNotification")
 	if notification.PushExpiry > 0 && notification.PushExpiry < MakeTimestamp() {
 		l.Warnf("ignoring push message because it has expired: %s", notification.Payload)
+
+		apnsResMutex.Lock()
 		a.ignoredMessages++
+		apnsResMutex.Unlock()
+
 		if a.pendingMessagesWG != nil {
 			a.pendingMessagesWG.Done()
 		}
@@ -253,7 +280,11 @@ func (a *APNSMessageHandler) sendNotification(notification *Notification) error 
 	payload, err := json.Marshal(notification.Payload)
 	if err != nil {
 		l.WithError(err).Error("error marshaling message payload")
+
+		apnsResMutex.Lock()
 		a.ignoredMessages++
+		apnsResMutex.Unlock()
+
 		if a.pendingMessagesWG != nil {
 			a.pendingMessagesWG.Done()
 		}
@@ -261,7 +292,7 @@ func (a *APNSMessageHandler) sendNotification(notification *Notification) error 
 	}
 	l.WithField("notification", notification).Debug("adding notification to apns push queue")
 	a.PushQueue.Push(&apns2.Notification{
-		Topic:       a.Topic,
+		Topic:       a.ApnsTopic,
 		DeviceToken: notification.DeviceToken,
 		Payload:     payload,
 		ApnsID:      notification.ApnsID,
@@ -288,20 +319,25 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		sendAttempts := inFlightNotificationInstance.sendAttempts.Load()
 		if responseWithMetadata.Reason == apns2.ReasonTooManyRequests &&
 			uint(sendAttempts) < a.maxRetryAttempts {
-			a.consumptionManager.Pause(inFlightNotificationInstance.kafkaTopic)
+			l.WithFields(log.Fields{
+				"sendAttempts": sendAttempts,
+				"maxRetries":   a.maxRetryAttempts,
+				"apnsID":       responseWithMetadata.ApnsID,
+			}).Debug("retrying notification")
 			inFlightNotificationInstance.sendAttempts.Add(1)
 			<-time.After(a.retryInterval)
 			if err := a.sendNotification(inFlightNotificationInstance.notification); err == nil {
 				return nil
 			}
 		}
-		if uint(sendAttempts) > 0 {
-			a.consumptionManager.Resume(inFlightNotificationInstance.kafkaTopic)
-		}
+
 		responseWithMetadata.Metadata = inFlightNotificationInstance.notification.Metadata
 		responseWithMetadata.Timestamp = responseWithMetadata.Metadata["timestamp"].(int64)
 		delete(responseWithMetadata.Metadata, "timestamp")
+
+		a.inFlightNotificationsMapLock.Lock()
 		delete(a.InFlightNotificationsMap, responseWithMetadata.ApnsID)
+		a.inFlightNotificationsMapLock.Unlock()
 	}
 
 	apnsResMutex.Lock()

@@ -71,12 +71,12 @@ var _ = Describe("[Unit]", func() {
 			}
 		})
 
-		It("should return true if heap is empty", func() {
+		It("should return true if heap is Empty", func() {
 			th := NewTimeoutHeap(config)
-			Ω(th.empty()).Should(BeTrue())
+			Ω(th.Empty()).Should(BeTrue())
 
 			th.AddRequest("token")
-			Ω(th.empty()).Should(BeFalse())
+			Ω(th.Empty()).Should(BeFalse())
 		})
 
 		It("should return nodes in order of time stamp from threads", func() {

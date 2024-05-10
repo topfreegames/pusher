@@ -95,7 +95,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 	})
 
 	g.MessageHandler = make(map[string]interfaces.MessageHandler)
-	for _, app := range g.Config.GetAppsArray() {
+	for _, app := range g.Config.GetGcmAppsArray() {
 		credentials := g.ViperConfig.GetString("gcm.firebaseCredentials." + app)
 		l = l.WithField("app", app)
 		if credentials != "" { // Firebase is configured, use new handler
