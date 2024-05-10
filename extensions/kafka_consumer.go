@@ -139,6 +139,7 @@ func (q *KafkaConsumer) configureConsumer(client interfaces.KafkaConsumerClient)
 			"fetch.min.bytes":    q.FetchMinBytes,
 			"fetch.wait.max.ms":  q.FetchWaitMaxMs,
 			"session.timeout.ms": q.SessionTimeout,
+			"enable.auto.commit": true,
 			"default.topic.config": kafka.ConfigMap{
 				"auto.offset.reset": q.OffsetResetStrategy,
 			},
@@ -246,8 +247,9 @@ func (q *KafkaConsumer) ConsumeLoop(ctx context.Context) error {
 
 			_, err = q.Consumer.CommitMessage(message)
 			if err != nil {
-				q.handleError(err)
-				return fmt.Errorf("error committing message: %s", err.Error())
+				l.WithError(err).
+					WithField("message", string(message.Value)).
+					Error("error committing message")
 			}
 		}
 	}
