@@ -179,6 +179,10 @@ func (k *KafkaConsumerClientMock) Assignment() ([]kafka.TopicPartition, error) {
 	return k.Assignments, nil
 }
 
-func (k *KafkaConsumerClientMock) CommitMessage(m *kafka.Message) ([]kafka.TopicPartition, error) {
+func (k *KafkaConsumerClientMock) CommitMessage(_ *kafka.Message) ([]kafka.TopicPartition, error) {
+	return nil, nil
+}
+
+func (k *KafkaConsumerClientMock) Commit() ([]kafka.TopicPartition, error) {
 	return nil, nil
 }
