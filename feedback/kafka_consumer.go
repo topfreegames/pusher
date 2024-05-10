@@ -177,6 +177,13 @@ func (q *KafkaConsumer) PendingMessagesWaitGroup() *sync.WaitGroup {
 // StopConsuming stops consuming messages from the queue
 func (q *KafkaConsumer) StopConsuming() {
 	q.stopFunc()
+	_, err := q.Consumer.Commit()
+	if err != nil {
+		q.Logger.
+			WithField("method", "feedback.StopConsuming").
+			WithError(err).
+			Error("error committing messages")
+	}
 }
 
 // MessagesChannel returns the channel that will receive all messages got from kafka

@@ -43,4 +43,5 @@ type KafkaConsumerClient interface {
 	Resume([]kafka.TopicPartition) error
 	Assignment() ([]kafka.TopicPartition, error)
 	CommitMessage(message *kafka.Message) ([]kafka.TopicPartition, error)
+	Commit() ([]kafka.TopicPartition, error)
 }

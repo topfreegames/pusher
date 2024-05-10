@@ -164,6 +164,13 @@ func (q *KafkaConsumer) PendingMessagesWaitGroup() *sync.WaitGroup {
 // StopConsuming stops consuming messages from the queue
 func (q *KafkaConsumer) StopConsuming() {
 	close(q.stopChannel)
+	_, err := q.Consumer.Commit()
+	if err != nil {
+		q.Logger.
+			WithField("method", "extensions.StopConsuming").
+			WithError(err).
+			Error("error committing messages")
+	}
 }
 
 func (q *KafkaConsumer) Pause(topic string) error {
