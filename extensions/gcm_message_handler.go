@@ -454,7 +454,7 @@ func (g *GCMMessageHandler) HandleMessages(_ context.Context, msg interfaces.Kaf
 // LogStats from time to time
 func (g *GCMMessageHandler) LogStats() {
 	l := g.Logger.WithFields(logrus.Fields{
-		"method":       "logStats",
+		"method":       "gcmMessageHandler.logStats",
 		"interval(ns)": g.LogStatsInterval,
 	})
 
