@@ -325,6 +325,9 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 				"apnsID":       responseWithMetadata.ApnsID,
 			}).Debug("retrying notification")
 			inFlightNotificationInstance.sendAttempts.Add(1)
+			if a.pendingMessagesWG != nil {
+				a.pendingMessagesWG.Add(1)
+			}
 			<-time.After(a.retryInterval)
 			if err := a.sendNotification(inFlightNotificationInstance.notification); err == nil {
 				return nil
@@ -419,7 +422,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 // LogStats from time to time.
 func (a *APNSMessageHandler) LogStats() {
 	l := a.Logger.WithFields(log.Fields{
-		"method":       "logStats",
+		"method":       "apnsMessageHandler.logStats",
 		"interval(ns)": a.LogStatsInterval,
 	})
 
