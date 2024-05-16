@@ -1,5 +1,5 @@
 ---
-gracefulShutdownTimeout: 10
+gracefulShutdownTimeout: 0
 apns:
   concurrentWorkers: 300
   connectionPoolSize: 1
@@ -31,6 +31,7 @@ queue:
   fetch.wait.max.ms: 100
   offsetResetStrategy: latest
   handleAllMessagesBeforeExiting: true
+  channelSize: 10
 feedback:
   reporters:
     - kafka

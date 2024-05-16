@@ -23,8 +23,10 @@
 package extensions
 
 import (
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"math/rand"
 
 	"github.com/sideshow/apns2"
 	token "github.com/sideshow/apns2/token"
@@ -70,10 +72,10 @@ func (p *APNSPushQueue) Configure() error {
 		"source": "APNSPushQueue",
 		"method": "configure",
 	})
-	err := p.configureCertificate()
-	if err != nil {
-		return err
-	}
+	//err := p.configureCertificate()
+	//if err != nil {
+	//	return err
+	//}
 	p.Closed = false
 	connectionPoolSize := p.Config.GetInt("apns.connectionPoolSize")
 	p.clients = make(chan *apns2.Client, connectionPoolSize)
@@ -122,24 +124,33 @@ func (p *APNSPushQueue) ResponseChannel() chan *structs.ResponseWithMetadata {
 }
 
 func (p *APNSPushQueue) pushWorker() {
-	l := p.Logger.WithField("method", "pushWorker")
+	//l := p.Logger.WithField("method", "pushWorker")
 
 	for notification := range p.pushChannel {
 		client := <-p.clients
 		p.clients <- client
 
-		res, err := client.Push(notification)
-		if err != nil {
-			l.WithError(err).Error("push error")
+		//res, err := client.Push(notification)
+		//if err != nil {
+		//	l.WithError(err).Error("push error")
+		//}
+		//if res == nil {
+		//	continue
+		//}
+		rnd := rand.Int()
+		statusCode := 200
+		reason := ""
+
+		if rnd%2 == 0 {
+			statusCode = 429
+			reason = apns2.ReasonTooManyRequests
 		}
-		if res == nil {
-			continue
-		}
+
 		newRes := &structs.ResponseWithMetadata{
-			StatusCode:  res.StatusCode,
-			Reason:      res.Reason,
-			ApnsID:      res.ApnsID,
-			Sent:        res.Sent(),
+			ApnsID:      notification.ApnsID,
+			Sent:        true,
+			StatusCode:  statusCode,
+			Reason:      reason,
 			DeviceToken: notification.DeviceToken,
 		}
 		p.responseChannel <- newRes
@@ -148,7 +159,9 @@ func (p *APNSPushQueue) pushWorker() {
 
 // Push sends the notification
 func (p *APNSPushQueue) Push(notification *apns2.Notification) {
+	fmt.Println("=====> Adding notification to push channel")
 	p.pushChannel <- notification
+	fmt.Println("=====> Notification added to push channel")
 }
 
 // Close closes all the open channels

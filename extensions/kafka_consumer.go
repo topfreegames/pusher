@@ -234,9 +234,9 @@ func (q *KafkaConsumer) ConsumeLoop(ctx context.Context) error {
 	//nolint[:gosimple]
 	for {
 		select {
-		case <-q.stopChannel:
-			l.Info("stopping kafka consumer")
-			return nil
+		//case <-q.stopChannel:
+		//	l.Info("stopping kafka consumer")
+		//	return nil
 		case <-ctx.Done():
 			l.Info("context done. Will stop consuming messages.")
 			return nil
@@ -247,7 +247,8 @@ func (q *KafkaConsumer) ConsumeLoop(ctx context.Context) error {
 			}
 			if err != nil {
 				q.handleError(err)
-				continue
+				q.StopConsuming()
+				return err
 			}
 			l.Debug("got message from Kafka")
 			q.receiveMessage(message.TopicPartition, message.Value)

@@ -114,12 +114,14 @@ func (p *Pusher) Start(ctx context.Context) {
 	l := p.Logger.WithFields(logrus.Fields{
 		"method": "start",
 	})
+
+	ctx, cancel := context.WithCancel(ctx)
 	l.Info("starting pusher...")
 	go p.routeMessages(ctx, p.Queue.MessagesChannel())
 	for _, v := range p.MessageHandler {
 		go v.HandleResponses()
 		go v.LogStats()
-		go v.CleanMetadataCache()
+		//go v.CleanMetadataCache()
 	}
 	//nolint[:errcheck]
 	go p.Queue.ConsumeLoop(ctx)
@@ -133,8 +135,11 @@ func (p *Pusher) Start(ctx context.Context) {
 		l.Infof("caught signal %v: terminating", sig)
 	case <-ctx.Done():
 		l.Info("Context done. Will stop consuming.")
+	case <-p.stopChannel:
+		l.Info("Received stop signal. Will exit.")
 	}
-	p.Queue.StopConsuming()
+	cancel()
+	//p.Queue.StopConsuming()
 	GracefulShutdown(p.Queue.PendingMessagesWaitGroup(), time.Duration(p.GracefulShutdownTimeout)*time.Second)
 }
 

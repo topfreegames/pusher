@@ -185,21 +185,36 @@ func (a *APNSMessageHandler) HandleResponses() {
 
 // CleanMetadataCache clears expired requests from memory.
 func (a *APNSMessageHandler) CleanMetadataCache() {
+	l := a.Logger.
+		WithFields(log.Fields{
+			"method":           "CleanMetadataCache",
+			"cleaningInterval": a.CacheCleaningInterval,
+		})
+
 	var deviceToken string
 	var hasIndeed bool
 	for {
-		a.inFlightNotificationsMapLock.Lock()
+		//l.Debug("cleaning metadata cache")
+
 		for deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest(); hasIndeed; {
+			a.inFlightNotificationsMapLock.Lock()
 			if _, ok := a.InFlightNotificationsMap[deviceToken]; ok {
+				l.WithField("deviceToken", deviceToken).
+					Debug("removing expired request")
+
+				apnsResMutex.Lock()
 				a.ignoredMessages++
+				apnsResMutex.Unlock()
+
 				if a.pendingMessagesWG != nil {
 					a.pendingMessagesWG.Done()
 				}
+				delete(a.InFlightNotificationsMap, deviceToken)
 			}
-			delete(a.InFlightNotificationsMap, deviceToken)
 			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
+			a.inFlightNotificationsMapLock.Unlock()
 		}
-		a.inFlightNotificationsMapLock.Unlock()
+		//l.Debug("Metadata cache cleaned.")
 
 		duration := time.Duration(a.CacheCleaningInterval)
 		time.Sleep(duration * time.Millisecond)
@@ -298,6 +313,7 @@ func (a *APNSMessageHandler) sendNotification(notification *Notification) error 
 		ApnsID:      notification.ApnsID,
 		CollapseID:  notification.CollapseID,
 	})
+	l.Debug("notification added to apns push queue")
 	return nil
 }
 
@@ -310,10 +326,13 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 	l.Debug("got response from apns")
 
 	a.inFlightNotificationsMapLock.Lock()
+	l.Debug("acquired Lock 1")
 	inFlightNotificationInstance, hasInFlightNotificationInstance := a.InFlightNotificationsMap[responseWithMetadata.ApnsID]
 	a.inFlightNotificationsMapLock.Unlock()
+	l.Debug("released Lock 1")
 
 	if hasInFlightNotificationInstance {
+		l.Debug("has in flight notification instance")
 		// retry on too many requests (429)
 		// retries are transparent and are not counted as sent or received messages
 		sendAttempts := inFlightNotificationInstance.sendAttempts.Load()
@@ -326,9 +345,12 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 			}).Debug("retrying notification")
 			inFlightNotificationInstance.sendAttempts.Add(1)
 			<-time.After(a.retryInterval)
+			l.Debug("waited for retry interval")
 			if err := a.sendNotification(inFlightNotificationInstance.notification); err == nil {
+				l.Debug("retried notification")
 				return nil
 			}
+			l.Debug("error retrying notification")
 		}
 
 		responseWithMetadata.Metadata = inFlightNotificationInstance.notification.Metadata
@@ -336,8 +358,10 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		delete(responseWithMetadata.Metadata, "timestamp")
 
 		a.inFlightNotificationsMapLock.Lock()
+		l.Debug("acquired lock 2")
 		delete(a.InFlightNotificationsMap, responseWithMetadata.ApnsID)
 		a.inFlightNotificationsMapLock.Unlock()
+		l.Debug("released lock 2")
 	}
 
 	apnsResMutex.Lock()
