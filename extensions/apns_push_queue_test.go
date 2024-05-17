@@ -75,6 +75,13 @@ var _ = Describe("APNS Push Queue", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("open ./invalid-certficate.pem: no such file or directory"))
 			})
+
+			It("should load default configs", func() {
+				err := queue.Configure()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cap(queue.pushChannel)).To(Equal(100))
+				Expect(cap(queue.responseChannel)).To(Equal(100))
+			})
 		})
 
 		Describe("Configuring Certificate", func() {
