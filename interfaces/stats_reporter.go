@@ -33,4 +33,5 @@ type StatsReporter interface {
 	ReportGoStats(numGoRoutines int, allocatedAndNotFreed, heapObjects, nextGCBytes, pauseGCNano uint64)
 	ReportMetricGauge(metric string, value float64, game string, platform string)
 	ReportMetricCount(metric string, value int64, game string, platform string)
+	NotificationRateLimitReached(game string, platform string)
 }

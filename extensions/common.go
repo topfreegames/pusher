@@ -86,3 +86,9 @@ func statsReporterHandleNotificationFailure(
 		statsReporter.HandleNotificationFailure(game, platform, err)
 	}
 }
+
+func statsReporterNotificationRateLimitReached(statsReporters []interfaces.StatsReporter, game string, platform string) {
+	for _, statsReporter := range statsReporters {
+		statsReporter.NotificationRateLimitReached(game, platform)
+	}
+}

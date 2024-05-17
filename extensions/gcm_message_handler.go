@@ -76,6 +76,7 @@ type GCMMessageHandler struct {
 	requestsHeap                 *TimeoutHeap
 	CacheCleaningInterval        int
 	IsProduction                 bool
+	rateLimiter                  rateLimiter
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
@@ -131,6 +132,7 @@ func NewGCMMessageHandlerWithClient(
 		requestsHeap:                 NewTimeoutHeap(config),
 		StatsReporters:               statsReporters,
 		GCMClient:                    client,
+		rateLimiter:                  NewRateLimiter(config, logger),
 	}
 
 	err := g.configure()
@@ -340,6 +342,12 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 	}
 
 	l = l.WithField("message", km)
+
+	allowed := g.rateLimiter.Allow(context.Background(), km.To)
+	if !allowed {
+		statsReporterNotificationRateLimitReached(g.StatsReporters, message.Game, "gcm")
+		return errors.New("reached rate limit")
+	}
 	l.Debug("sending message to gcm")
 
 	var messageID string

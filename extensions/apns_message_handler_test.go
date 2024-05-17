@@ -26,11 +26,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"time"
+
 	uuid "github.com/satori/go.uuid"
 	"github.com/sideshow/apns2"
 	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
-	"os"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

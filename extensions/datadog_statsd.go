@@ -89,17 +89,17 @@ func (s *StatsD) configure(client interfaces.StatsDClient) error {
 	return nil
 }
 
-//HandleNotificationSent stores notification count in StatsD
+// HandleNotificationSent stores notification count in StatsD
 func (s *StatsD) HandleNotificationSent(game string, platform string) {
 	s.Client.Incr("sent", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
 }
 
-//HandleNotificationSuccess stores notifications success in StatsD
+// HandleNotificationSuccess stores notifications success in StatsD
 func (s *StatsD) HandleNotificationSuccess(game string, platform string) {
 	s.Client.Incr("ack", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
 }
 
-//HandleNotificationFailure stores each type of failure
+// HandleNotificationFailure stores each type of failure
 func (s *StatsD) HandleNotificationFailure(game string, platform string, err *errors.PushError) {
 	s.Client.Incr(
 		"failed",
@@ -108,12 +108,21 @@ func (s *StatsD) HandleNotificationFailure(game string, platform string, err *er
 	)
 }
 
-//InitializeFailure notifu error when is impossible tho initilizer an app
+// NotificationRateLimitReached stores how many times rate limits were reached for the devices
+func (s *StatsD) NotificationRateLimitReached(game string, platform string) {
+	s.Client.Incr(
+		"rate_limit_reached",
+		[]string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)},
+		1,
+	)
+}
+
+// InitializeFailure notifu error when is impossible tho initilizer an app
 func (s *StatsD) InitializeFailure(game string, platform string) {
 	s.Client.Incr("initialize_failure", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
 }
 
-//ReportGoStats reports go stats in statsd
+// ReportGoStats reports go stats in statsd
 func (s *StatsD) ReportGoStats(
 	numGoRoutines int,
 	allocatedAndNotFreed, heapObjects, nextGCBytes, pauseGCNano uint64,
@@ -126,7 +135,7 @@ func (s *StatsD) ReportGoStats(
 	s.Client.Gauge("next_gc_bytes", float64(nextGCBytes), tags, 1)
 }
 
-//Cleanup closes statsd connection
+// Cleanup closes statsd connection
 func (s *StatsD) Cleanup() error {
 	s.Client.Close()
 	return nil
