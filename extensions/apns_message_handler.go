@@ -323,7 +323,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 				"sendAttempts": sendAttempts,
 				"maxRetries":   a.maxRetryAttempts,
 				"apnsID":       responseWithMetadata.ApnsID,
-			}).Debug("retrying notification")
+			}).Info("retrying notification")
 			inFlightNotificationInstance.sendAttempts.Add(1)
 			<-time.After(a.retryInterval)
 			if err := a.sendNotification(inFlightNotificationInstance.notification); err == nil {
