@@ -79,7 +79,7 @@ type APNSMessageHandler struct {
 	consumptionManager           interfaces.ConsumptionManager
 	retryInterval                time.Duration
 	maxRetryAttempts             uint
-	rateLimiter                  rateLimiter
+	rateLimiter                  interfaces.RateLimiter
 }
 
 var _ interfaces.MessageHandler = &APNSMessageHandler{}
@@ -95,6 +95,7 @@ func NewAPNSMessageHandler(
 	feedbackReporters []interfaces.FeedbackReporter,
 	pushQueue interfaces.APNSPushQueue,
 	consumptionManager interfaces.ConsumptionManager,
+	rateLimiter interfaces.RateLimiter,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
 		authKeyPath:                  authKeyPath,
@@ -118,7 +119,7 @@ func NewAPNSMessageHandler(
 		requestsHeap:                 NewTimeoutHeap(config),
 		PushQueue:                    pushQueue,
 		consumptionManager:           consumptionManager,
-		rateLimiter:                  NewRateLimiter(config, logger),
+		rateLimiter:                  rateLimiter,
 	}
 
 	if a.Logger != nil {

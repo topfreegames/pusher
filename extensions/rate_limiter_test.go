@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,6 +18,7 @@ func TestRateLimiter(t *testing.T) {
 			Addr: "localhost:6379",
 		}),
 		limit: 1,
+		l:     logrus.New().WithField("test", "test"),
 	}
 	ctx := context.Background()
 	t.Run("should return not-allowed when rate limit is reached", func(t *testing.T) {

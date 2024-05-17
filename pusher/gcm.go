@@ -25,6 +25,7 @@ package pusher
 import (
 	"context"
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/config"
@@ -121,6 +122,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 				g.Queue.PendingMessagesWaitGroup(),
 				g.StatsReporters,
 				g.feedbackReporters,
+				extensions.NewRateLimiter(g.ViperConfig, l.Logger),
 			)
 
 			if err != nil {

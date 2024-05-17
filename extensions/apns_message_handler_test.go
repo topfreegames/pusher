@@ -52,6 +52,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 	var mockStatsDClient *mocks.StatsDClientMock
 	var statsClients []interfaces.StatsReporter
 	mockConsumptionManager := mock_interfaces.NewMockConsumptionManager()
+	mockRateLimiter := mocks.NewRateLimiterMock()
 	ctx := context.Background()
 
 	configFile := os.Getenv("CONFIG_FILE")
@@ -99,6 +100,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				feedbackClients,
 				mockPushQueue,
 				mockConsumptionManager,
+				mockRateLimiter,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			db.(*mocks.PGMock).RowsReturned = 0
@@ -669,6 +671,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 					feedbackClients,
 					mockPushQueue,
 					mockConsumptionManager,
+					mockRateLimiter,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -881,6 +884,7 @@ var _ = FDescribe("APNS Message Handler", func() {
 				nil,
 				nil,
 				nil,
+				mockRateLimiter,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			hook.Reset()

@@ -25,6 +25,7 @@ package pusher
 import (
 	"errors"
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/config"
@@ -119,6 +120,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			a.feedbackReporters,
 			queue,
 			interfaces.ConsumptionManager(q),
+			extensions.NewRateLimiter(a.ViperConfig, l.Logger),
 		)
 		if err == nil {
 			a.MessageHandler[k] = handler
