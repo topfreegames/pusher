@@ -31,10 +31,6 @@ type (
 		LogStatsInterval   int
 	}
 
-	Firebase struct {
-		ConcurrentWorkers int
-	}
-
 	Apns struct {
 		Apps  string
 		Certs map[string]Cert

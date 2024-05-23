@@ -12,19 +12,14 @@ import (
 )
 
 type messageHandler struct {
-	app                        string
-	logger                     *logrus.Logger
-	client                     interfaces.PushClient
-	config                     messageHandlerConfig
-	stats                      messagesStats
-	statsMutex                 sync.Mutex
-	feedbackReporters          []interfaces.FeedbackReporter
-	statsReporters             []interfaces.StatsReporter
-	sendPushConcurrencyControl chan interface{}
-	responsesChannel           chan struct {
-		msg interfaces.Message
-		error
-	}
+	app               string
+	logger            *logrus.Logger
+	client            interfaces.PushClient
+	config            messageHandlerConfig
+	stats             messagesStats
+	statsMutex        sync.Mutex
+	feedbackReporters []interfaces.FeedbackReporter
+	statsReporters    []interfaces.StatsReporter
 }
 
 var _ interfaces.MessageHandler = &messageHandler{}
@@ -40,21 +35,14 @@ func NewMessageHandler(
 		"app":    app,
 		"source": "messageHandler",
 	})
-	h := &messageHandler{
-		app:                        app,
-		client:                     client,
-		feedbackReporters:          feedbackReporters,
-		statsReporters:             statsReporters,
-		logger:                     l.Logger,
-		config:                     newDefaultMessageHandlerConfig(),
-		sendPushConcurrencyControl: make(chan interface{}, 5), // make configurable
+	return &messageHandler{
+		app:               app,
+		client:            client,
+		feedbackReporters: feedbackReporters,
+		statsReporters:    statsReporters,
+		logger:            l.Logger,
+		config:            newDefaultMessageHandlerConfig(),
 	}
-
-	for i := 0; i < 5; i++ {
-		h.sendPushConcurrencyControl <- struct{}{}
-	}
-
-	return h
 }
 
 func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.KafkaMessage) {
@@ -90,69 +78,27 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 		}
 	}
 
-	h.sendPush(ctx, km.Message)
+	err = h.client.SendPush(ctx, km.Message)
+	if err != nil {
+		l.WithError(err).Error("Error sending push message.")
+		h.statsMutex.Lock()
+		h.stats.failures++
+		h.statsMutex.Unlock()
 
-	//err = h.client.SendPush(ctx, km.Message)
-	//if err != nil {
-	//	l.WithError(err).Error("Error sending push message.")
-	//	h.statsMutex.Lock()
-	//	h.stats.failures++
-	//	h.statsMutex.Unlock()
-	//
-	//	h.handleNotificationFailure(err)
-	//	return
-	//}
-	//h.handleNotificationSent()
-	//
-	//h.statsMutex.Lock()
-	//h.stats.sent++
-	//h.statsMutex.Unlock()
-
-}
-
-func (h *messageHandler) sendPush(ctx context.Context, msg interfaces.Message) {
-	lock := <-h.sendPushConcurrencyControl
-
-	go func(l interface{}) {
-		defer func() {
-			h.sendPushConcurrencyControl <- l
-		}()
-
-		err := h.client.SendPush(ctx, msg)
-		h.handleNotificationSent()
-
-		h.responsesChannel <- struct {
-			msg interfaces.Message
-			error
-		}{
-			msg:   msg,
-			error: err,
-		}
-	}(lock)
-}
-
-// HandleResponses was needed as a callback to handle the responses from them in APNS and the legacy GCM.
-// Here the responses are handled synchronously. The method is kept to comply with the interface.
-func (h *messageHandler) HandleResponses(ctx context.Context) {
-	for i := 0; i < h.config.concurrentResponseHandlers; i++ {
-		go func() {
-			for {
-				select {
-				case response := <-h.responsesChannel:
-					if response.error != nil {
-						h.handleNotificationFailure(response.error)
-					} else {
-						//h.handleNotificationSent()
-						// TODO: send ack metric
-						//statsReporter.HandleNotificationSuccess(h.app, "gcm")
-					}
-				case <-ctx.Done():
-					return
-				}
-			}
-		}()
-
+		h.handleNotificationFailure(err)
+		return
 	}
+	h.handleNotificationSent()
+
+	h.statsMutex.Lock()
+	h.stats.sent++
+	h.statsMutex.Unlock()
+
+}
+
+// HandleResponses was  needed as a callback to handle the responses from them in APNS and the legacy GCM.
+// Here the responses are handled synchronously. The method is kept to comply with the interface.
+func (h *messageHandler) HandleResponses() {
 }
 
 func (h *messageHandler) LogStats() {

@@ -114,7 +114,7 @@ func (b *Broker) Stop() {
 
 func (b *Broker) processMessages() {
 	l := b.Logger.WithField(
-		"method", "processMessages",
+		"method", "processMessages",
 	)
 
 	for {
