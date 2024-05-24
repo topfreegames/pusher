@@ -3,6 +3,10 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
@@ -13,9 +17,6 @@ import (
 	"github.com/topfreegames/pusher/mocks"
 	mock_interfaces "github.com/topfreegames/pusher/mocks/firebase"
 	"go.uber.org/mock/gomock"
-	"os"
-	"testing"
-	"time"
 )
 
 type MessageHandlerTestSuite struct {
@@ -66,12 +67,21 @@ func (s *MessageHandlerTestSuite) SetupSubTest() {
 	feedbackClients := []interfaces.FeedbackReporter{kc}
 
 	handler := &messageHandler{
-		app:               s.game,
-		client:            s.mockClient,
-		feedbackReporters: feedbackClients,
-		statsReporters:    statsClients,
-		logger:            l,
-		config:            newDefaultMessageHandlerConfig(),
+		app:                        s.game,
+		client:                     s.mockClient,
+		feedbackReporters:          feedbackClients,
+		statsReporters:             statsClients,
+		logger:                     l,
+		config:                     newDefaultMessageHandlerConfig(),
+		sendPushConcurrencyControl: make(chan interface{}, 5),
+		responsesChannel: make(chan struct {
+			msg   interfaces.Message
+			error error
+		}, 5),
+	}
+
+	for i := 0; i < 5; i++ {
+		handler.sendPushConcurrencyControl <- struct{}{}
 	}
 
 	s.NoError(err)
@@ -152,7 +162,8 @@ func (s *MessageHandlerTestSuite) TestSendMessage() {
 			SendPush(gomock.Any(), expected).
 			Return(pushererrors.NewPushError("INVALID_TOKEN", "invalid token"))
 
-		go s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes})
+		s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes})
+		s.handler.HandleResponses()
 
 		select {
 		case m := <-s.mockKafkaProducer.ProduceChannel():
@@ -213,7 +224,8 @@ func (s *MessageHandlerTestSuite) TestSendMessage() {
 			SendPush(gomock.Any(), expected).
 			Return(nil)
 
-		go s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes})
+		s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes})
+		s.handler.HandleResponses()
 
 		select {
 		case m := <-s.mockKafkaProducer.ProduceChannel():
