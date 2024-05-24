@@ -135,11 +135,6 @@ func (h *messageHandler) HandleResponses() {
 			}
 		}()
 	}
-	h.handleNotificationSent()
-
-	h.statsMutex.Lock()
-	h.stats.sent++
-	h.statsMutex.Unlock()
 }
 
 func (h *messageHandler) LogStats() {
