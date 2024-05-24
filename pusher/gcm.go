@@ -112,8 +112,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 				g.feedbackReporters,
 				g.StatsReporters,
 				g.Logger,
-				// TODO: config
-				5,
+				g.Config.GCM.ConcurrentWorkers,
 			)
 		} else { // Firebase credentials not yet configured, use legacy XMPP client
 			handler, err := extensions.NewGCMMessageHandler(

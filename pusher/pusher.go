@@ -24,7 +24,6 @@ package pusher
 
 import (
 	"context"
-	"github.com/topfreegames/pusher/config"
 	"os"
 	"os/signal"
 	"runtime"
@@ -33,20 +32,21 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/config"
 	"github.com/topfreegames/pusher/interfaces"
 )
 
 // Pusher struct for pusher
 type Pusher struct {
-	feedbackReporters       []interfaces.FeedbackReporter
-	StatsReporters          []interfaces.StatsReporter
 	Queue                   interfaces.Queue
 	ViperConfig             *viper.Viper
 	Config                  *config.Config
-	GracefulShutdownTimeout int
 	Logger                  *logrus.Logger
 	MessageHandler          map[string]interfaces.MessageHandler
 	stopChannel             chan struct{}
+	feedbackReporters       []interfaces.FeedbackReporter
+	StatsReporters          []interfaces.StatsReporter
+	GracefulShutdownTimeout int
 	IsProduction            bool
 }
 

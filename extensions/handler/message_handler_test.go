@@ -3,10 +3,12 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
@@ -18,6 +20,8 @@ import (
 	mock_interfaces "github.com/topfreegames/pusher/mocks/firebase"
 	"go.uber.org/mock/gomock"
 )
+
+const concurrentWorkers = 5
 
 type MessageHandlerTestSuite struct {
 	suite.Suite
@@ -73,14 +77,14 @@ func (s *MessageHandlerTestSuite) SetupSubTest() {
 		statsReporters:             statsClients,
 		logger:                     l,
 		config:                     newDefaultMessageHandlerConfig(),
-		sendPushConcurrencyControl: make(chan interface{}, 5),
+		sendPushConcurrencyControl: make(chan interface{}, concurrentWorkers),
 		responsesChannel: make(chan struct {
 			msg   interfaces.Message
 			error error
-		}, 5),
+		}, concurrentWorkers),
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < concurrentWorkers; i++ {
 		handler.sendPushConcurrencyControl <- struct{}{}
 	}
 
@@ -242,5 +246,71 @@ func (s *MessageHandlerTestSuite) TestSendMessage() {
 		s.handler.statsMutex.Unlock()
 		s.Equal(int64(1), s.mockStatsdClient.Counts["sent"])
 		s.Equal(int64(1), s.mockStatsdClient.Counts["ack"])
+	})
+
+	s.Run("should not lock sendPushConcurrencyControl when sending multiple messages", func() {
+		newMessage := func() extensions.KafkaGCMMessage {
+			ttl := uint(0)
+			token := uuid.NewString()
+			title := fmt.Sprintf("title - %s", uuid.NewString())
+			metadata := map[string]interface{}{
+				"some":     "metadata",
+				"game":     "game",
+				"platform": "gcm",
+			}
+
+			km := extensions.KafkaGCMMessage{
+				Message: interfaces.Message{
+					TimeToLive:               &ttl,
+					DeliveryReceiptRequested: false,
+					DryRun:                   true,
+					To:                       token,
+					Data: map[string]interface{}{
+						"title": title,
+					},
+				},
+				Metadata:   metadata,
+				PushExpiry: extensions.MakeTimestamp() + int64(1000000),
+			}
+
+			return km
+		}
+
+		go s.handler.HandleResponses()
+
+		qtyMsgs := 20
+
+		s.mockClient.EXPECT().
+			SendPush(gomock.Any(), gomock.Any()).
+			Return(nil).
+			Times(qtyMsgs)
+
+		for i := 0; i < qtyMsgs; i++ {
+			km := newMessage()
+			bytes, err := json.Marshal(km)
+			s.Require().NoError(err)
+
+			go s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes})
+		}
+
+		for i := 0; i < qtyMsgs; i++ {
+			select {
+			case m := <-s.mockKafkaProducer.ProduceChannel():
+				val := &FeedbackResponse{}
+				err := json.Unmarshal(m.Value, val)
+				s.NoError(err)
+				s.Empty(val.Error)
+			case <-time.After(time.Second * 1):
+				s.Fail("did not send feedback to kafka")
+			}
+		}
+
+		time.Sleep(2 * time.Second)
+
+		s.handler.statsMutex.Lock()
+		s.Equal(int64(20), s.handler.stats.sent)
+		s.handler.statsMutex.Unlock()
+		s.Equal(int64(20), s.mockStatsdClient.Counts["sent"])
+		s.Equal(int64(20), s.mockStatsdClient.Counts["ack"])
 	})
 }

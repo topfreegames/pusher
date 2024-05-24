@@ -121,7 +121,7 @@ func (h *messageHandler) sendPush(ctx context.Context, msg interfaces.Message) {
 }
 
 // HandleResponses was needed as a callback to handle the responses from them in APNS and the legacy GCM.
-// Here the responses are handled synchronously. The method is kept to comply with the interface.
+// Here the responses are handled asynchronously. The method is kept to comply with the interface.
 func (h *messageHandler) HandleResponses() {
 	for i := 0; i < h.config.concurrentResponseHandlers; i++ {
 		go func() {
