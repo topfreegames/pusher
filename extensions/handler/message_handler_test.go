@@ -70,13 +70,15 @@ func (s *MessageHandlerTestSuite) SetupSubTest() {
 	statsClients := []interfaces.StatsReporter{statsD}
 	feedbackClients := []interfaces.FeedbackReporter{kc}
 
+	cfg := newDefaultMessageHandlerConfig()
+	cfg.concurrentResponseHandlers = concurrentWorkers
 	handler := &messageHandler{
 		app:                        s.game,
 		client:                     s.mockClient,
 		feedbackReporters:          feedbackClients,
 		statsReporters:             statsClients,
 		logger:                     l,
-		config:                     newDefaultMessageHandlerConfig(),
+		config:                     cfg,
 		sendPushConcurrencyControl: make(chan interface{}, concurrentWorkers),
 		responsesChannel: make(chan struct {
 			msg   interfaces.Message

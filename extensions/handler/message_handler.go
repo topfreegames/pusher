@@ -42,14 +42,17 @@ func NewMessageHandler(
 		"app":    app,
 		"source": "messageHandler",
 	})
+	cfg := newDefaultMessageHandlerConfig()
+	cfg.concurrentResponseHandlers = concurrentWorkers
+
 	h := &messageHandler{
 		app:                        app,
 		client:                     client,
 		feedbackReporters:          feedbackReporters,
 		statsReporters:             statsReporters,
 		logger:                     l.Logger,
-		config:                     newDefaultMessageHandlerConfig(),
-		sendPushConcurrencyControl: make(chan interface{}, concurrentWorkers), // make configurable
+		config:                     cfg,
+		sendPushConcurrencyControl: make(chan interface{}, concurrentWorkers),
 		responsesChannel: make(chan struct {
 			msg   interfaces.Message
 			error error
