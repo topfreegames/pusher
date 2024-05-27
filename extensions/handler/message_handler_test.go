@@ -86,6 +86,9 @@ func (s *MessageHandlerTestSuite) SetupSubTest() {
 		}, concurrentWorkers),
 	}
 
+	// sendPushConcurrencyControl is a channel that controls the number of concurrent workers
+	// that are going to be sending messages to FCM. Once the message is sent, the struct is going
+	// to be pushed back into the channel buffer to be reused.
 	for i := 0; i < concurrentWorkers; i++ {
 		handler.sendPushConcurrencyControl <- struct{}{}
 	}
