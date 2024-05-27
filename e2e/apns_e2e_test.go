@@ -3,6 +3,11 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/google/uuid"
 	"github.com/sideshow/apns2"
@@ -14,10 +19,6 @@ import (
 	"github.com/topfreegames/pusher/pusher"
 	"github.com/topfreegames/pusher/structs"
 	"go.uber.org/mock/gomock"
-	"os"
-	"strings"
-	"testing"
-	"time"
 )
 
 const wait = 5 * time.Second
