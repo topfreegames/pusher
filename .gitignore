@@ -39,3 +39,5 @@ vendor/
 .*swp
 
 .idea
+
+.tool-versions
