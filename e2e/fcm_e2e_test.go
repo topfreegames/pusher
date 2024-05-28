@@ -57,7 +57,7 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 	logger.Level = logrus.DebugLevel
 
 	s.assureTopicsExist(appName)
-	time.Sleep(wait)
+	time.Sleep(wait * 3)
 
 	// Required to instantiate at least one client to pusher.NewGCMPusher run without errors. If there is no Apps on s.config.GCM.Apps,
 	// an array of apps is created with len=1 and the method tries to create a GCMClient
@@ -113,7 +113,7 @@ func (s *FcmE2ETestSuite) TestSimpleNotification() {
 		})
 
 	statsdClientMock.EXPECT().
-		Incr("ack", []string{fmt.Sprintf("platform:%s", "gcm"), fmt.Sprintf("game:%s", appName)}, float64(1)).
+		Incr("ack", []string{fmt.Sprintf("platform:%s", "gcmaps"), fmt.Sprintf("game:%s", appName)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			testDone <- true
 			return nil
@@ -124,7 +124,7 @@ func (s *FcmE2ETestSuite) TestSimpleNotification() {
 			Topic:     &topic,
 			Partition: kafka.PartitionAny,
 		},
-		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello"}}}`),
+		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"gcm": {"alert": "Hello"}}}`),
 	},
 		nil)
 	s.Require().NoError(err)
@@ -184,13 +184,13 @@ func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 				Topic:     &topic,
 				Partition: kafka.PartitionAny,
 			},
-			Value: []byte(`{"deviceToken":"` + fmt.Sprintf("%s%d", token, i) + `", "payload": {"aps": {"alert": "Hello"}}}`),
+			Value: []byte(`{"deviceToken":"` + fmt.Sprintf("%s%d", token, i) + `", "payload": {"gcm": {"alert": "Hello"}}}`),
 		},
 			nil)
 		s.Require().NoError(err)
 	}
 	// Give it some time to process the message
-	timer := time.NewTimer(timeout * 5)
+	timer := time.NewTimer(timeout)
 	for i := 0; i < notificationsToSend; i++ {
 		select {
 		case <-done:
