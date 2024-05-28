@@ -3,23 +3,29 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"sync"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	pushErrors "github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/interfaces"
-	"sync"
-	"time"
 )
 
 type messageHandler struct {
-	app               string
-	logger            *logrus.Logger
-	client            interfaces.PushClient
-	config            messageHandlerConfig
-	stats             messagesStats
-	statsMutex        sync.Mutex
-	feedbackReporters []interfaces.FeedbackReporter
-	statsReporters    []interfaces.StatsReporter
+	app                        string
+	logger                     *logrus.Logger
+	client                     interfaces.PushClient
+	config                     messageHandlerConfig
+	stats                      messagesStats
+	statsMutex                 sync.Mutex
+	feedbackReporters          []interfaces.FeedbackReporter
+	statsReporters             []interfaces.StatsReporter
+	sendPushConcurrencyControl chan interface{}
+	responsesChannel           chan struct {
+		msg   interfaces.Message
+		error error
+	}
 }
 
 var _ interfaces.MessageHandler = &messageHandler{}
@@ -30,19 +36,34 @@ func NewMessageHandler(
 	feedbackReporters []interfaces.FeedbackReporter,
 	statsReporters []interfaces.StatsReporter,
 	logger *logrus.Logger,
+	concurrentWorkers int,
 ) interfaces.MessageHandler {
 	l := logger.WithFields(logrus.Fields{
 		"app":    app,
 		"source": "messageHandler",
 	})
-	return &messageHandler{
-		app:               app,
-		client:            client,
-		feedbackReporters: feedbackReporters,
-		statsReporters:    statsReporters,
-		logger:            l.Logger,
-		config:            newDefaultMessageHandlerConfig(),
+	cfg := newDefaultMessageHandlerConfig()
+	cfg.concurrentResponseHandlers = concurrentWorkers
+
+	h := &messageHandler{
+		app:                        app,
+		client:                     client,
+		feedbackReporters:          feedbackReporters,
+		statsReporters:             statsReporters,
+		logger:                     l.Logger,
+		config:                     cfg,
+		sendPushConcurrencyControl: make(chan interface{}, concurrentWorkers),
+		responsesChannel: make(chan struct {
+			msg   interfaces.Message
+			error error
+		}, concurrentWorkers),
 	}
+
+	for i := 0; i < concurrentWorkers; i++ {
+		h.sendPushConcurrencyControl <- struct{}{}
+	}
+
+	return h
 }
 
 func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.KafkaMessage) {
@@ -78,27 +99,45 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 		}
 	}
 
-	err = h.client.SendPush(ctx, km.Message)
-	if err != nil {
-		l.WithError(err).Error("Error sending push message.")
-		h.statsMutex.Lock()
-		h.stats.failures++
-		h.statsMutex.Unlock()
-
-		h.handleNotificationFailure(err)
-		return
-	}
-	h.handleNotificationSent()
-
-	h.statsMutex.Lock()
-	h.stats.sent++
-	h.statsMutex.Unlock()
-
+	h.sendPush(ctx, km.Message)
 }
 
-// HandleResponses was  needed as a callback to handle the responses from them in APNS and the legacy GCM.
-// Here the responses are handled synchronously. The method is kept to comply with the interface.
+func (h *messageHandler) sendPush(ctx context.Context, msg interfaces.Message) {
+	lock := <-h.sendPushConcurrencyControl
+
+	go func(l interface{}) {
+		defer func() {
+			h.sendPushConcurrencyControl <- l
+		}()
+
+		err := h.client.SendPush(ctx, msg)
+		h.handleNotificationSent()
+
+		h.responsesChannel <- struct {
+			msg   interfaces.Message
+			error error
+		}{
+			msg:   msg,
+			error: err,
+		}
+	}(lock)
+}
+
+// HandleResponses was needed as a callback to handle the responses from them in APNS and the legacy GCM.
+// Here the responses are handled asynchronously. The method is kept to comply with the interface.
 func (h *messageHandler) HandleResponses() {
+	for i := 0; i < h.config.concurrentResponseHandlers; i++ {
+		go func() {
+			for {
+				response := <-h.responsesChannel
+				if response.error != nil {
+					h.handleNotificationFailure(response.error)
+				} else {
+					h.handleNotificationAck()
+				}
+			}
+		}()
+	}
 }
 
 func (h *messageHandler) LogStats() {
@@ -144,6 +183,11 @@ func (h *messageHandler) sendToFeedbackReporters(res interface{}) error {
 func (h *messageHandler) handleNotificationSent() {
 	for _, statsReporter := range h.statsReporters {
 		statsReporter.HandleNotificationSent(h.app, "gcm")
+	}
+}
+
+func (h *messageHandler) handleNotificationAck() {
+	for _, statsReporter := range h.statsReporters {
 		statsReporter.HandleNotificationSuccess(h.app, "gcm")
 	}
 
@@ -152,6 +196,10 @@ func (h *messageHandler) handleNotificationSent() {
 		b, _ := json.Marshal(r)
 		feedbackReporter.SendFeedback(h.app, "gcm", b)
 	}
+
+	h.statsMutex.Lock()
+	h.stats.sent++
+	h.statsMutex.Unlock()
 }
 
 func (h *messageHandler) handleNotificationFailure(err error) {
@@ -167,12 +215,14 @@ func (h *messageHandler) handleNotificationFailure(err error) {
 		b, _ := json.Marshal(feedback)
 		feedbackReporter.SendFeedback(h.app, "gcm", b)
 	}
+	h.statsMutex.Lock()
+	h.stats.failures++
+	h.statsMutex.Unlock()
 }
 
 func translateToPushError(err error) *pushErrors.PushError {
 	if pusherError, ok := err.(*pushErrors.PushError); ok {
 		return pusherError
-
 	}
 	return pushErrors.NewPushError("unknown", err.Error())
 }

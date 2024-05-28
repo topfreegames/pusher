@@ -3,11 +3,12 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/util"
-	"reflect"
-	"strings"
 )
 
 type (
@@ -29,6 +30,7 @@ type (
 		PingTimeout        int
 		MaxPendingMessages int
 		LogStatsInterval   int
+		ConcurrentWorkers  int
 	}
 
 	Apns struct {

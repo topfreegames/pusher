@@ -11,6 +11,8 @@ apns:
       keyID: "ABC123DEFG"
       teamID: "ABC123DEFG"
       topic: "com.game.test"
+  responsechannelsize: 100
+  connectionpoolsize: 10
 gcm:
   pingInterval: 30
   pingTimeout: 10
@@ -21,6 +23,7 @@ gcm:
     game:
       apiKey: game-api-key
       senderID: "1233456789"
+  concurrentWorkers: 10
 queue:
   topics:
     - "^push-[^-_]+_(apns|gcm)[_-](single|massive)"
