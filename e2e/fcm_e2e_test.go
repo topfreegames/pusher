@@ -83,7 +83,7 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 		),
 	}
 	go gcmPusher.Start(ctx)
-	time.Sleep(wait * 10)
+	time.Sleep(wait)
 
 	return pushClient, statsdClientMock
 }
