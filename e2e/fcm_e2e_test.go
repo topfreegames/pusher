@@ -84,7 +84,7 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 	}
 	go gcmPusher.Start(ctx)
 
-	time.Sleep(wait)
+	time.Sleep(wait * 3)
 
 	return pushClient, statsdClientMock
 }
@@ -145,7 +145,7 @@ func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 	s.config.GCM.Apps = appName
 	s.vConfig.Set("queue.topics", []string{fmt.Sprintf(gcmTopicTemplate, appName)})
 
-	mockApnsClient, statsdClientMock := s.setupFcmPusher(appName)
+	mockFcmClient, statsdClientMock := s.setupFcmPusher(appName)
 
 	notificationsToSend := 10
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
@@ -158,7 +158,7 @@ func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 	done := make(chan bool)
 
 	for i := 0; i < notificationsToSend; i++ {
-		mockApnsClient.EXPECT().
+		mockFcmClient.EXPECT().
 			SendPush(gomock.Any(), gomock.Any()).
 			Return(nil)
 	}
