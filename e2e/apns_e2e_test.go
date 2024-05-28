@@ -65,7 +65,7 @@ func (s *ApnsE2ETestSuite) setupApnsPusher() (*mocks.MockAPNSPushQueue, *mocks.M
 	ctx := context.Background()
 	go apnsPusher.Start(ctx)
 
-	time.Sleep(wait)
+	time.Sleep(wait * 3)
 
 	return mockApnsClient, statsdClientMock, responsesChannel
 }
