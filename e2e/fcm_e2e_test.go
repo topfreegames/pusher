@@ -57,7 +57,7 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 	logger.Level = logrus.DebugLevel
 
 	s.assureTopicsExist(appName)
-	time.Sleep(wait * 3)
+	time.Sleep(wait)
 
 	// Required to instantiate at least one client to pusher.NewGCMPusher run without errors. If there is no Apps on s.config.GCM.Apps,
 	// an array of apps is created with len=1 and the method tries to create a GCMClient
@@ -83,8 +83,7 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 		),
 	}
 	go gcmPusher.Start(ctx)
-
-	time.Sleep(wait * 3)
+	time.Sleep(wait * 5)
 
 	return pushClient, statsdClientMock
 }
@@ -113,7 +112,7 @@ func (s *FcmE2ETestSuite) TestSimpleNotification() {
 		})
 
 	statsdClientMock.EXPECT().
-		Incr("ack", []string{fmt.Sprintf("platform:%s", "gcmaps"), fmt.Sprintf("game:%s", appName)}, float64(1)).
+		Incr("ack", []string{fmt.Sprintf("platform:%s", "gcm"), fmt.Sprintf("game:%s", appName)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			testDone <- true
 			return nil
