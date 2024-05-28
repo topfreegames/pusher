@@ -11,6 +11,8 @@ apns:
       keyID: "ABC123DEFG"
       teamID: "ABC123DEFG"
       topic: "com.game.test"
+  responsechannelsize: 100
+  connectionpoolsize: 10
 gcm:
   pingInterval: 30
   pingTimeout: 10
