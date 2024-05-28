@@ -29,7 +29,6 @@ type ApnsE2ETestSuite struct {
 }
 
 func TestApnsE2eSuite(t *testing.T) {
-	t.Skip("skipping apns")
 	suite.Run(t, new(ApnsE2ETestSuite))
 }
 
