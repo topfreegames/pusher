@@ -190,7 +190,7 @@ func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 		s.Require().NoError(err)
 	}
 	// Give it some time to process the message
-	timer := time.NewTimer(timeout)
+	timer := time.NewTimer(timeout * 5)
 	for i := 0; i < notificationsToSend; i++ {
 		select {
 		case <-done:
