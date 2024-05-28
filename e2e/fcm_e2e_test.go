@@ -40,8 +40,6 @@ func (s *FcmE2ETestSuite) SetupSuite() {
 		configFile = "../config/test.yaml"
 	}
 	c, v, err := config.NewConfigAndViper(configFile)
-	// TODO: explain this
-	v.Set("gcm.apps", "")
 
 	s.Require().NoError(err)
 	s.config = c
@@ -58,8 +56,13 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 	logger := logrus.New()
 	logger.Level = logrus.DebugLevel
 
-	s.assureTopicsExist()
+	s.assureTopicsExist(appName)
 	time.Sleep(wait)
+
+	// Required to instantiate at least one client to pusher.NewGCMPusher run without errors. If there is no Apps on s.config.GCM.Apps,
+	// an array of apps is created with len=1 and the method tries to create a GCMClient
+	s.config.GCM.Apps = appName
+	s.vConfig.Set(fmt.Sprintf("gcm.firebaseCredentials.%s", appName), "{ \"project_id\": \"test-app\", \"type\": \"service_account\" }")
 
 	ctx := context.Background()
 	gcmPusher, err := pusher.NewGCMPusher(ctx, false, s.vConfig, s.config, logger, statsdClientMock)
@@ -88,7 +91,7 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 
 func (s *FcmE2ETestSuite) TestSimpleNotification() {
 	appName := strings.Split(uuid.NewString(), "-")[0]
-	s.vConfig.Set("queue.topics", []string{fmt.Sprintf(topicTemplate, appName)})
+	s.vConfig.Set("queue.topics", []string{fmt.Sprintf(gcmTopicTemplate, appName)})
 
 	mockFcmClient, statsdClientMock := s.setupFcmPusher(appName)
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
@@ -96,7 +99,7 @@ func (s *FcmE2ETestSuite) TestSimpleNotification() {
 	})
 	s.Require().NoError(err)
 
-	topic := "push-" + appName + "_gcm-single"
+	topic := fmt.Sprintf(gcmTopicTemplate, appName)
 	token := "token"
 	testDone := make(chan bool)
 	mockFcmClient.EXPECT().
@@ -139,8 +142,8 @@ func (s *FcmE2ETestSuite) TestSimpleNotification() {
 
 func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 	appName := strings.Split(uuid.NewString(), "-")[0]
-	s.config.Apns.Apps = appName
-	s.vConfig.Set("queue.topics", []string{fmt.Sprintf(topicTemplate, appName)})
+	s.config.GCM.Apps = appName
+	s.vConfig.Set("queue.topics", []string{fmt.Sprintf(gcmTopicTemplate, appName)})
 
 	mockApnsClient, statsdClientMock := s.setupFcmPusher(appName)
 
@@ -150,7 +153,7 @@ func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 	})
 	s.Require().NoError(err)
 
-	topic := fmt.Sprintf(topicTemplate, appName)
+	topic := fmt.Sprintf(gcmTopicTemplate, appName)
 	token := "token"
 	done := make(chan bool)
 
@@ -161,14 +164,14 @@ func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 	}
 
 	statsdClientMock.EXPECT().
-		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", appName)}, float64(1)).
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "gcm"), fmt.Sprintf("game:%s", appName)}, float64(1)).
 		Times(notificationsToSend).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
 		})
 
 	statsdClientMock.EXPECT().
-		Incr("ack", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", appName)}, float64(1)).
+		Incr("ack", []string{fmt.Sprintf("platform:%s", "gcm"), fmt.Sprintf("game:%s", appName)}, float64(1)).
 		Times(notificationsToSend).
 		DoAndReturn(func(string, []string, float64) error {
 			done <- true
@@ -199,23 +202,20 @@ func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 	time.Sleep(wait)
 }
 
-func (s *FcmE2ETestSuite) assureTopicsExist() {
+func (s *FcmE2ETestSuite) assureTopicsExist(appName string) {
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
 	})
 	s.Require().NoError(err)
 
-	apnsApps := s.config.GetApnsAppsArray()
-	for _, a := range apnsApps {
-		topic := fmt.Sprintf(topicTemplate, a)
-		err = producer.Produce(&kafka.Message{
-			TopicPartition: kafka.TopicPartition{
-				Topic:     &topic,
-				Partition: kafka.PartitionAny,
-			},
-			Value: []byte("not a notification"),
+	topic := fmt.Sprintf(gcmTopicTemplate, appName)
+	err = producer.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{
+			Topic:     &topic,
+			Partition: kafka.PartitionAny,
 		},
-			nil)
-		s.Require().NoError(err)
-	}
+		Value: []byte("not a notification"),
+	},
+		nil)
+	s.Require().NoError(err)
 }
