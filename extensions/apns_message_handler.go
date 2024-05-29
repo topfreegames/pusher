@@ -185,6 +185,11 @@ func (a *APNSMessageHandler) HandleResponses() {
 
 // CleanMetadataCache clears expired requests from memory.
 func (a *APNSMessageHandler) CleanMetadataCache() {
+	l := a.Logger.WithFields(log.Fields{
+		"method":   "CleanMetadataCache",
+		"interval": a.CacheCleaningInterval,
+	})
+
 	var deviceToken string
 	var hasIndeed bool
 	for {
@@ -196,6 +201,10 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 					a.pendingMessagesWG.Done()
 				}
 			}
+
+			l.WithField("deviceToken", deviceToken).
+				Info("deleting expired request from in-flight notifications map")
+
 			delete(a.InFlightNotificationsMap, deviceToken)
 			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
 		}
