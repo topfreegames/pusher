@@ -118,6 +118,10 @@ func (s *FcmE2ETestSuite) TestSimpleNotification() {
 			return nil
 		})
 
+	statsdClientMock.EXPECT().
+		Timing("send_notification_latency", gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil)
+
 	err = producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &topic,
@@ -176,6 +180,11 @@ func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 			done <- true
 			return nil
 		})
+
+	statsdClientMock.EXPECT().
+		Timing("send_notification_latency", gomock.Any(), gomock.Any(), gomock.Any()).
+		Times(notificationsToSend).
+		Return(nil)
 
 	for i := 0; i < notificationsToSend; i++ {
 		err = producer.Produce(&kafka.Message{

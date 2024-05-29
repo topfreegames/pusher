@@ -25,6 +25,7 @@ package extensions
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/sirupsen/logrus"
@@ -53,6 +54,8 @@ func NewStatsD(config *viper.Viper, logger *logrus.Logger, clientOrNil ...interf
 	err := q.configure(client)
 	return q, err
 }
+
+var _ interfaces.StatsReporter = &StatsD{}
 
 func (s *StatsD) loadConfigurationDefaults() {
 	s.Config.SetDefault("stats.statsd.host", "localhost:8125")
@@ -89,17 +92,17 @@ func (s *StatsD) configure(client interfaces.StatsDClient) error {
 	return nil
 }
 
-//HandleNotificationSent stores notification count in StatsD
+// HandleNotificationSent stores notification count in StatsD
 func (s *StatsD) HandleNotificationSent(game string, platform string) {
 	s.Client.Incr("sent", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
 }
 
-//HandleNotificationSuccess stores notifications success in StatsD
+// HandleNotificationSuccess stores notifications success in StatsD
 func (s *StatsD) HandleNotificationSuccess(game string, platform string) {
 	s.Client.Incr("ack", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
 }
 
-//HandleNotificationFailure stores each type of failure
+// HandleNotificationFailure stores each type of failure
 func (s *StatsD) HandleNotificationFailure(game string, platform string, err *errors.PushError) {
 	s.Client.Incr(
 		"failed",
@@ -108,12 +111,12 @@ func (s *StatsD) HandleNotificationFailure(game string, platform string, err *er
 	)
 }
 
-//InitializeFailure notifu error when is impossible tho initilizer an app
+// InitializeFailure notifu error when is impossible tho initilizer an app
 func (s *StatsD) InitializeFailure(game string, platform string) {
 	s.Client.Incr("initialize_failure", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
 }
 
-//ReportGoStats reports go stats in statsd
+// ReportGoStats reports go stats in statsd
 func (s *StatsD) ReportGoStats(
 	numGoRoutines int,
 	allocatedAndNotFreed, heapObjects, nextGCBytes, pauseGCNano uint64,
@@ -126,10 +129,17 @@ func (s *StatsD) ReportGoStats(
 	s.Client.Gauge("next_gc_bytes", float64(nextGCBytes), tags, 1)
 }
 
-//Cleanup closes statsd connection
-func (s *StatsD) Cleanup() error {
-	s.Client.Close()
-	return nil
+func (s *StatsD) ReportSendNotificationLatency(latencyMs time.Duration, game string, platform string, labels ...string) {
+	metricLabels := []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}
+	for i := 0; i < len(labels); i += 2 {
+		metricLabels = append(labels, fmt.Sprintf("%s:%s", labels[i], labels[i+1]))
+	}
+	s.Client.Timing(
+		"send_notification_latency",
+		latencyMs,
+		metricLabels,
+		1,
+	)
 }
 
 // ReportMetricGauge reports a metric as a Gauge with hostname, game and platform
@@ -174,4 +184,10 @@ func (s *StatsD) ReportMetricCount(
 	}
 
 	s.Client.Count(metric, value, tags, 1)
+}
+
+// Cleanup closes statsd connection
+func (s *StatsD) Cleanup() error {
+	s.Client.Close()
+	return nil
 }

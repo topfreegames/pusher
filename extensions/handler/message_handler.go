@@ -21,6 +21,7 @@ type messageHandler struct {
 	statsMutex                 sync.Mutex
 	feedbackReporters          []interfaces.FeedbackReporter
 	statsReporters             []interfaces.StatsReporter
+	statsDClient               extensions.StatsD
 	sendPushConcurrencyControl chan interface{}
 	responsesChannel           chan struct {
 		msg   interfaces.Message
@@ -98,7 +99,8 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 			}
 		}
 	}
-
+	before := time.Now()
+	defer h.reportLatency(time.Since(before))
 	h.sendPush(ctx, km.Message)
 }
 
@@ -218,6 +220,12 @@ func (h *messageHandler) handleNotificationFailure(err error) {
 	h.statsMutex.Lock()
 	h.stats.failures++
 	h.statsMutex.Unlock()
+}
+
+func (h *messageHandler) reportLatency(latency time.Duration) {
+	for _, statsReporter := range h.statsReporters {
+		statsReporter.ReportSendNotificationLatency(latency, h.app, "gcm", "client", "fcm")
+	}
 }
 
 func translateToPushError(err error) *pushErrors.PushError {

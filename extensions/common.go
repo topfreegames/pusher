@@ -25,6 +25,7 @@ package extensions
 import (
 	"encoding/json"
 	"regexp"
+	"time"
 
 	"github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/interfaces"
@@ -84,5 +85,11 @@ func statsReporterHandleNotificationFailure(
 ) {
 	for _, statsReporter := range statsReporters {
 		statsReporter.HandleNotificationFailure(game, platform, err)
+	}
+}
+
+func statsReporterReportSendNotificationLatency(statsReporters []interfaces.StatsReporter, latencyMs time.Duration, game string, platform string, labels ...string) {
+	for _, statsReporter := range statsReporters {
+		statsReporter.ReportSendNotificationLatency(latencyMs, game, platform, labels...)
 	}
 }

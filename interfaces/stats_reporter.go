@@ -22,7 +22,10 @@
 
 package interfaces
 
-import "github.com/topfreegames/pusher/errors"
+import (
+	"github.com/topfreegames/pusher/errors"
+	"time"
+)
 
 // StatsReporter interface for making stats reporters pluggable easily.
 type StatsReporter interface {
@@ -33,4 +36,5 @@ type StatsReporter interface {
 	ReportGoStats(numGoRoutines int, allocatedAndNotFreed, heapObjects, nextGCBytes, pauseGCNano uint64)
 	ReportMetricGauge(metric string, value float64, game string, platform string)
 	ReportMetricCount(metric string, value int64, game string, platform string)
+	ReportSendNotificationLatency(latencyMs time.Duration, game string, platform string, labels ...string)
 }
