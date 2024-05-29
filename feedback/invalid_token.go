@@ -169,6 +169,7 @@ func (i *InvalidTokenHandler) processMessages() {
 			l.Info("stop processing Invalid Token Handler's in channel")
 			return
 		}
+		time.Sleep(100 * time.Millisecond)
 	}
 
 }

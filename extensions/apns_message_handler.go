@@ -185,6 +185,11 @@ func (a *APNSMessageHandler) HandleResponses() {
 
 // CleanMetadataCache clears expired requests from memory.
 func (a *APNSMessageHandler) CleanMetadataCache() {
+	l := a.Logger.WithFields(log.Fields{
+		"method":   "CleanMetadataCache",
+		"interval": a.CacheCleaningInterval,
+	})
+
 	var deviceToken string
 	var hasIndeed bool
 	for {
@@ -195,7 +200,11 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 				if a.pendingMessagesWG != nil {
 					a.pendingMessagesWG.Done()
 				}
+
+				l.WithField("deviceToken", deviceToken).
+					Info("deleting expired request from in-flight notifications map")
 			}
+
 			delete(a.InFlightNotificationsMap, deviceToken)
 			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
 		}
@@ -291,6 +300,8 @@ func (a *APNSMessageHandler) sendNotification(notification *Notification) error 
 		return err
 	}
 	l.WithField("notification", notification).Debug("adding notification to apns push queue")
+	before := time.Now()
+	defer statsReporterReportSendNotificationLatency(a.StatsReporters, time.Since(before), a.appName, "apns", "client", "apns")
 	a.PushQueue.Push(&apns2.Notification{
 		Topic:       a.ApnsTopic,
 		DeviceToken: notification.DeviceToken,

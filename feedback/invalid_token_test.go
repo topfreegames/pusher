@@ -161,7 +161,7 @@ var _ = Describe("InvalidToken Handler", func() {
 					inChan <- t
 				}
 
-				time.Sleep(200 * time.Millisecond)
+				time.Sleep(time.Second)
 				handler.Stop()
 				time.Sleep(500 * time.Millisecond)
 
