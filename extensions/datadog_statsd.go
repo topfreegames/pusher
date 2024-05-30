@@ -142,6 +142,19 @@ func (s *StatsD) ReportSendNotificationLatency(latencyMs time.Duration, game str
 	)
 }
 
+func (s *StatsD) ReportFirebaseLatency(latencyMs time.Duration, game string, labels ...string) {
+	metricLabels := []string{fmt.Sprintf("game:%s", game)}
+	for i := 0; i < len(labels); i += 2 {
+		metricLabels = append(metricLabels, fmt.Sprintf("%s:%s", labels[i], labels[i+1]))
+	}
+	s.Client.Timing(
+		"firebase_latency",
+		latencyMs,
+		metricLabels,
+		1,
+	)
+}
+
 // ReportMetricGauge reports a metric as a Gauge with hostname, game and platform
 // as tags
 func (s *StatsD) ReportMetricGauge(
