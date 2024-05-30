@@ -132,7 +132,7 @@ func (s *StatsD) ReportGoStats(
 func (s *StatsD) ReportSendNotificationLatency(latencyMs time.Duration, game string, platform string, labels ...string) {
 	metricLabels := []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}
 	for i := 0; i < len(labels); i += 2 {
-		metricLabels = append(labels, fmt.Sprintf("%s:%s", labels[i], labels[i+1]))
+		metricLabels = append(metricLabels, fmt.Sprintf("%s:%s", labels[i], labels[i+1]))
 	}
 	s.Client.Timing(
 		"send_notification_latency",
