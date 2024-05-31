@@ -3,6 +3,8 @@ gracefulShutdownTimeout: 30
 apns:
   concurrentWorkers: 300
   connectionPoolSize: 1
+  pushQueueSize: 100
+  responseChannelSize: 100
   logStatsInterval: 10000
   apps: "game"
   certs:
@@ -23,6 +25,7 @@ gcm:
       senderID: "1233456789"
   firebaseCredentials:
     mygame: "{}"
+  concurrentWorkers: 10
 queue:
   topics:
     - "^push-[^-_]+_(apns|gcm)[_-](single|massive)"

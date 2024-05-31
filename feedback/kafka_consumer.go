@@ -177,13 +177,6 @@ func (q *KafkaConsumer) PendingMessagesWaitGroup() *sync.WaitGroup {
 // StopConsuming stops consuming messages from the queue
 func (q *KafkaConsumer) StopConsuming() {
 	q.stopFunc()
-	_, err := q.Consumer.Commit()
-	if err != nil {
-		q.Logger.
-			WithField("method", "feedback.StopConsuming").
-			WithError(err).
-			Error("error committing messages")
-	}
 }
 
 // MessagesChannel returns the channel that will receive all messages got from kafka
@@ -227,12 +220,6 @@ func (q *KafkaConsumer) ConsumeLoop(ctx context.Context) error {
 				continue
 			}
 			q.receiveMessage(message.TopicPartition, message.Value)
-			_, err = q.Consumer.CommitMessage(message)
-			if err != nil {
-				l.WithError(err).
-					WithField("message", string(message.Value)).
-					Error("error committing message")
-			}
 		}
 	}
 }

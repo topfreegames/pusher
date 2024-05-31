@@ -64,6 +64,12 @@ func NewAPNSPushQueue(
 	}
 }
 
+func (p *APNSPushQueue) loadConfigDefault() {
+	p.Config.SetDefault("apns.connectionPoolSize", 1)
+	p.Config.SetDefault("apns.pushQueueSize", 100)
+	p.Config.SetDefault("apns.responseChannelSize", 100)
+}
+
 // Configure configures queues and token
 func (p *APNSPushQueue) Configure() error {
 	l := p.Logger.WithFields(log.Fields{
@@ -75,7 +81,10 @@ func (p *APNSPushQueue) Configure() error {
 		return err
 	}
 	p.Closed = false
+	p.loadConfigDefault()
 	connectionPoolSize := p.Config.GetInt("apns.connectionPoolSize")
+	pushQueueSize := p.Config.GetInt("apns.pushQueueSize")
+	respChannelSize := p.Config.GetInt("apns.responseChannelSize")
 	p.clients = make(chan *apns2.Client, connectionPoolSize)
 	for i := 0; i < connectionPoolSize; i++ {
 		client := apns2.NewTokenClient(p.token)
@@ -89,8 +98,8 @@ func (p *APNSPushQueue) Configure() error {
 		p.clients <- client
 	}
 	l.Debug("clients configured")
-	p.pushChannel = make(chan *apns2.Notification)
-	p.responseChannel = make(chan *structs.ResponseWithMetadata)
+	p.pushChannel = make(chan *apns2.Notification, pushQueueSize)
+	p.responseChannel = make(chan *structs.ResponseWithMetadata, respChannelSize)
 
 	for i := 0; i < p.Config.GetInt("apns.concurrentWorkers"); i++ {
 		go p.pushWorker()

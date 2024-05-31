@@ -21,6 +21,7 @@ gcm:
     game:
       apiKey: game-api-key
       senderID: "1233456789"
+  concurrentWorkers: 10
 queue:
   topics:
     - "^push-[^-_]+_(apns|gcm)[_-](single|massive)"

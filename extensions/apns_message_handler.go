@@ -188,6 +188,11 @@ func (a *APNSMessageHandler) HandleResponses() {
 
 // CleanMetadataCache clears expired requests from memory.
 func (a *APNSMessageHandler) CleanMetadataCache() {
+	l := a.Logger.WithFields(log.Fields{
+		"method":   "CleanMetadataCache",
+		"interval": a.CacheCleaningInterval,
+	})
+
 	var deviceToken string
 	var hasIndeed bool
 	for {
@@ -198,7 +203,11 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 				if a.pendingMessagesWG != nil {
 					a.pendingMessagesWG.Done()
 				}
+
+				l.WithField("deviceToken", deviceToken).
+					Info("deleting expired request from in-flight notifications map")
 			}
+
 			delete(a.InFlightNotificationsMap, deviceToken)
 			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
 		}
@@ -301,6 +310,8 @@ func (a *APNSMessageHandler) sendNotification(notification *Notification) error 
 		return err
 	}
 	l.WithField("notification", notification).Debug("adding notification to apns push queue")
+	before := time.Now()
+	defer statsReporterReportSendNotificationLatency(a.StatsReporters, time.Since(before), a.appName, "apns", "client", "apns")
 	a.PushQueue.Push(&apns2.Notification{
 		Topic:       a.ApnsTopic,
 		DeviceToken: notification.DeviceToken,
@@ -333,8 +344,11 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 				"sendAttempts": sendAttempts,
 				"maxRetries":   a.maxRetryAttempts,
 				"apnsID":       responseWithMetadata.ApnsID,
-			}).Debug("retrying notification")
+			}).Info("retrying notification")
 			inFlightNotificationInstance.sendAttempts.Add(1)
+			if a.pendingMessagesWG != nil {
+				a.pendingMessagesWG.Add(1)
+			}
 			<-time.After(a.retryInterval)
 			if err := a.sendNotification(inFlightNotificationInstance.notification); err == nil {
 				return nil
@@ -429,7 +443,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 // LogStats from time to time.
 func (a *APNSMessageHandler) LogStats() {
 	l := a.Logger.WithFields(log.Fields{
-		"method":       "logStats",
+		"method":       "apnsMessageHandler.logStats",
 		"interval(ns)": a.LogStatsInterval,
 	})
 

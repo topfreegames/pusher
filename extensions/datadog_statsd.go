@@ -25,6 +25,7 @@ package extensions
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/sirupsen/logrus"
@@ -53,6 +54,8 @@ func NewStatsD(config *viper.Viper, logger *logrus.Logger, clientOrNil ...interf
 	err := q.configure(client)
 	return q, err
 }
+
+var _ interfaces.StatsReporter = &StatsD{}
 
 func (s *StatsD) loadConfigurationDefaults() {
 	s.Config.SetDefault("stats.statsd.host", "localhost:8125")
@@ -135,10 +138,17 @@ func (s *StatsD) ReportGoStats(
 	s.Client.Gauge("next_gc_bytes", float64(nextGCBytes), tags, 1)
 }
 
-// Cleanup closes statsd connection
-func (s *StatsD) Cleanup() error {
-	s.Client.Close()
-	return nil
+func (s *StatsD) ReportSendNotificationLatency(latencyMs time.Duration, game string, platform string, labels ...string) {
+	metricLabels := []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}
+	for i := 0; i < len(labels); i += 2 {
+		metricLabels = append(labels, fmt.Sprintf("%s:%s", labels[i], labels[i+1]))
+	}
+	s.Client.Timing(
+		"send_notification_latency",
+		latencyMs,
+		metricLabels,
+		1,
+	)
 }
 
 // ReportMetricGauge reports a metric as a Gauge with hostname, game and platform
@@ -183,4 +193,10 @@ func (s *StatsD) ReportMetricCount(
 	}
 
 	s.Client.Count(metric, value, tags, 1)
+}
+
+// Cleanup closes statsd connection
+func (s *StatsD) Cleanup() error {
+	s.Client.Close()
+	return nil
 }

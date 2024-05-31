@@ -112,6 +112,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 				g.feedbackReporters,
 				g.StatsReporters,
 				g.Logger,
+				g.Config.GCM.ConcurrentWorkers,
 			)
 		} else { // Firebase credentials not yet configured, use legacy XMPP client
 			handler, err := extensions.NewGCMMessageHandler(
@@ -124,7 +125,6 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 				g.feedbackReporters,
 				extensions.NewRateLimiter(g.ViperConfig, l.Logger),
 			)
-
 			if err != nil {
 				l.WithError(err).Error("could not create gcm message handler")
 				return fmt.Errorf("could not create gcm message handler for all apps: %w", err)

@@ -357,7 +357,11 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 
 	g.pendingMessages <- true
 	xmppMessage := toGCMMessage(km.Message)
+
+	before := time.Now()
 	messageID, bytes, err = g.GCMClient.SendXMPP(xmppMessage)
+	elapsed := time.Since(before)
+	statsReporterReportSendNotificationLatency(g.StatsReporters, elapsed, g.game, "gcm", "client", "gcm")
 
 	if err != nil {
 		<-g.pendingMessages
@@ -464,7 +468,7 @@ func (g *GCMMessageHandler) HandleMessages(_ context.Context, msg interfaces.Kaf
 // LogStats from time to time
 func (g *GCMMessageHandler) LogStats() {
 	l := g.Logger.WithFields(logrus.Fields{
-		"method":       "logStats",
+		"method":       "gcmMessageHandler.logStats",
 		"interval(ns)": g.LogStatsInterval,
 	})
 
