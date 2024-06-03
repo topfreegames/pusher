@@ -112,7 +112,10 @@ func (h *messageHandler) sendPush(ctx context.Context, msg interfaces.Message) {
 			h.sendPushConcurrencyControl <- l
 		}()
 
+		before := time.Now()
 		err := h.client.SendPush(ctx, msg)
+		h.reportFirebaseLatency(time.Since(before))
+
 		h.handleNotificationSent()
 
 		h.responsesChannel <- struct {
@@ -225,6 +228,12 @@ func (h *messageHandler) handleNotificationFailure(err error) {
 func (h *messageHandler) reportLatency(latency time.Duration) {
 	for _, statsReporter := range h.statsReporters {
 		statsReporter.ReportSendNotificationLatency(latency, h.app, "gcm", "client", "fcm")
+	}
+}
+
+func (h *messageHandler) reportFirebaseLatency(latency time.Duration) {
+	for _, statsReporter := range h.statsReporters {
+		statsReporter.ReportFirebaseLatency(latency, h.app)
 	}
 }
 
