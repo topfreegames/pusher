@@ -82,5 +82,6 @@ func (r rateLimiter) Allow(ctx context.Context, device string) bool {
 		l.WithError(err).Info("increment to current rate failed")
 	}
 
+	l.WithField("currentRate", current).Debug("current rate allows message")
 	return true
 }
