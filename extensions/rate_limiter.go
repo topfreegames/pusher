@@ -2,6 +2,7 @@ package extensions
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"strconv"
@@ -26,8 +27,9 @@ func NewRateLimiter(config *viper.Viper, logger *logrus.Logger) rateLimiter {
 
 	addr := fmt.Sprintf("%s:%s", host, port)
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: pwd,
+		Addr:      addr,
+		Password:  pwd,
+		TLSConfig: &tls.Config{},
 	})
 
 	return rateLimiter{
