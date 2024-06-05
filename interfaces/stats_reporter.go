@@ -39,4 +39,5 @@ type StatsReporter interface {
 	ReportMetricCount(metric string, value int64, game string, platform string)
 	NotificationRateLimitReached(game string, platform string)
 	ReportSendNotificationLatency(latencyMs time.Duration, game string, platform string, labels ...string)
+	ReportFirebaseLatency(latencyMs time.Duration, game string, labels ...string)
 }
