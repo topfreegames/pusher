@@ -19,10 +19,12 @@ type rateLimiter struct {
 }
 
 func NewRateLimiter(config *viper.Viper, logger *logrus.Logger) rateLimiter {
-	addr := config.GetString("rateLimiter.redis.host")
+	host := config.GetString("rateLimiter.redis.host")
+	port := config.GetString("rateLimiter.redis.port")
 	pwd := config.GetString("rateLimiter.redis.password")
 	limit := config.GetInt("rateLimiter.limit")
 
+	addr := fmt.Sprintf("%s:%s", host, port)
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: pwd,
