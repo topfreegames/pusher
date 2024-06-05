@@ -96,5 +96,6 @@ feedbackListeners:
 rateLimiter:
   limit: 100
   redis: 
-    host: "redis:6379"
-    pwd: ""
+    host: "redis"
+    port: "6379"
+    password: ""
