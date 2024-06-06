@@ -98,6 +98,6 @@ rateLimiter:
     rpm: 100
   redis: 
     host: "redis"
-    port: "6379"
+    port: 6379
     password: ""
   test: true
