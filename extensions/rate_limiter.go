@@ -14,16 +14,16 @@ import (
 )
 
 type rateLimiter struct {
-	redis *redis.Client
-	limit int
-	l     *logrus.Entry
+	redis    *redis.Client
+	rpmLimit int
+	l        *logrus.Entry
 }
 
 func NewRateLimiter(config *viper.Viper, logger *logrus.Logger) rateLimiter {
 	host := config.GetString("rateLimiter.redis.host")
 	port := config.GetString("rateLimiter.redis.port")
 	pwd := config.GetString("rateLimiter.redis.password")
-	limit := config.GetInt("rateLimiter.limit")
+	limit := config.GetInt("rateLimiter.limit.rpm")
 
 	addr := fmt.Sprintf("%s:%s", host, port)
 	rdb := redis.NewClient(&redis.Options{
@@ -33,11 +33,11 @@ func NewRateLimiter(config *viper.Viper, logger *logrus.Logger) rateLimiter {
 	})
 
 	return rateLimiter{
-		redis: rdb,
-		limit: limit,
+		redis:    rdb,
+		rpmLimit: limit,
 		l: logger.WithFields(logrus.Fields{
 			"extension": "RateLimiter",
-			"limit":     limit,
+			"rpmLimit":  limit,
 		}),
 	}
 }
@@ -55,7 +55,7 @@ func (r rateLimiter) Allow(ctx context.Context, device string) bool {
 	val, err := r.redis.Get(ctx, deviceKey).Result()
 	if err != nil && !errors.Is(err, redis.Nil) {
 		// Something went wrong, return true to avoid blocking notifications.
-		l.WithError(err).Info("could not get current rate in redis")
+		l.WithError(err).Error("could not get current rate in redis")
 		return true
 	}
 	if errors.Is(err, redis.Nil) {
@@ -66,11 +66,11 @@ func (r rateLimiter) Allow(ctx context.Context, device string) bool {
 	current, err := strconv.Atoi(val)
 	if err != nil {
 		// Something went wrong, return true to avoid blocking notifications.
-		l.WithError(err).Info("current rate is invalid")
+		l.WithError(err).Error("current rate is invalid")
 		return true
 	}
 
-	if current >= r.limit {
+	if current >= r.rpmLimit {
 		return false
 	}
 
@@ -81,7 +81,7 @@ func (r rateLimiter) Allow(ctx context.Context, device string) bool {
 	})
 	if err != nil {
 		// Allow the operation even if the transaction fails, to avoid blocking notifications.
-		l.WithError(err).Info("increment to current rate failed")
+		l.WithError(err).Error("increment to current rate failed")
 	}
 
 	l.WithField("currentRate", current).Debug("current rate allows message")

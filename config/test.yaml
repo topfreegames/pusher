@@ -92,7 +92,8 @@ feedbackListeners:
       database: push
       connectionTimeout: 100
 rateLimiter:
-  limit: 100
+  limit:
+    rpm: 100
   redis: 
     host: "localhost"
     port: "6379"

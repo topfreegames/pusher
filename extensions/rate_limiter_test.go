@@ -30,7 +30,7 @@ var _ = FDescribe("Rate Limiter", func() {
 		Describe("Rate limiting", func() {
 			It("should return not-allowed when rate limit is reached", func() {
 				rl := NewRateLimiter(config, logger)
-				rl.limit = 1
+				rl.rpmLimit = 1
 				ctx := context.Background()
 				device := uuid.NewString()
 				allowed := rl.Allow(ctx, device)

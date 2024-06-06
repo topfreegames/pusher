@@ -349,7 +349,7 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 	if !allowed {
 		statsReporterNotificationRateLimitReached(g.StatsReporters, message.Game, "gcm")
 		l.Warn("rate limit reached")
-		return errors.New("reached rate limit")
+		return errors.New("rate limit reached")
 	}
 	l.Debug("sending message to gcm")
 
