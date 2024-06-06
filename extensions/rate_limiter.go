@@ -24,13 +24,19 @@ func NewRateLimiter(config *viper.Viper, logger *logrus.Logger) rateLimiter {
 	port := config.GetString("rateLimiter.redis.port")
 	pwd := config.GetString("rateLimiter.redis.password")
 	limit := config.GetInt("rateLimiter.limit.rpm")
+	isTest := config.GetBool("rateLimiter.test")
 
 	addr := fmt.Sprintf("%s:%s", host, port)
-	rdb := redis.NewClient(&redis.Options{
-		Addr:      addr,
-		Password:  pwd,
-		TLSConfig: &tls.Config{},
-	})
+	opts := &redis.Options{
+		Addr:     addr,
+		Password: pwd,
+	}
+	// Setting TLSConfig only for production due to not being able to enable TLS in the integration test container.
+	if !isTest {
+		opts.TLSConfig = &tls.Config{}
+	}
+
+	rdb := redis.NewClient(opts)
 
 	return rateLimiter{
 		redis:    rdb,
