@@ -69,6 +69,7 @@ func (s *MessageHandlerTestSuite) SetupSubTest() {
 
 	statsClients := []interfaces.StatsReporter{statsD}
 	feedbackClients := []interfaces.FeedbackReporter{kc}
+	mockRateLimiter := mocks.NewRateLimiterMock()
 
 	cfg := newDefaultMessageHandlerConfig()
 	cfg.concurrentResponseHandlers = concurrentWorkers
@@ -77,6 +78,7 @@ func (s *MessageHandlerTestSuite) SetupSubTest() {
 		client:                     s.mockClient,
 		feedbackReporters:          feedbackClients,
 		statsReporters:             statsClients,
+		rateLimiter:                mockRateLimiter,
 		logger:                     l,
 		config:                     cfg,
 		sendPushConcurrencyControl: make(chan interface{}, concurrentWorkers),
