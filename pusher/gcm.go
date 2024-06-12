@@ -98,6 +98,8 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 	g.MessageHandler = make(map[string]interfaces.MessageHandler)
 	for _, app := range g.Config.GetGcmAppsArray() {
 		credentials := g.ViperConfig.GetString("gcm.firebaseCredentials." + app)
+		rateLimit := g.ViperConfig.GetInt("gcm.rateLimit.rpm")
+
 		l = l.WithField("app", app)
 		if credentials != "" { // Firebase is configured, use new handler
 			pushClient, err := client.NewFirebaseClient(ctx, credentials, g.Logger)
@@ -111,7 +113,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 				pushClient,
 				g.feedbackReporters,
 				g.StatsReporters,
-				extensions.NewRateLimiter(g.ViperConfig, l.Logger),
+				extensions.NewRateLimiter(rateLimit, g.ViperConfig, g.StatsReporters, l.Logger),
 				g.Logger,
 				g.Config.GCM.ConcurrentWorkers,
 			)
@@ -124,7 +126,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 				g.Queue.PendingMessagesWaitGroup(),
 				g.StatsReporters,
 				g.feedbackReporters,
-				extensions.NewRateLimiter(g.ViperConfig, l.Logger),
+				extensions.NewRateLimiter(rateLimit, g.ViperConfig, g.StatsReporters, l.Logger),
 			)
 			if err != nil {
 				l.WithError(err).Error("could not create gcm message handler")

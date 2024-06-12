@@ -94,6 +94,12 @@ func statsReporterNotificationRateLimitReached(statsReporters []interfaces.Stats
 	}
 }
 
+func statsReporterNotificationRateLimitFailed(statsReporters []interfaces.StatsReporter) {
+	for _, statsReporter := range statsReporters {
+		statsReporter.NotificationRateLimitFailed()
+	}
+}
+
 func statsReporterReportSendNotificationLatency(statsReporters []interfaces.StatsReporter, latencyMs time.Duration, game string, platform string, labels ...string) {
 	for _, statsReporter := range statsReporters {
 		statsReporter.ReportSendNotificationLatency(latencyMs, game, platform, labels...)

@@ -120,6 +120,15 @@ func (s *StatsD) NotificationRateLimitReached(game string, platform string) {
 	)
 }
 
+// NotificationRateLimitFailed stores how many times rate limits failed to be calculated
+func (s *StatsD) NotificationRateLimitFailed() {
+	s.Client.Incr(
+		"rate_limit_failed",
+		[]string{},
+		1,
+	)
+}
+
 // InitializeFailure notifu error when is impossible tho initilizer an app
 func (s *StatsD) InitializeFailure(game string, platform string) {
 	s.Client.Incr("initialize_failure", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
