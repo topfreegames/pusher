@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/util"
 
 	"github.com/google/uuid"
@@ -27,9 +28,11 @@ var _ = FDescribe("Rate Limiter", func() {
 		Expect(err).NotTo(HaveOccurred())
 		hook.Reset()
 
+		statsClients := []interfaces.StatsReporter{}
+
 		Describe("Rate limiting", func() {
 			It("should return not-allowed when rate limit is reached", func() {
-				rl := NewRateLimiter(config, logger)
+				rl := NewRateLimiter(config, statsClients, logger)
 				rl.rpmLimit = 1
 				ctx := context.Background()
 				device := uuid.NewString()
@@ -42,7 +45,7 @@ var _ = FDescribe("Rate Limiter", func() {
 			})
 
 			It("should increment current rate if limit is not reached", func() {
-				rl := NewRateLimiter(config, logger)
+				rl := NewRateLimiter(config, statsClients, logger)
 				ctx := context.Background()
 				device := uuid.NewString()
 				currMin := time.Now().Minute()
@@ -54,6 +57,17 @@ var _ = FDescribe("Rate Limiter", func() {
 				actual, err := rl.redis.Get(ctx, key).Result()
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual).To(BeEquivalentTo("1"))
+			})
+
+			It("should return allowed if redis fails", func() {
+				wrongConfig := *config
+				wrongConfig.Set("rateLimiter.redis.host", "unreachable")
+				rl := NewRateLimiter(&wrongConfig, statsClients, logger)
+				ctx := context.Background()
+				device := uuid.NewString()
+
+				allowed := rl.Allow(ctx, device)
+				Expect(allowed).To(BeTrue())
 			})
 
 		})

@@ -11,36 +11,41 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/topfreegames/pusher/interfaces"
 )
 
 type rateLimiter struct {
-	redis    *redis.Client
-	rpmLimit int
-	l        *logrus.Entry
+	redis          *redis.Client
+	rpmLimit       int
+	statsReporters []interfaces.StatsReporter
+	l              *logrus.Entry
 }
 
-func NewRateLimiter(config *viper.Viper, logger *logrus.Logger) rateLimiter {
+func NewRateLimiter(config *viper.Viper, statsReporters []interfaces.StatsReporter, logger *logrus.Logger) rateLimiter {
 	host := config.GetString("rateLimiter.redis.host")
 	port := config.GetInt("rateLimiter.redis.port")
 	pwd := config.GetString("rateLimiter.redis.password")
 	limit := config.GetInt("rateLimiter.limit.rpm")
-	isTest := config.GetBool("rateLimiter.test")
+	disableTLS := config.GetBool("rateLimiter.tls.disabled")
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	opts := &redis.Options{
 		Addr:     addr,
 		Password: pwd,
 	}
-	// Setting TLSConfig only for production due to not being able to enable TLS in the integration test container.
-	if !isTest {
+
+	// TLS for integration tests running in containers can raise connection errors.
+	// Not recommended to disable TLS for production.
+	if !disableTLS {
 		opts.TLSConfig = &tls.Config{}
 	}
 
 	rdb := redis.NewClient(opts)
 
 	return rateLimiter{
-		redis:    rdb,
-		rpmLimit: limit,
+		redis:          rdb,
+		rpmLimit:       limit,
+		statsReporters: statsReporters,
 		l: logger.WithFields(logrus.Fields{
 			"extension": "RateLimiter",
 			"rpmLimit":  limit,
@@ -82,7 +87,7 @@ func (r rateLimiter) Allow(ctx context.Context, device string) bool {
 
 	_, err = r.redis.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 		pipe.Incr(ctx, deviceKey)
-		pipe.Expire(ctx, deviceKey, 1*time.Minute)
+		pipe.Expire(ctx, deviceKey, time.Minute)
 		return nil
 	})
 	if err != nil {

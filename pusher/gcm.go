@@ -111,7 +111,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 				pushClient,
 				g.feedbackReporters,
 				g.StatsReporters,
-				extensions.NewRateLimiter(g.ViperConfig, l.Logger),
+				extensions.NewRateLimiter(g.ViperConfig, g.StatsReporters, l.Logger),
 				g.Logger,
 				g.Config.GCM.ConcurrentWorkers,
 			)
@@ -124,7 +124,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 				g.Queue.PendingMessagesWaitGroup(),
 				g.StatsReporters,
 				g.feedbackReporters,
-				extensions.NewRateLimiter(g.ViperConfig, l.Logger),
+				extensions.NewRateLimiter(g.ViperConfig, g.StatsReporters, l.Logger),
 			)
 			if err != nil {
 				l.WithError(err).Error("could not create gcm message handler")

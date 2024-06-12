@@ -234,7 +234,7 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 	allowed := a.rateLimiter.Allow(ctx, notification.DeviceToken)
 	if !allowed {
 		statsReporterNotificationRateLimitReached(a.StatsReporters, a.appName, "apns")
-		l.Warn("rate limit reached")
+		l.WithField("message", message).Warn("rate limit reached")
 		return
 	}
 

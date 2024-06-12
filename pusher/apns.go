@@ -120,7 +120,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			a.feedbackReporters,
 			queue,
 			interfaces.ConsumptionManager(q),
-			extensions.NewRateLimiter(a.ViperConfig, l.Logger),
+			extensions.NewRateLimiter(a.ViperConfig, a.StatsReporters, l.Logger),
 		)
 		if err == nil {
 			a.MessageHandler[k] = handler
