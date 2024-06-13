@@ -216,8 +216,18 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 	if !allowed {
 		statsReporterNotificationRateLimitReached(a.StatsReporters, a.appName, "apns")
 		l.WithField("message", message).Warn("rate limit reached")
+	l = l.WithField("notification", parsedNotification)
+	n, err := a.buildAndValidateNotification(parsedNotification)
+	if err != nil {
+		l.WithError(err).Error("notification is invalid")
+		a.waitGroupDone()
+		apnsResMutex.Lock()
+		a.ignoredMessages++
+		apnsResMutex.Unlock()
 		return
+
 	}
+	a.sendNotification(n)
 
 	a.sendNotification(n)
 	statsReporterHandleNotificationSent(a.StatsReporters, a.appName, "apns")
@@ -259,7 +269,7 @@ func (a *APNSMessageHandler) buildAndValidateNotification(notification *pusherAP
 
 	payload, err := json.Marshal(notification.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("error marshalling notification payload: %w", err)
+		return nil, fmt.Errorf("error marshalling notification payload: %s", err.Error())
 	}
 
 	n := &structs.ApnsNotification{
