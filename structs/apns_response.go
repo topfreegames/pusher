@@ -22,9 +22,11 @@
 
 package structs
 
-import "github.com/topfreegames/pusher/errors"
+import (
+	"github.com/topfreegames/pusher/errors"
+)
 
-// ResponseWithMetadata is a enriched Response with a Metadata field.
+// ResponseWithMetadata is an enriched Response with a Metadata field.
 type ResponseWithMetadata struct {
 	Sent        bool
 	StatusCode  int
@@ -34,4 +36,7 @@ type ResponseWithMetadata struct {
 	DeviceToken string                 `json:"DeviceToken"`
 	Timestamp   int64                  `json:"timestamp"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+
+	// Notification is the notification that was sent to APNS and generated this response
+	Notification *ApnsNotification
 }

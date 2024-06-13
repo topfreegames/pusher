@@ -12,7 +12,6 @@ package mock_interfaces
 import (
 	reflect "reflect"
 
-	apns2 "github.com/sideshow/apns2"
 	structs "github.com/topfreegames/pusher/structs"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -67,15 +66,15 @@ func (mr *MockAPNSPushQueueMockRecorder) Configure() *gomock.Call {
 }
 
 // Push mocks base method.
-func (m *MockAPNSPushQueue) Push(arg0 *apns2.Notification) {
+func (m *MockAPNSPushQueue) Push(notification *structs.ApnsNotification) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Push", arg0)
+	m.ctrl.Call(m, "Push", notification)
 }
 
 // Push indicates an expected call of Push.
-func (mr *MockAPNSPushQueueMockRecorder) Push(arg0 any) *gomock.Call {
+func (mr *MockAPNSPushQueueMockRecorder) Push(notification any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockAPNSPushQueue)(nil).Push), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockAPNSPushQueue)(nil).Push), notification)
 }
 
 // ResponseChannel mocks base method.

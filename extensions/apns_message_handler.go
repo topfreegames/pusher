@@ -26,9 +26,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
@@ -42,8 +42,8 @@ import (
 
 var apnsResMutex sync.Mutex
 
-// Notification is the notification base struct.
-type Notification struct {
+// pusherAPNSKafkaMessage is the notification format received in Kafka messages.
+type pusherAPNSKafkaMessage struct {
 	ApnsID      string
 	DeviceToken string
 	Payload     interface{}
@@ -64,7 +64,6 @@ type APNSMessageHandler struct {
 	ApnsTopic                    string
 	Config                       *viper.Viper
 	failuresReceived             int64
-	InFlightNotificationsMap     map[string]*inFlightNotification
 	Logger                       *log.Logger
 	LogStatsInterval             time.Duration
 	pendingMessagesWG            *sync.WaitGroup
@@ -106,7 +105,6 @@ func NewAPNSMessageHandler(
 		Config:                       config,
 		failuresReceived:             0,
 		feedbackReporters:            feedbackReporters,
-		InFlightNotificationsMap:     map[string]*inFlightNotification{},
 		IsProduction:                 isProduction,
 		Logger:                       logger,
 		pendingMessagesWG:            pendingMessagesWG,
@@ -133,12 +131,6 @@ func NewAPNSMessageHandler(
 		return nil, err
 	}
 	return a, nil
-}
-
-type inFlightNotification struct {
-	notification *Notification
-	kafkaTopic   string
-	sendAttempts atomic.Uint32
 }
 
 func (a *APNSMessageHandler) configure() error {
@@ -187,35 +179,8 @@ func (a *APNSMessageHandler) HandleResponses() {
 }
 
 // CleanMetadataCache clears expired requests from memory.
+// No longer needed, kept for compatibility with the interface.
 func (a *APNSMessageHandler) CleanMetadataCache() {
-	l := a.Logger.WithFields(log.Fields{
-		"method":   "CleanMetadataCache",
-		"interval": a.CacheCleaningInterval,
-	})
-
-	var deviceToken string
-	var hasIndeed bool
-	for {
-		a.inFlightNotificationsMapLock.Lock()
-		for deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest(); hasIndeed; {
-			if _, ok := a.InFlightNotificationsMap[deviceToken]; ok {
-				a.ignoredMessages++
-				if a.pendingMessagesWG != nil {
-					a.pendingMessagesWG.Done()
-				}
-
-				l.WithField("deviceToken", deviceToken).
-					Info("deleting expired request from in-flight notifications map")
-			}
-
-			delete(a.InFlightNotificationsMap, deviceToken)
-			deviceToken, hasIndeed = a.requestsHeap.HasExpiredRequest()
-		}
-		a.inFlightNotificationsMapLock.Unlock()
-
-		duration := time.Duration(a.CacheCleaningInterval)
-		time.Sleep(duration * time.Millisecond)
-	}
 }
 
 // HandleMessages get messages from msgChan and send to APNS.
@@ -226,8 +191,18 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 		"topic":     message.Topic,
 	})
 	l.Debug("received message to send to apns")
-	notification, err := a.buildNotification(message)
+
+	parsedNotification, err := a.parseKafkaMessage(message)
 	if err != nil {
+		l.WithError(err).Error("error parsing kafka message")
+		a.waitGroupDone()
+		return
+	}
+	l = l.WithField("notification", parsedNotification)
+	n, err := a.buildAndValidateNotification(parsedNotification)
+	if err != nil {
+		l.WithError(err).Error("notification is invalid")
+		a.waitGroupDone()
 		return
 	}
 
@@ -240,39 +215,31 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 
 	if err := a.sendNotification(notification); err != nil {
 		return
+
 	}
+	a.sendNotification(n)
 	statsReporterHandleNotificationSent(a.StatsReporters, a.appName, "apns")
 
 	apnsResMutex.Lock()
 	a.sentMessages++
 	apnsResMutex.Unlock()
-
-	a.inFlightNotificationsMapLock.Lock()
-	ifn := &inFlightNotification{
-		notification: notification,
-		kafkaTopic:   message.Topic,
-	}
-	ifn.sendAttempts.Add(1)
-	a.InFlightNotificationsMap[notification.ApnsID] = ifn
-	a.requestsHeap.AddRequest(notification.ApnsID)
-	a.inFlightNotificationsMapLock.Unlock()
 }
 
-func (a *APNSMessageHandler) buildNotification(message interfaces.KafkaMessage) (*Notification, error) {
-	notification := &Notification{}
+func (a *APNSMessageHandler) parseKafkaMessage(message interfaces.KafkaMessage) (*pusherAPNSKafkaMessage, error) {
+	notification := &pusherAPNSKafkaMessage{}
 	err := json.Unmarshal(message.Value, notification)
 	if err != nil {
-		a.Logger.WithError(err).Error("Error unmarshaling message.")
 		return nil, err
 	}
+
 	addMetadataToPayload(notification)
 	if notification.Metadata == nil {
 		notification.Metadata = map[string]interface{}{}
 	}
 	notification.Metadata["game"] = a.appName
-	notification.Metadata["platform"] = "apns"
 	notification.Metadata["deviceToken"] = notification.DeviceToken
 	hostname, err := os.Hostname()
+
 	if err != nil {
 		a.Logger.WithError(err).Error("error retrieving hostname")
 	} else {
@@ -283,87 +250,64 @@ func (a *APNSMessageHandler) buildNotification(message interfaces.KafkaMessage) 
 	return notification, nil
 }
 
-func (a *APNSMessageHandler) sendNotification(notification *Notification) error {
-	l := a.Logger.WithField("method", "sendNotification")
+func (a *APNSMessageHandler) buildAndValidateNotification(notification *pusherAPNSKafkaMessage) (*structs.ApnsNotification, error) {
 	if notification.PushExpiry > 0 && notification.PushExpiry < MakeTimestamp() {
-		l.Warnf("ignoring push message because it has expired: %s", notification.Payload)
-
-		apnsResMutex.Lock()
-		a.ignoredMessages++
-		apnsResMutex.Unlock()
-
-		if a.pendingMessagesWG != nil {
-			a.pendingMessagesWG.Done()
-		}
-		return errors.New("expired message")
+		return nil, errors.New("push message has expired")
 	}
+
 	payload, err := json.Marshal(notification.Payload)
 	if err != nil {
-		l.WithError(err).Error("error marshaling message payload")
-
-		apnsResMutex.Lock()
-		a.ignoredMessages++
-		apnsResMutex.Unlock()
-
-		if a.pendingMessagesWG != nil {
-			a.pendingMessagesWG.Done()
-		}
-		return err
+		return nil, fmt.Errorf("error marshalling notification payload: %s", err.Error())
 	}
-	l.WithField("notification", notification).Debug("adding notification to apns push queue")
+
+	n := &structs.ApnsNotification{
+		Notification: apns2.Notification{
+			Topic:       a.ApnsTopic,
+			DeviceToken: notification.DeviceToken,
+			Payload:     payload,
+			ApnsID:      notification.ApnsID,
+			CollapseID:  notification.CollapseID,
+		},
+		Metadata: notification.Metadata,
+	}
+	return n, nil
+}
+
+func (a *APNSMessageHandler) sendNotification(notification *structs.ApnsNotification) {
 	before := time.Now()
 	defer statsReporterReportSendNotificationLatency(a.StatsReporters, time.Since(before), a.appName, "apns", "client", "apns")
-	a.PushQueue.Push(&apns2.Notification{
-		Topic:       a.ApnsTopic,
-		DeviceToken: notification.DeviceToken,
-		Payload:     payload,
-		ApnsID:      notification.ApnsID,
-		CollapseID:  notification.CollapseID,
-	})
-	return nil
+
+	notification.SendAttempts += 1
+	a.PushQueue.Push(notification)
 }
 
 func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.ResponseWithMetadata) error {
-	// TODO: Remove from timeout heap (will need a different heap implementation for this)
 	l := a.Logger.WithFields(log.Fields{
 		"method": "handleAPNSResponse",
 		"res":    responseWithMetadata,
 	})
 	l.Debug("got response from apns")
 
-	a.inFlightNotificationsMapLock.Lock()
-	inFlightNotificationInstance, hasInFlightNotificationInstance := a.InFlightNotificationsMap[responseWithMetadata.ApnsID]
-	a.inFlightNotificationsMapLock.Unlock()
-
-	if hasInFlightNotificationInstance {
-		// retry on too many requests (429)
-		// retries are transparent and are not counted as sent or received messages
-		sendAttempts := inFlightNotificationInstance.sendAttempts.Load()
-		if responseWithMetadata.Reason == apns2.ReasonTooManyRequests &&
-			uint(sendAttempts) < a.maxRetryAttempts {
-			l.WithFields(log.Fields{
-				"sendAttempts": sendAttempts,
-				"maxRetries":   a.maxRetryAttempts,
-				"apnsID":       responseWithMetadata.ApnsID,
-			}).Info("retrying notification")
-			inFlightNotificationInstance.sendAttempts.Add(1)
-			if a.pendingMessagesWG != nil {
-				a.pendingMessagesWG.Add(1)
-			}
-			<-time.After(a.retryInterval)
-			if err := a.sendNotification(inFlightNotificationInstance.notification); err == nil {
-				return nil
-			}
-		}
-
-		responseWithMetadata.Metadata = inFlightNotificationInstance.notification.Metadata
-		responseWithMetadata.Timestamp = responseWithMetadata.Metadata["timestamp"].(int64)
-		delete(responseWithMetadata.Metadata, "timestamp")
-
-		a.inFlightNotificationsMapLock.Lock()
-		delete(a.InFlightNotificationsMap, responseWithMetadata.ApnsID)
-		a.inFlightNotificationsMapLock.Unlock()
+	// retry on too many requests (429)
+	// retries are transparent and are not counted as sent or received messages
+	sendAttempts := responseWithMetadata.Notification.SendAttempts
+	if responseWithMetadata.Reason == apns2.ReasonTooManyRequests &&
+		uint(sendAttempts) < a.maxRetryAttempts {
+		l.WithFields(log.Fields{
+			"sendAttempts": sendAttempts,
+			"maxRetries":   a.maxRetryAttempts,
+			"apnsID":       responseWithMetadata.ApnsID,
+		}).Info("retrying notification")
+		<-time.After(a.retryInterval)
+		a.sendNotification(responseWithMetadata.Notification)
+		return nil
 	}
+
+	responseWithMetadata.Metadata = responseWithMetadata.Notification.Metadata
+	if timestamp, ok := responseWithMetadata.Metadata["timestamp"].(int64); ok {
+		responseWithMetadata.Timestamp = timestamp
+	}
+	delete(responseWithMetadata.Metadata, "timestamp")
 
 	apnsResMutex.Lock()
 	a.responsesReceived++
@@ -528,7 +472,7 @@ func (a *APNSMessageHandler) mapErrorReason(reason string) string {
 	}
 }
 
-func addMetadataToPayload(notification *Notification) {
+func addMetadataToPayload(notification *pusherAPNSKafkaMessage) {
 	if notification.Metadata == nil {
 		return
 	}
@@ -552,6 +496,12 @@ func addMetadataToPayload(notification *Notification) {
 				m[k] = v
 			}
 		}
+	}
+}
+
+func (a *APNSMessageHandler) waitGroupDone() {
+	if a.pendingMessagesWG != nil {
+		a.pendingMessagesWG.Done()
 	}
 }
 

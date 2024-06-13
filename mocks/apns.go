@@ -23,7 +23,6 @@
 package mocks
 
 import (
-	"github.com/sideshow/apns2"
 	"github.com/topfreegames/pusher/structs"
 	"sync"
 )
@@ -32,7 +31,7 @@ import (
 type APNSPushQueueMock struct {
 	responseChannel    chan *structs.ResponseWithMetadata
 	Closed             bool
-	PushedNotification *apns2.Notification
+	PushedNotification *structs.ApnsNotification
 	internalLock       sync.Mutex
 }
 
@@ -45,7 +44,7 @@ func NewAPNSPushQueueMock() *APNSPushQueueMock {
 }
 
 // Push records the sent message in the MessagesSent collection
-func (m *APNSPushQueueMock) Push(n *apns2.Notification) {
+func (m *APNSPushQueueMock) Push(n *structs.ApnsNotification) {
 	m.internalLock.Lock()
 	m.PushedNotification = n
 	m.internalLock.Unlock()
