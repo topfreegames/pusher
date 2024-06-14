@@ -141,7 +141,7 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
-				config.Set("feedbackListeners.invalidToken.flush.time.ms", 1)
+				config.Set("feedbackListeners.invalidToken.flush.time.ms", 50)
 				config.Set("feedbackListeners.invalidToken.buffer.size", 200)
 
 				mockStatsDClient = mocks.NewStatsDClientMock()
@@ -161,7 +161,7 @@ var _ = Describe("InvalidToken Handler", func() {
 					inChan <- t
 				}
 
-				time.Sleep(time.Second)
+				time.Sleep(time.Millisecond * 100)
 				handler.Stop()
 				time.Sleep(500 * time.Millisecond)
 
