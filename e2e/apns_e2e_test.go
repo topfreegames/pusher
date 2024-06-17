@@ -78,7 +78,7 @@ func (s *ApnsE2ETestSuite) setupApnsPusher() (
 func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	go p.Start(context.Background())
-	time.Sleep(wait * 3)
+	time.Sleep(wait * 2)
 
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
@@ -148,7 +148,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 	p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	go p.Start(context.Background())
-	time.Sleep(wait * 3)
+	time.Sleep(wait * 2)
 
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
@@ -238,7 +238,7 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 func (s *ApnsE2ETestSuite) TestRetryLimit() {
 	p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	go p.Start(context.Background())
-	time.Sleep(wait * 3)
+	time.Sleep(wait * 2)
 
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
@@ -311,7 +311,7 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	go p.Start(context.Background())
-	time.Sleep(wait * 3)
+	time.Sleep(wait * 2)
 
 	notificationsToSend := 10
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
@@ -394,7 +394,7 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	go p.Start(ctx)
-	time.Sleep(wait * 3)
+	time.Sleep(wait * 2)
 
 	notificationsToSend := 3
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
@@ -485,7 +485,7 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExitingWithRetries() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	go p.Start(ctx)
-	time.Sleep(wait * 3)
+	time.Sleep(wait * 2)
 
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
