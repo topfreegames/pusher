@@ -82,6 +82,7 @@ func (p *Pusher) routeMessages(ctx context.Context, msgChan *chan interfaces.Kaf
 		"method": "routeMessages",
 		"source": "pusher",
 	})
+
 	//nolint[:gosimple]
 	for {
 		select {

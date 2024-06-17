@@ -318,9 +318,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 		Platform: "apns",
 	}
 
-	if a.pendingMessagesWG != nil {
-		a.pendingMessagesWG.Done()
-	}
+	a.waitGroupDone()
 
 	if responseWithMetadata.Reason == "" {
 		sendFeedbackErr := sendToFeedbackReporters(a.feedbackReporters, responseWithMetadata, parsedTopic)
