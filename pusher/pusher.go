@@ -100,12 +100,6 @@ func (p *Pusher) routeMessages(ctx context.Context, msgChan *chan interfaces.Kaf
 			} else {
 				l.Error("Game not found")
 			}
-		case <-ctx.Done():
-			l.Info("Context done. Will stop routing messages.")
-			return
-		case <-p.stopChannel:
-			l.Info("Stop channel closed. Will stop routing messages.")
-			return
 		}
 	}
 }

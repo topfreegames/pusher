@@ -59,14 +59,14 @@ type KafkaConsumer struct {
 func NewKafkaConsumer(
 	config *viper.Viper,
 	logger *logrus.Logger,
-	stopChannel *chan struct{},
+	stopChannel chan struct{},
 	clientOrNil ...interfaces.KafkaConsumerClient,
 ) (*KafkaConsumer, error) {
 	q := &KafkaConsumer{
 		Config:            config,
 		Logger:            logger.WithField("source", "extensions.KafkaConsumer").Logger,
 		pendingMessagesWG: nil,
-		stopChannel:       *stopChannel,
+		stopChannel:       stopChannel,
 	}
 	var client interfaces.KafkaConsumerClient
 	if len(clientOrNil) == 1 {

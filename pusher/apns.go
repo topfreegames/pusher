@@ -85,7 +85,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	q, err := extensions.NewKafkaConsumer(
 		a.ViperConfig,
 		a.Logger,
-		&a.stopChannel,
+		a.stopChannel,
 	)
 	if err != nil {
 		return err
