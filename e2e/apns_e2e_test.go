@@ -44,6 +44,7 @@ func (s *ApnsE2ETestSuite) SetupSuite() {
 }
 
 func (s *ApnsE2ETestSuite) setupApnsPusher() (
+	string,
 	*pusher.APNSPusher,
 	*mocks.MockAPNSPushQueue,
 	*mocks.MockStatsDClient,
@@ -72,11 +73,11 @@ func (s *ApnsE2ETestSuite) setupApnsPusher() (
 	apnsPusher, err := pusher.NewAPNSPusher(false, s.vConfig, s.config, logger, statsdClientMock, nil, mockApnsClient)
 	s.Require().NoError(err)
 
-	return apnsPusher, mockApnsClient, statsdClientMock, responsesChannel
+	return appName, apnsPusher, mockApnsClient, statsdClientMock, responsesChannel
 }
 
 func (s *ApnsE2ETestSuite) TestSimpleNotification() {
-	p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
@@ -85,7 +86,6 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	})
 	s.Require().NoError(err)
 
-	app := s.config.GetApnsAppsArray()[0]
 	topic := "push-" + app + "_apns-single"
 	token := "token"
 	testDone := make(chan bool)
@@ -146,7 +146,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 }
 
 func (s *ApnsE2ETestSuite) TestNotificationRetry() {
-	p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
@@ -155,7 +155,6 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 	})
 	s.Require().NoError(err)
 
-	app := s.config.GetApnsAppsArray()[0]
 	topic := "push-" + app + "_apns-single"
 	token := "token"
 	done := make(chan bool)
@@ -236,7 +235,7 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 }
 
 func (s *ApnsE2ETestSuite) TestRetryLimit() {
-	p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
@@ -245,7 +244,6 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 	})
 	s.Require().NoError(err)
 
-	app := s.config.GetApnsAppsArray()[0]
 	topic := "push-" + app + "_apns-single"
 	token := "token"
 	done := make(chan bool)
@@ -309,7 +307,7 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 }
 
 func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
-	p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
@@ -319,7 +317,6 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	})
 	s.Require().NoError(err)
 
-	app := s.config.GetApnsAppsArray()[0]
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token"
 	done := make(chan bool)
@@ -390,7 +387,7 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
 	s.vConfig.Set("gracefulShutdownTimeout", 10*time.Second)
 
-	p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	go p.Start(ctx)
@@ -402,7 +399,6 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
 	})
 	s.Require().NoError(err)
 
-	app := s.config.GetApnsAppsArray()[0]
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token"
 	done := make(chan bool)
@@ -481,7 +477,7 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
 func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExitingWithRetries() {
 	s.vConfig.Set("gracefulShutdownTimeout", 10*time.Second)
 
-	p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	go p.Start(ctx)
@@ -492,7 +488,6 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExitingWithRetries() {
 	})
 	s.Require().NoError(err)
 
-	app := s.config.GetApnsAppsArray()[0]
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token"
 	done := make(chan bool)
