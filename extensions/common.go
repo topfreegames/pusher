@@ -94,9 +94,9 @@ func statsReporterNotificationRateLimitReached(statsReporters []interfaces.Stats
 	}
 }
 
-func statsReporterNotificationRateLimitFailed(statsReporters []interfaces.StatsReporter) {
+func statsReporterNotificationRateLimitFailed(statsReporters []interfaces.StatsReporter, game string, platform string) {
 	for _, statsReporter := range statsReporters {
-		statsReporter.NotificationRateLimitFailed()
+		statsReporter.NotificationRateLimitFailed(game, platform)
 	}
 }
 

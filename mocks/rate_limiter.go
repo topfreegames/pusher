@@ -9,6 +9,6 @@ func NewRateLimiterMock() *rateLimiterMock {
 	return &rateLimiterMock{}
 }
 
-func (rl *rateLimiterMock) Allow(ctx context.Context, device string) bool {
+func (rl *rateLimiterMock) Allow(ctx context.Context, device, game, platform string) bool {
 	return true
 }

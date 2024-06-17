@@ -26,5 +26,5 @@ import "context"
 
 // RateLimiter interface for rate limiting notifications per device.
 type RateLimiter interface {
-	Allow(ctx context.Context, device string) bool
+	Allow(ctx context.Context, device, game, platform string) bool
 }

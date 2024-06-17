@@ -91,7 +91,7 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 		return
 	}
 
-	allowed := h.rateLimiter.Allow(ctx, km.To)
+	allowed := h.rateLimiter.Allow(ctx, km.To, msg.Game, "gcm")
 	if !allowed {
 		h.reportRateLimitReached(msg.Game)
 		l.WithField("message", msg).Warn("rate limit reached")

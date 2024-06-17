@@ -1,7 +1,7 @@
 ---
 gracefulShutdownTimeout: 30
 apns:
-  rateLimit.rpm: 100
+  rateLimit.rpm: 20
   concurrentWorkers: 300
   connectionPoolSize: 1
   pushQueueSize: 100
@@ -15,7 +15,7 @@ apns:
       teamID: "ABC123DEFG"
       topic: "com.game.test"
 gcm:
-  rateLimit.rpm: 100
+  rateLimit.rpm: 20
   pingInterval: 30
   pingTimeout: 10
   maxPendingMessages: 100

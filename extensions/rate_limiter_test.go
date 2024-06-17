@@ -27,7 +27,8 @@ var _ = FDescribe("Rate Limiter", func() {
 		config, err := util.NewViperWithConfigFile(configFile)
 		Expect(err).NotTo(HaveOccurred())
 		hook.Reset()
-
+		game := "test"
+		platform := "test"
 		statsClients := []interfaces.StatsReporter{}
 
 		Describe("Rate limiting", func() {
@@ -35,11 +36,11 @@ var _ = FDescribe("Rate Limiter", func() {
 				rl := NewRateLimiter(1, config, statsClients, logger)
 				ctx := context.Background()
 				device := uuid.NewString()
-				allowed := rl.Allow(ctx, device)
+				allowed := rl.Allow(ctx, device, game, platform)
 				Expect(allowed).To(BeTrue())
 
 				// Should not allow due to reaching limit of 1
-				allowed = rl.Allow(ctx, device)
+				allowed = rl.Allow(ctx, device, game, platform)
 				Expect(allowed).To(BeFalse())
 			})
 
@@ -49,7 +50,7 @@ var _ = FDescribe("Rate Limiter", func() {
 				device := uuid.NewString()
 				currMin := time.Now().Minute()
 
-				allowed := rl.Allow(ctx, device)
+				allowed := rl.Allow(ctx, device, game, platform)
 				Expect(allowed).To(BeTrue())
 
 				key := fmt.Sprintf("%s:%d", device, currMin)
@@ -66,7 +67,7 @@ var _ = FDescribe("Rate Limiter", func() {
 				ctx := context.Background()
 				device := uuid.NewString()
 
-				allowed := rl.Allow(ctx, device)
+				allowed := rl.Allow(ctx, device, game, platform)
 				Expect(allowed).To(BeTrue())
 			})
 

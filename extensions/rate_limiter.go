@@ -55,7 +55,7 @@ func NewRateLimiter(limit int, config *viper.Viper, statsReporters []interfaces.
 // Allow checks Redis for the current rate a given device has in the current minute
 // If the rate is lower than the limit, the message is allowed. Otherwise, it is not allowed.
 // Reference: https://redis.io/glossary/rate-limiting/
-func (r rateLimiter) Allow(ctx context.Context, device string) bool {
+func (r rateLimiter) Allow(ctx context.Context, device string, game string, platform string) bool {
 	deviceKey := fmt.Sprintf("%s:%d", device, time.Now().Minute())
 	l := r.l.WithFields(logrus.Fields{
 		"deviceKey": deviceKey,
@@ -66,7 +66,7 @@ func (r rateLimiter) Allow(ctx context.Context, device string) bool {
 	if err != nil && !errors.Is(err, redis.Nil) {
 		// Something went wrong, return true to avoid blocking notifications.
 		l.WithError(err).Error("could not get current rate in redis")
-		statsReporterNotificationRateLimitFailed(r.statsReporters)
+		statsReporterNotificationRateLimitFailed(r.statsReporters, game, platform)
 		return true
 	}
 	if errors.Is(err, redis.Nil) {
@@ -78,7 +78,7 @@ func (r rateLimiter) Allow(ctx context.Context, device string) bool {
 	if err != nil {
 		// Something went wrong, return true to avoid blocking notifications.
 		l.WithError(err).Error("current rate is invalid")
-		statsReporterNotificationRateLimitFailed(r.statsReporters)
+		statsReporterNotificationRateLimitFailed(r.statsReporters, game, platform)
 		return true
 	}
 
@@ -94,7 +94,7 @@ func (r rateLimiter) Allow(ctx context.Context, device string) bool {
 	if err != nil {
 		// Allow the operation even if the transaction fails, to avoid blocking notifications.
 		l.WithError(err).Error("increment to current rate failed")
-		statsReporterNotificationRateLimitFailed(r.statsReporters)
+		statsReporterNotificationRateLimitFailed(r.statsReporters, game, platform)
 	}
 
 	l.WithField("currentRate", current).Debug("current rate allows message")
