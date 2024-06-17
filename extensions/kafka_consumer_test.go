@@ -59,7 +59,7 @@ var _ = Describe("Kafka Extension", func() {
 			stopChannel := make(chan struct{})
 			consumer, err = NewKafkaConsumer(
 				config, logger,
-				&stopChannel, kafkaConsumerClientMock,
+				stopChannel, kafkaConsumerClientMock,
 			)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -122,7 +122,7 @@ var _ = Describe("Kafka Extension", func() {
 			It("should configure defaults", func() {
 				cnf := viper.New()
 				stopChannel := make(chan struct{})
-				cons, err := NewKafkaConsumer(cnf, logger, &stopChannel, kafkaConsumerClientMock)
+				cons, err := NewKafkaConsumer(cnf, logger, stopChannel, kafkaConsumerClientMock)
 				Expect(err).NotTo(HaveOccurred())
 				cons.loadConfigurationDefaults()
 
@@ -179,7 +179,7 @@ var _ = Describe("Kafka Extension", func() {
 		Describe("Creating new client", func() {
 			It("should return connected client", func() {
 				stopChannel := make(chan struct{})
-				client, err := NewKafkaConsumer(config, logger, &stopChannel)
+				client, err := NewKafkaConsumer(config, logger, stopChannel)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(client.Brokers).NotTo(HaveLen(0))
@@ -192,7 +192,7 @@ var _ = Describe("Kafka Extension", func() {
 		PDescribe("ConsumeLoop", func() {
 			It("should consume message and add it to msgChan", func() {
 				stopChannel := make(chan struct{})
-				client, err := NewKafkaConsumer(config, logger, &stopChannel)
+				client, err := NewKafkaConsumer(config, logger, stopChannel)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(client).NotTo(BeNil())
 				defer client.StopConsuming()
