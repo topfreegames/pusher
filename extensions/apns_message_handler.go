@@ -269,7 +269,7 @@ func (a *APNSMessageHandler) buildAndValidateNotification(notification *pusherAP
 
 	payload, err := json.Marshal(notification.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("error marshalling notification payload: %s", err.Error())
+		return nil, fmt.Errorf("error marshalling notification payload: %w", err)
 	}
 
 	n := &structs.ApnsNotification{
@@ -289,7 +289,6 @@ func (a *APNSMessageHandler) sendNotification(notification *structs.ApnsNotifica
 	before := time.Now()
 	defer statsReporterReportSendNotificationLatency(a.StatsReporters, time.Since(before), a.appName, "apns", "client", "apns")
 
-	notification.SendAttempts += 1
 	a.PushQueue.Push(notification)
 }
 
