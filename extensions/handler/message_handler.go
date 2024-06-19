@@ -21,6 +21,7 @@ type messageHandler struct {
 	statsMutex                 sync.Mutex
 	feedbackReporters          []interfaces.FeedbackReporter
 	statsReporters             []interfaces.StatsReporter
+	rateLimiter                interfaces.RateLimiter
 	statsDClient               extensions.StatsD
 	sendPushConcurrencyControl chan interface{}
 	responsesChannel           chan struct {
@@ -36,6 +37,7 @@ func NewMessageHandler(
 	client interfaces.PushClient,
 	feedbackReporters []interfaces.FeedbackReporter,
 	statsReporters []interfaces.StatsReporter,
+	rateLimiter interfaces.RateLimiter,
 	logger *logrus.Logger,
 	concurrentWorkers int,
 ) interfaces.MessageHandler {
@@ -51,6 +53,7 @@ func NewMessageHandler(
 		client:                     client,
 		feedbackReporters:          feedbackReporters,
 		statsReporters:             statsReporters,
+		rateLimiter:                rateLimiter,
 		logger:                     l.Logger,
 		config:                     cfg,
 		sendPushConcurrencyControl: make(chan interface{}, concurrentWorkers),
@@ -85,6 +88,13 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 		h.stats.ignored++
 		h.statsMutex.Unlock()
 
+		return
+	}
+
+	allowed := h.rateLimiter.Allow(ctx, km.To, msg.Game, "gcm")
+	if !allowed {
+		h.reportRateLimitReached(msg.Game)
+		l.WithField("message", msg).Warn("rate limit reached")
 		return
 	}
 
@@ -234,6 +244,12 @@ func (h *messageHandler) reportLatency(latency time.Duration) {
 func (h *messageHandler) reportFirebaseLatency(latency time.Duration) {
 	for _, statsReporter := range h.statsReporters {
 		statsReporter.ReportFirebaseLatency(latency, h.app)
+	}
+}
+
+func (h *messageHandler) reportRateLimitReached(game string) {
+	for _, statsReporter := range h.statsReporters {
+		statsReporter.NotificationRateLimitReached(game, "gcm")
 	}
 }
 

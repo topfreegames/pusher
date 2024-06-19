@@ -76,6 +76,7 @@ type GCMMessageHandler struct {
 	requestsHeap                 *TimeoutHeap
 	CacheCleaningInterval        int
 	IsProduction                 bool
+	rateLimiter                  interfaces.RateLimiter
 }
 
 // NewGCMMessageHandler returns a new instance of a GCMMessageHandler
@@ -87,6 +88,7 @@ func NewGCMMessageHandler(
 	pendingMessagesWG *sync.WaitGroup,
 	statsReporters []interfaces.StatsReporter,
 	feedbackReporters []interfaces.FeedbackReporter,
+	rateLimiter interfaces.RateLimiter,
 ) (*GCMMessageHandler, error) {
 	l := logger.WithFields(logrus.Fields{
 		"method":       "NewGCMMessageHandler",
@@ -94,7 +96,7 @@ func NewGCMMessageHandler(
 		"isProduction": isProduction,
 	})
 
-	h, err := NewGCMMessageHandlerWithClient(game, isProduction, config, l.Logger, pendingMessagesWG, statsReporters, feedbackReporters, nil)
+	h, err := NewGCMMessageHandlerWithClient(game, isProduction, config, l.Logger, pendingMessagesWG, statsReporters, feedbackReporters, nil, rateLimiter)
 	if err != nil {
 		l.WithError(err).Error("Failed to create a new GCM Message handler.")
 		return nil, err
@@ -111,6 +113,7 @@ func NewGCMMessageHandlerWithClient(
 	statsReporters []interfaces.StatsReporter,
 	feedbackReporters []interfaces.FeedbackReporter,
 	client interfaces.GCMClient,
+	rateLimiter interfaces.RateLimiter,
 ) (*GCMMessageHandler, error) {
 	l := logger.WithFields(logrus.Fields{
 		"method":       "NewGCMMessageHandlerWithClient",
@@ -131,6 +134,7 @@ func NewGCMMessageHandlerWithClient(
 		requestsHeap:                 NewTimeoutHeap(config),
 		StatsReporters:               statsReporters,
 		GCMClient:                    client,
+		rateLimiter:                  rateLimiter,
 	}
 
 	err := g.configure()
@@ -340,6 +344,13 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 	}
 
 	l = l.WithField("message", km)
+
+	allowed := g.rateLimiter.Allow(context.Background(), km.To, message.Game, "gcm")
+	if !allowed {
+		statsReporterNotificationRateLimitReached(g.StatsReporters, message.Game, "gcm")
+		l.WithField("message", message).Warn("rate limit reached")
+		return errors.New("rate limit reached")
+	}
 	l.Debug("sending message to gcm")
 
 	var messageID string

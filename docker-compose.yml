@@ -96,3 +96,13 @@ services:
         condition: service_healthy
     environment:
      KAFKA_BROKERS: kafka:9092
+
+  redis:
+    image: redis:6.0.9-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

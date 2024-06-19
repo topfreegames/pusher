@@ -79,6 +79,7 @@ type APNSMessageHandler struct {
 	consumptionManager           interfaces.ConsumptionManager
 	retryInterval                time.Duration
 	maxRetryAttempts             uint
+	rateLimiter                  interfaces.RateLimiter
 }
 
 var _ interfaces.MessageHandler = &APNSMessageHandler{}
@@ -94,6 +95,7 @@ func NewAPNSMessageHandler(
 	feedbackReporters []interfaces.FeedbackReporter,
 	pushQueue interfaces.APNSPushQueue,
 	consumptionManager interfaces.ConsumptionManager,
+	rateLimiter interfaces.RateLimiter,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
 		authKeyPath:                  authKeyPath,
@@ -117,6 +119,7 @@ func NewAPNSMessageHandler(
 		requestsHeap:                 NewTimeoutHeap(config),
 		PushQueue:                    pushQueue,
 		consumptionManager:           consumptionManager,
+		rateLimiter:                  rateLimiter,
 	}
 
 	if a.Logger != nil {
@@ -216,7 +219,7 @@ func (a *APNSMessageHandler) CleanMetadataCache() {
 }
 
 // HandleMessages get messages from msgChan and send to APNS.
-func (a *APNSMessageHandler) HandleMessages(_ context.Context, message interfaces.KafkaMessage) {
+func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfaces.KafkaMessage) {
 	l := a.Logger.WithFields(log.Fields{
 		"method":    "HandleMessages",
 		"jsonValue": string(message.Value),
@@ -227,6 +230,14 @@ func (a *APNSMessageHandler) HandleMessages(_ context.Context, message interface
 	if err != nil {
 		return
 	}
+
+	allowed := a.rateLimiter.Allow(ctx, notification.DeviceToken, a.appName, "apns")
+	if !allowed {
+		statsReporterNotificationRateLimitReached(a.StatsReporters, a.appName, "apns")
+		l.WithField("message", message).Warn("rate limit reached")
+		return
+	}
+
 	if err := a.sendNotification(notification); err != nil {
 		return
 	}

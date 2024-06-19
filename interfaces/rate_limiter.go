@@ -22,23 +22,9 @@
 
 package interfaces
 
-import (
-	"time"
+import "context"
 
-	"github.com/topfreegames/pusher/errors"
-)
-
-// StatsReporter interface for making stats reporters pluggable easily.
-type StatsReporter interface {
-	InitializeFailure(game string, platform string)
-	HandleNotificationSent(game string, platform string)
-	HandleNotificationSuccess(game string, platform string)
-	HandleNotificationFailure(game string, platform string, err *errors.PushError)
-	ReportGoStats(numGoRoutines int, allocatedAndNotFreed, heapObjects, nextGCBytes, pauseGCNano uint64)
-	ReportMetricGauge(metric string, value float64, game string, platform string)
-	ReportMetricCount(metric string, value int64, game string, platform string)
-	NotificationRateLimitReached(game string, platform string)
-	NotificationRateLimitFailed(game string, platform string)
-	ReportSendNotificationLatency(latencyMs time.Duration, game string, platform string, labels ...string)
-	ReportFirebaseLatency(latencyMs time.Duration, game string, labels ...string)
+// RateLimiter interface for rate limiting notifications per device.
+type RateLimiter interface {
+	Allow(ctx context.Context, device, game, platform string) bool
 }

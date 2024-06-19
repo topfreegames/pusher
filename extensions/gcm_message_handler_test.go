@@ -24,13 +24,14 @@ package extensions
 
 import (
 	"encoding/json"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"github.com/topfreegames/pusher/config"
-	"os"
-	"testing"
-	"time"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -73,6 +74,7 @@ func (s *GCMMessageHandlerTestSuite) setupHandler() (
 	logger, _ := test.NewNullLogger()
 	mockClient := mocks.NewGCMClientMock()
 	mockStatsdClient := mocks.NewStatsDClientMock()
+	mockRateLimiter := mocks.NewRateLimiterMock()
 
 	statsD, err := NewStatsD(s.vConfig, logger, mockStatsdClient)
 	s.Require().NoError(err)
@@ -92,6 +94,7 @@ func (s *GCMMessageHandlerTestSuite) setupHandler() (
 		statsClients,
 		feedbackClients,
 		mockClient,
+		mockRateLimiter,
 	)
 	s.NoError(err)
 	s.Require().NotNil(handler)
@@ -115,6 +118,7 @@ func (s *GCMMessageHandlerTestSuite) TestConfigureHandler() {
 			nil,
 			[]interfaces.StatsReporter{},
 			[]interfaces.FeedbackReporter{},
+			nil,
 		)
 		s.Error(err)
 		s.Nil(handler)

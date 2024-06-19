@@ -71,6 +71,9 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 	statsReport, err := extensions.NewStatsD(s.vConfig, logger, statsdClientMock)
 	s.Require().NoError(err)
 
+	limit := s.vConfig.GetInt("gcm.rateLimit.rpm")
+	rateLimiter := extensions.NewRateLimiter(limit, s.vConfig, []interfaces.StatsReporter{statsReport}, logger)
+
 	pushClient := firebaseMock.NewMockPushClient(ctrl)
 	gcmPusher.MessageHandler = map[string]interfaces.MessageHandler{
 		appName: handler.NewMessageHandler(
@@ -78,6 +81,7 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 			pushClient,
 			[]interfaces.FeedbackReporter{},
 			[]interfaces.StatsReporter{statsReport},
+			rateLimiter,
 			logger,
 			s.config.GCM.ConcurrentWorkers,
 		),

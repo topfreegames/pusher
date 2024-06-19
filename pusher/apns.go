@@ -25,6 +25,7 @@ package pusher
 import (
 	"errors"
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/config"
@@ -97,6 +98,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 		keyID := a.ViperConfig.GetString("apns.certs." + k + ".keyID")
 		teamID := a.ViperConfig.GetString("apns.certs." + k + ".teamID")
 		topic := a.ViperConfig.GetString("apns.certs." + k + ".topic")
+		rateLimit := a.ViperConfig.GetInt("apns.rateLimit.rpm")
 
 		l.WithFields(logrus.Fields{
 			"app":         k,
@@ -119,6 +121,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			a.feedbackReporters,
 			queue,
 			interfaces.ConsumptionManager(q),
+			extensions.NewRateLimiter(rateLimit, a.ViperConfig, a.StatsReporters, l.Logger),
 		)
 		if err == nil {
 			a.MessageHandler[k] = handler

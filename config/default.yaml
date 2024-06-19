@@ -1,6 +1,7 @@
 ---
 gracefulShutdownTimeout: 30
 apns:
+  rateLimit.rpm: 20
   concurrentWorkers: 300
   connectionPoolSize: 1
   pushQueueSize: 100
@@ -14,6 +15,7 @@ apns:
       teamID: "ABC123DEFG"
       topic: "com.game.test"
 gcm:
+  rateLimit.rpm: 20
   pingInterval: 30
   pingTimeout: 10
   maxPendingMessages: 100
@@ -93,3 +95,10 @@ feedbackListeners:
       maxRetries: 3
       database: push
       connectionTimeout: 100
+rateLimiter:
+  redis: 
+    host: "localhost"
+    port: 6379
+    password: ""
+  tls:
+    disabled: false
