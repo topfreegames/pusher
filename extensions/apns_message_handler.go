@@ -289,6 +289,7 @@ func (a *APNSMessageHandler) sendNotification(notification *structs.ApnsNotifica
 	before := time.Now()
 	defer statsReporterReportSendNotificationLatency(a.StatsReporters, time.Since(before), a.appName, "apns", "client", "apns")
 
+	notification.SendAttempts += 1
 	a.PushQueue.Push(notification)
 }
 
