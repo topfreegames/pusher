@@ -846,7 +846,7 @@ var _ = Describe("APNS Message Handler", func() {
 					Topic: "push-game_apns",
 					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d }`, MakeTimestamp()-int64(100))),
 				})
-				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).ShouldNot(Receive())
+				Eventually(handler.PushQueue.ResponseChannel(), 100*time.Millisecond).ShouldNot(Receive())
 				apnsResMutex.Lock()
 				Expect(handler.sentMessages).To(Equal(int64(0)))
 				Expect(handler.ignoredMessages).To(Equal(int64(1)))
@@ -857,7 +857,7 @@ var _ = Describe("APNS Message Handler", func() {
 					Topic: "push-game_apns",
 					Value: []byte(fmt.Sprintf(`{ "aps" : { "alert" : "Hello HTTP/2" }, "push_expiry": %d}`, MakeTimestamp()+int64(100))),
 				})
-				Eventually(handler.PushQueue.ResponseChannel(), 5*time.Second).ShouldNot(Receive())
+				Eventually(handler.PushQueue.ResponseChannel(), 100*time.Millisecond).ShouldNot(Receive())
 
 				apnsResMutex.Lock()
 				Expect(handler.sentMessages).To(Equal(int64(1)))

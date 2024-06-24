@@ -161,9 +161,9 @@ var _ = Describe("InvalidToken Handler", func() {
 					inChan <- t
 				}
 
-				time.Sleep(time.Millisecond * 100)
+				time.Sleep(time.Second * 1)
 				handler.Stop()
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(100 * time.Millisecond)
 
 				Expect(mockStatsDClient.Counts[MetricsTokensDeleteSuccess]).To(BeEquivalentTo(2))
 				Expect(mockStatsDClient.Counts[MetricsTokensDeleteError]).To(BeEquivalentTo(0))
