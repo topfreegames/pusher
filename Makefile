@@ -176,5 +176,6 @@ mocks:
 	$(MOCKGENERATE) -source=interfaces/client.go -destination=mocks/firebase/client.go
 	$(MOCKGENERATE) -source=interfaces/apns.go -destination=mocks/interfaces/apns.go
 	$(MOCKGENERATE) -source=interfaces/statsd.go -destination=mocks/interfaces/statsd.go
+	$(MOCKGENERATE) -source=interfaces/stats_reporter.go -destination=mocks/interfaces/stats_reporter.go
 	$(MOCKGENERATE) -source=interfaces/feedback_reporter.go -destination=mocks/interfaces/feedback_reporter.go
 	$(MOCKGENERATE) -source=interfaces/message_handler.go -destination=mocks/interfaces/message_handler.go

@@ -1,4 +1,4 @@
-package handler
+package firebase
 
 type messagesStats struct {
 	sent     int64

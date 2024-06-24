@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"github.com/topfreegames/pusher/config"
 	"github.com/topfreegames/pusher/extensions"
-	"github.com/topfreegames/pusher/extensions/handler"
+	"github.com/topfreegames/pusher/extensions/firebase"
 	"github.com/topfreegames/pusher/interfaces"
 	firebaseMock "github.com/topfreegames/pusher/mocks/firebase"
 	mocks "github.com/topfreegames/pusher/mocks/interfaces"
@@ -76,7 +76,7 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 
 	pushClient := firebaseMock.NewMockPushClient(ctrl)
 	gcmPusher.MessageHandler = map[string]interfaces.MessageHandler{
-		appName: handler.NewMessageHandler(
+		appName: firebase.NewMessageHandler(
 			appName,
 			pushClient,
 			[]interfaces.FeedbackReporter{},

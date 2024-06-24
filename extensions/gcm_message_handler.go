@@ -98,7 +98,7 @@ func NewGCMMessageHandler(
 
 	h, err := NewGCMMessageHandlerWithClient(game, isProduction, config, l.Logger, pendingMessagesWG, statsReporters, feedbackReporters, nil, rateLimiter)
 	if err != nil {
-		l.WithError(err).Error("Failed to create a new GCM Message handler.")
+		l.WithError(err).Error("Failed to create a new GCM Message firebase.")
 		return nil, err
 	}
 	return h, nil
@@ -139,7 +139,7 @@ func NewGCMMessageHandlerWithClient(
 
 	err := g.configure()
 	if err != nil {
-		l.WithError(err).Error("Failed to create a new GCM Message handler.")
+		l.WithError(err).Error("Failed to create a new GCM Message firebase.")
 		return nil, err
 	}
 	return g, nil
@@ -254,7 +254,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 		g.failuresReceived++
 		gcmResMutex.Unlock()
 		pErr := pushererrors.NewPushError(strings.ToLower(cm.Error), cm.ErrorDescription)
-		statsReporterHandleNotificationFailure(g.StatsReporters, parsedTopic.Game, "gcm", pErr)
+		StatsReporterHandleNotificationFailure(g.StatsReporters, parsedTopic.Game, "gcm", pErr)
 
 		err = pErr
 		switch cm.Error {
@@ -293,14 +293,14 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 				logrus.ErrorKey: cm.Error,
 			}).Debug("received an error")
 		}
-		sendFeedbackErr := sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata, parsedTopic)
+		sendFeedbackErr := SendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata, parsedTopic)
 		if sendFeedbackErr != nil {
 			l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
 		}
 		return err
 	}
 
-	sendFeedbackErr := sendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata, parsedTopic)
+	sendFeedbackErr := SendToFeedbackReporters(g.feedbackReporters, ccsMessageWithMetadata, parsedTopic)
 	if sendFeedbackErr != nil {
 		l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
 	}
@@ -308,7 +308,7 @@ func (g *GCMMessageHandler) handleGCMResponse(cm gcm.CCSMessage) error {
 	gcmResMutex.Lock()
 	g.successesReceived++
 	gcmResMutex.Unlock()
-	statsReporterHandleNotificationSuccess(g.StatsReporters, parsedTopic.Game, "gcm")
+	StatsReporterHandleNotificationSuccess(g.StatsReporters, parsedTopic.Game, "gcm")
 
 	return nil
 }
@@ -362,7 +362,7 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 	before := time.Now()
 	messageID, bytes, err = g.GCMClient.SendXMPP(xmppMessage)
 	elapsed := time.Since(before)
-	statsReporterReportSendNotificationLatency(g.StatsReporters, elapsed, g.game, "gcm", "client", "gcm")
+	StatsReporterReportSendNotificationLatency(g.StatsReporters, elapsed, g.game, "gcm", "client", "gcm")
 
 	if err != nil {
 		<-g.pendingMessages
@@ -392,7 +392,7 @@ func (g *GCMMessageHandler) sendMessage(message interfaces.KafkaMessage) error {
 		g.inflightMessagesMetadataLock.Unlock()
 	}
 
-	statsReporterHandleNotificationSent(g.StatsReporters, message.Game, "gcm")
+	StatsReporterHandleNotificationSent(g.StatsReporters, message.Game, "gcm")
 
 	gcmResMutex.Lock()
 	g.sentMessages++

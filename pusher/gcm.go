@@ -25,13 +25,13 @@ package pusher
 import (
 	"context"
 	"fmt"
+	"github.com/topfreegames/pusher/extensions/firebase/client"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/config"
 	"github.com/topfreegames/pusher/extensions"
-	"github.com/topfreegames/pusher/extensions/client"
-	"github.com/topfreegames/pusher/extensions/handler"
+	"github.com/topfreegames/pusher/extensions/firebase"
 	"github.com/topfreegames/pusher/interfaces"
 )
 
@@ -108,7 +108,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 				return fmt.Errorf("could not create firebase pushClient for all apps: %w", err)
 			}
 			l.Debug("created new message handler with firebase client")
-			g.MessageHandler[app] = handler.NewMessageHandler(
+			g.MessageHandler[app] = firebase.NewMessageHandler(
 				app,
 				pushClient,
 				g.feedbackReporters,

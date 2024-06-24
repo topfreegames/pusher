@@ -63,7 +63,7 @@ var _ = Describe("Common", func() {
 		Describe("Send feedback to reporters", func() {
 			It("should return an error if res cannot be marshaled", func() {
 				badContent := make(chan int)
-				err := sendToFeedbackReporters(feedbackClients, badContent, ParsedTopic{})
+				err := SendToFeedbackReporters(feedbackClients, badContent, ParsedTopic{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("json: unsupported type: chan int"))
 			})

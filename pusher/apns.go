@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/config"
 	"github.com/topfreegames/pusher/extensions"
+	"github.com/topfreegames/pusher/extensions/apns"
 	"github.com/topfreegames/pusher/interfaces"
 )
 
@@ -107,7 +108,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			"topic":       topic,
 		}).Info("configuring apns message handler")
 
-		handler, err := extensions.NewAPNSMessageHandler(
+		handler, err := apns.NewAPNSMessageHandler(
 			authKeyPath,
 			keyID,
 			teamID,
@@ -120,7 +121,6 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			a.StatsReporters,
 			a.feedbackReporters,
 			queue,
-			interfaces.ConsumptionManager(q),
 			extensions.NewRateLimiter(rateLimit, a.ViperConfig, a.StatsReporters, l.Logger),
 		)
 		if err == nil {
@@ -129,11 +129,11 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			for _, statsReporter := range a.StatsReporters {
 				statsReporter.InitializeFailure(k, "apns")
 			}
-			return fmt.Errorf("failed to initialize apns handler for %s", k)
+			return fmt.Errorf("failed to initialize apns firebase for %s", k)
 		}
 	}
 	if len(a.MessageHandler) == 0 {
-		return errors.New("could not initilize any app")
+		return errors.New("could not initialize any app")
 	}
 	return nil
 }

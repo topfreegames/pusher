@@ -20,13 +20,14 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package extensions
+package apns
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/topfreegames/pusher/extensions"
 	"os"
 	"sync"
 	"time"
@@ -72,10 +73,8 @@ type APNSMessageHandler struct {
 	sentMessages                 int64
 	ignoredMessages              int64
 	successesReceived            int64
-	requestsHeap                 *TimeoutHeap
 	CacheCleaningInterval        int
 	IsProduction                 bool
-	consumptionManager           interfaces.ConsumptionManager
 	retryInterval                time.Duration
 	maxRetryAttempts             uint
 	rateLimiter                  interfaces.RateLimiter
@@ -93,31 +92,22 @@ func NewAPNSMessageHandler(
 	statsReporters []interfaces.StatsReporter,
 	feedbackReporters []interfaces.FeedbackReporter,
 	pushQueue interfaces.APNSPushQueue,
-	consumptionManager interfaces.ConsumptionManager,
 	rateLimiter interfaces.RateLimiter,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
-		authKeyPath:                  authKeyPath,
-		keyID:                        keyID,
-		teamID:                       teamID,
-		ApnsTopic:                    topic,
-		appName:                      appName,
-		Config:                       config,
-		failuresReceived:             0,
-		feedbackReporters:            feedbackReporters,
-		IsProduction:                 isProduction,
-		Logger:                       logger,
-		pendingMessagesWG:            pendingMessagesWG,
-		ignoredMessages:              0,
-		inFlightNotificationsMapLock: &sync.Mutex{},
-		responsesReceived:            0,
-		sentMessages:                 0,
-		StatsReporters:               statsReporters,
-		successesReceived:            0,
-		requestsHeap:                 NewTimeoutHeap(config),
-		PushQueue:                    pushQueue,
-		consumptionManager:           consumptionManager,
-		rateLimiter:                  rateLimiter,
+		authKeyPath:       authKeyPath,
+		keyID:             keyID,
+		teamID:            teamID,
+		ApnsTopic:         topic,
+		appName:           appName,
+		Config:            config,
+		feedbackReporters: feedbackReporters,
+		IsProduction:      isProduction,
+		Logger:            logger,
+		pendingMessagesWG: pendingMessagesWG,
+		StatsReporters:    statsReporters,
+		PushQueue:         pushQueue,
+		rateLimiter:       rateLimiter,
 	}
 
 	if a.Logger != nil {
@@ -196,45 +186,26 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 	if err != nil {
 		l.WithError(err).Error("error parsing kafka message")
 		a.waitGroupDone()
-		apnsResMutex.Lock()
-		a.ignoredMessages++
-		apnsResMutex.Unlock()
 		return
 	}
 	l = l.WithField("notification", parsedNotification)
-	n, err := a.buildAndValidateNotification(parsedNotification)
-	if err != nil {
-		l.WithError(err).Error("notification is invalid")
-		a.waitGroupDone()
-		apnsResMutex.Lock()
-		a.ignoredMessages++
-		apnsResMutex.Unlock()
-		return
-	}
 
 	allowed := a.rateLimiter.Allow(ctx, parsedNotification.DeviceToken, a.appName, "apns")
 	if !allowed {
 		statsReporterNotificationRateLimitReached(a.StatsReporters, a.appName, "apns")
-		l.WithField("message", message).Warn("rate limit reached")
-	l = l.WithField("notification", parsedNotification)
+		a.waitGroupDone()
+		return
+	}
+
 	n, err := a.buildAndValidateNotification(parsedNotification)
 	if err != nil {
 		l.WithError(err).Error("notification is invalid")
 		a.waitGroupDone()
-		apnsResMutex.Lock()
-		a.ignoredMessages++
-		apnsResMutex.Unlock()
 		return
 
 	}
 	a.sendNotification(n)
-
-	a.sendNotification(n)
-	statsReporterHandleNotificationSent(a.StatsReporters, a.appName, "apns")
-
-	apnsResMutex.Lock()
-	a.sentMessages++
-	apnsResMutex.Unlock()
+	extensions.StatsReporterHandleNotificationSent(a.StatsReporters, a.appName, "apns")
 }
 
 func (a *APNSMessageHandler) parseKafkaMessage(message interfaces.KafkaMessage) (*pusherAPNSKafkaMessage, error) {
@@ -250,8 +221,8 @@ func (a *APNSMessageHandler) parseKafkaMessage(message interfaces.KafkaMessage) 
 	}
 	notification.Metadata["game"] = a.appName
 	notification.Metadata["deviceToken"] = notification.DeviceToken
-	hostname, err := os.Hostname()
 
+	hostname, err := os.Hostname()
 	if err != nil {
 		a.Logger.WithError(err).Error("error retrieving hostname")
 	} else {
@@ -263,7 +234,7 @@ func (a *APNSMessageHandler) parseKafkaMessage(message interfaces.KafkaMessage) 
 }
 
 func (a *APNSMessageHandler) buildAndValidateNotification(notification *pusherAPNSKafkaMessage) (*structs.ApnsNotification, error) {
-	if notification.PushExpiry > 0 && notification.PushExpiry < MakeTimestamp() {
+	if notification.PushExpiry > 0 && notification.PushExpiry < extensions.MakeTimestamp() {
 		return nil, errors.New("push message has expired")
 	}
 
@@ -287,7 +258,7 @@ func (a *APNSMessageHandler) buildAndValidateNotification(notification *pusherAP
 
 func (a *APNSMessageHandler) sendNotification(notification *structs.ApnsNotification) {
 	before := time.Now()
-	defer statsReporterReportSendNotificationLatency(a.StatsReporters, time.Since(before), a.appName, "apns", "client", "apns")
+	defer extensions.StatsReporterReportSendNotificationLatency(a.StatsReporters, time.Since(before), a.appName, "apns", "client", "apns")
 
 	notification.SendAttempts += 1
 	a.PushQueue.Push(notification)
@@ -321,11 +292,7 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 	}
 	delete(responseWithMetadata.Metadata, "timestamp")
 
-	apnsResMutex.Lock()
-	a.responsesReceived++
-	apnsResMutex.Unlock()
-
-	parsedTopic := ParsedTopic{
+	parsedTopic := extensions.ParsedTopic{
 		Game:     a.appName,
 		Platform: "apns",
 	}
@@ -333,94 +300,30 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 	a.waitGroupDone()
 
 	if responseWithMetadata.Reason == "" {
-		sendFeedbackErr := sendToFeedbackReporters(a.feedbackReporters, responseWithMetadata, parsedTopic)
-		if sendFeedbackErr != nil {
-			l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
-		}
-		apnsResMutex.Lock()
-		a.successesReceived++
-		apnsResMutex.Unlock()
-		statsReporterHandleNotificationSuccess(a.StatsReporters, a.appName, "apns")
+		extensions.StatsReporterHandleNotificationSuccess(a.StatsReporters, a.appName, "apns")
 		return nil
 	}
 
-	apnsResMutex.Lock()
-	a.failuresReceived++
-	apnsResMutex.Unlock()
-
 	pErr := pusher_errors.NewPushError(a.mapErrorReason(responseWithMetadata.Reason), responseWithMetadata.Reason)
 	responseWithMetadata.Err = pErr
-	statsReporterHandleNotificationFailure(a.StatsReporters, a.appName, "apns", pErr)
-	err := pErr
+	l.Info("notification failed")
+	extensions.StatsReporterHandleNotificationFailure(a.StatsReporters, a.appName, "apns", pErr)
+
 	switch responseWithMetadata.Reason {
 	case apns2.ReasonBadDeviceToken, apns2.ReasonUnregistered, apns2.ReasonTopicDisallowed, apns2.ReasonDeviceTokenNotForTopic:
 		// https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html
-		l.WithFields(log.Fields{
-			"category":   "TokenError",
-			log.ErrorKey: responseWithMetadata.Reason,
-		}).Debug("received an error")
-		if responseWithMetadata.Metadata != nil {
-			responseWithMetadata.Metadata["deleteToken"] = true
+		if responseWithMetadata.Metadata == nil {
+			responseWithMetadata.Metadata = map[string]interface{}{}
 		}
-	case apns2.ReasonBadCertificate, apns2.ReasonBadCertificateEnvironment, apns2.ReasonForbidden:
-		l.WithFields(log.Fields{
-			"category":   "CertificateError",
-			log.ErrorKey: responseWithMetadata.Reason,
-		}).Debug("received an error")
-	case apns2.ReasonExpiredProviderToken, apns2.ReasonInvalidProviderToken, apns2.ReasonMissingProviderToken:
-		l.WithFields(log.Fields{
-			"category":   "ProviderTokenError",
-			log.ErrorKey: responseWithMetadata.Reason,
-		}).Debug("received an error")
-	case apns2.ReasonMissingTopic:
-		l.WithFields(log.Fields{
-			"category":   "TopicError",
-			log.ErrorKey: responseWithMetadata.Reason,
-		}).Debug("received an error")
-	case apns2.ReasonIdleTimeout, apns2.ReasonShutdown, apns2.ReasonInternalServerError, apns2.ReasonServiceUnavailable:
-		l.WithFields(log.Fields{
-			"category":   "AppleError",
-			log.ErrorKey: responseWithMetadata.Reason,
-		}).Debug("received an error")
-	default:
-		l.WithFields(log.Fields{
-			"category":   "DefaultError",
-			log.ErrorKey: responseWithMetadata.Reason,
-		}).Debug("received an error")
+		responseWithMetadata.Metadata["deleteToken"] = true
 	}
-	sendFeedbackErr := sendToFeedbackReporters(a.feedbackReporters, responseWithMetadata, parsedTopic)
+
+	sendFeedbackErr := extensions.SendToFeedbackReporters(a.feedbackReporters, responseWithMetadata, parsedTopic)
 	if sendFeedbackErr != nil {
 		l.WithError(sendFeedbackErr).Error("error sending feedback to reporter")
 	}
-	return err
-}
 
-// LogStats from time to time.
-func (a *APNSMessageHandler) LogStats() {
-	l := a.Logger.WithFields(log.Fields{
-		"method":       "apnsMessageHandler.logStats",
-		"interval(ns)": a.LogStatsInterval,
-	})
-
-	ticker := time.NewTicker(a.LogStatsInterval)
-	for range ticker.C {
-		apnsResMutex.Lock()
-		if a.sentMessages > 0 || a.responsesReceived > 0 || a.ignoredMessages > 0 || a.successesReceived > 0 || a.failuresReceived > 0 {
-			l.WithFields(log.Fields{
-				"sentMessages":      a.sentMessages,
-				"ignoredMessages":   a.ignoredMessages,
-				"responsesReceived": a.responsesReceived,
-				"successesReceived": a.successesReceived,
-				"failuresReceived":  a.failuresReceived,
-			}).Info("flushing stats")
-			a.sentMessages = 0
-			a.responsesReceived = 0
-			a.ignoredMessages = 0
-			a.successesReceived = 0
-			a.failuresReceived = 0
-		}
-		apnsResMutex.Unlock()
-	}
+	return nil
 }
 
 func (a *APNSMessageHandler) mapErrorReason(reason string) string {
