@@ -196,6 +196,9 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 	if err != nil {
 		l.WithError(err).Error("error parsing kafka message")
 		a.waitGroupDone()
+		apnsResMutex.Lock()
+		a.ignoredMessages++
+		apnsResMutex.Unlock()
 		return
 	}
 	l = l.WithField("notification", parsedNotification)
@@ -203,6 +206,9 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 	if err != nil {
 		l.WithError(err).Error("notification is invalid")
 		a.waitGroupDone()
+		apnsResMutex.Lock()
+		a.ignoredMessages++
+		apnsResMutex.Unlock()
 		return
 	}
 
