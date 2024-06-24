@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/sideshow/apns2"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"github.com/topfreegames/pusher/config"
 	mocks "github.com/topfreegames/pusher/mocks/interfaces"
@@ -23,9 +22,7 @@ import (
 
 type ApnsE2ETestSuite struct {
 	suite.Suite
-
-	config  *config.Config
-	vConfig *viper.Viper
+	producer *kafka.Producer
 }
 
 func TestApnsE2eSuite(t *testing.T) {
@@ -37,13 +34,31 @@ func (s *ApnsE2ETestSuite) SetupSuite() {
 	if configFile == "" {
 		configFile = "../config/test.yaml"
 	}
-	c, v, err := config.NewConfigAndViper(configFile)
+	c, _, err := config.NewConfigAndViper(configFile)
 	s.Require().NoError(err)
-	s.config = c
-	s.vConfig = v
+
+	producer, err := kafka.NewProducer(&kafka.ConfigMap{
+		"bootstrap.servers": c.Queue.Brokers,
+	})
+	s.Require().NoError(err)
+
+	s.producer = producer
 }
 
-func (s *ApnsE2ETestSuite) setupApnsPusher() (*mocks.MockAPNSPushQueue, *mocks.MockStatsDClient, chan *structs.ResponseWithMetadata) {
+func (s *ApnsE2ETestSuite) setupApnsPusher() (
+	string,
+	*pusher.APNSPusher,
+	*mocks.MockAPNSPushQueue,
+	*mocks.MockStatsDClient,
+	chan *structs.ResponseWithMetadata,
+) {
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../config/test.yaml"
+	}
+	cfg, viper, err := config.NewConfigAndViper(configFile)
+	s.Require().NoError(err)
+
 	responsesChannel := make(chan *structs.ResponseWithMetadata)
 
 	ctrl := gomock.NewController(s.T())
@@ -57,46 +72,40 @@ func (s *ApnsE2ETestSuite) setupApnsPusher() (*mocks.MockAPNSPushQueue, *mocks.M
 	logger := logrus.New()
 	logger.Level = logrus.DebugLevel
 
-	s.assureTopicsExist()
+	appName := strings.Split(uuid.NewString(), "-")[0]
+	cfg.Apns.Apps = appName
+	viper.Set("queue.topics", []string{fmt.Sprintf(apnsTopicTemplate, appName)})
+	viper.Set("queue.group", appName)
+
+	s.assureTopicsExist(appName)
 	time.Sleep(wait)
 
-	apnsPusher, err := pusher.NewAPNSPusher(false, s.vConfig, s.config, logger, statsdClientMock, nil, mockApnsClient)
+	apnsPusher, err := pusher.NewAPNSPusher(false, viper, cfg, logger, statsdClientMock, nil, mockApnsClient)
 	s.Require().NoError(err)
-	ctx := context.Background()
-	go apnsPusher.Start(ctx)
 
-	time.Sleep(wait * 3)
-
-	return mockApnsClient, statsdClientMock, responsesChannel
+	return appName, apnsPusher, mockApnsClient, statsdClientMock, responsesChannel
 }
 
 func (s *ApnsE2ETestSuite) TestSimpleNotification() {
-	appName := strings.Split(uuid.NewString(), "-")[0]
-	s.config.Apns.Apps = appName
-	s.vConfig.Set("queue.topics", []string{fmt.Sprintf(apnsTopicTemplate, appName)})
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	go p.Start(context.Background())
+	time.Sleep(wait)
 
-	mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
-	producer, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": s.config.Queue.Brokers,
-	})
-	s.Require().NoError(err)
-
-	app := s.config.GetApnsAppsArray()[0]
-	topic := "push-" + app + "_apns-single"
+	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token"
 	testDone := make(chan bool)
 	mockApnsClient.EXPECT().
 		Push(gomock.Any()).
-		DoAndReturn(func(notification *apns2.Notification) error {
+		DoAndReturn(func(notification *structs.ApnsNotification) error {
 			s.Equal(token, notification.DeviceToken)
-			s.Equal(s.config.Apns.Certs[app].Topic, notification.Topic)
 
 			go func() {
 				responsesChannel <- &structs.ResponseWithMetadata{
-					ApnsID:      notification.ApnsID,
-					Sent:        true,
-					StatusCode:  200,
-					DeviceToken: token,
+					ApnsID:       notification.ApnsID,
+					Sent:         true,
+					StatusCode:   200,
+					DeviceToken:  token,
+					Notification: notification,
 				}
 			}()
 			return nil
@@ -119,7 +128,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 		Timing("send_notification_latency", gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil)
 
-	err = producer.Produce(&kafka.Message{
+	err := s.producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &topic,
 			Partition: kafka.PartitionAny,
@@ -141,35 +150,27 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 }
 
 func (s *ApnsE2ETestSuite) TestNotificationRetry() {
-	appName := strings.Split(uuid.NewString(), "-")[0]
-	s.config.Apns.Apps = appName
-	s.vConfig.Set("queue.topics", []string{fmt.Sprintf(apnsTopicTemplate, appName)})
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	go p.Start(context.Background())
+	time.Sleep(wait)
 
-	mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
-
-	producer, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": s.config.Queue.Brokers,
-	})
-	s.Require().NoError(err)
-
-	app := s.config.GetApnsAppsArray()[0]
-	topic := "push-" + app + "_apns-single"
+	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token"
 	done := make(chan bool)
 
 	mockApnsClient.EXPECT().
 		Push(gomock.Any()).
-		DoAndReturn(func(notification *apns2.Notification) error {
+		DoAndReturn(func(notification *structs.ApnsNotification) error {
 			s.Equal(token, notification.DeviceToken)
-			s.Equal(s.config.Apns.Certs[app].Topic, notification.Topic)
 
 			go func() {
 				responsesChannel <- &structs.ResponseWithMetadata{
-					ApnsID:      notification.ApnsID,
-					Sent:        true,
-					StatusCode:  429,
-					Reason:      apns2.ReasonTooManyRequests,
-					DeviceToken: token,
+					ApnsID:       notification.ApnsID,
+					Sent:         true,
+					StatusCode:   429,
+					Reason:       apns2.ReasonTooManyRequests,
+					DeviceToken:  token,
+					Notification: notification,
 				}
 			}()
 			return nil
@@ -177,16 +178,16 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 
 	mockApnsClient.EXPECT().
 		Push(gomock.Any()).
-		DoAndReturn(func(notification *apns2.Notification) error {
+		DoAndReturn(func(notification *structs.ApnsNotification) error {
 			s.Equal(token, notification.DeviceToken)
-			s.Equal(s.config.Apns.Certs[app].Topic, notification.Topic)
 
 			go func() {
 				responsesChannel <- &structs.ResponseWithMetadata{
-					ApnsID:      notification.ApnsID,
-					Sent:        true,
-					StatusCode:  200,
-					DeviceToken: token,
+					ApnsID:       notification.ApnsID,
+					Sent:         true,
+					StatusCode:   200,
+					DeviceToken:  token,
+					Notification: notification,
 				}
 			}()
 			return nil
@@ -209,7 +210,73 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 		Times(2).
 		Return(nil)
 
-	err = producer.Produce(&kafka.Message{
+	err := s.producer.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{
+			Topic:     &topic,
+			Partition: kafka.PartitionAny,
+		},
+		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello"}}}`),
+	},
+		nil)
+	s.Require().NoError(err)
+
+	// Give it some time to process the message
+	timer := time.NewTimer(timeout)
+	select {
+	case <-done:
+		// Wait some time to make sure it won't call the push client again after the done signal
+		time.Sleep(wait)
+	case <-timer.C:
+		s.FailNow("Timeout waiting for Handler to report notification sent")
+	}
+}
+
+func (s *ApnsE2ETestSuite) TestRetryLimit() {
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	go p.Start(context.Background())
+	time.Sleep(wait)
+
+	topic := fmt.Sprintf(apnsTopicTemplate, app)
+	token := "token"
+	done := make(chan bool)
+
+	mockApnsClient.EXPECT().
+		Push(gomock.Any()).
+		Times(3).
+		DoAndReturn(func(notification *structs.ApnsNotification) error {
+			s.Equal(token, notification.DeviceToken)
+
+			go func() {
+				responsesChannel <- &structs.ResponseWithMetadata{
+					ApnsID:       notification.ApnsID,
+					Sent:         true,
+					StatusCode:   429,
+					Reason:       apns2.ReasonTooManyRequests,
+					DeviceToken:  token,
+					Notification: notification,
+				}
+			}()
+			return nil
+		})
+
+	statsdClientMock.EXPECT().
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		DoAndReturn(func(string, []string, float64) error {
+			return nil
+		})
+
+	statsdClientMock.EXPECT().
+		Incr("failed", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), "reason:too-many-requests"}, float64(1)).
+		DoAndReturn(func(string, []string, float64) error {
+			done <- true
+			return nil
+		})
+	statsdClientMock.EXPECT().
+		Timing("send_notification_latency", gomock.Any(), gomock.Any(), gomock.Any()).
+		Times(3).
+		Return(nil)
+
+	err := s.producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &topic,
 			Partition: kafka.PartitionAny,
@@ -231,19 +298,11 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 }
 
 func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
-	appName := strings.Split(uuid.NewString(), "-")[0]
-	s.config.Apns.Apps = appName
-	s.vConfig.Set("queue.topics", []string{fmt.Sprintf(apnsTopicTemplate, appName)})
-
-	mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	go p.Start(context.Background())
+	time.Sleep(wait)
 
 	notificationsToSend := 10
-	producer, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": s.config.Queue.Brokers,
-	})
-	s.Require().NoError(err)
-
-	app := s.config.GetApnsAppsArray()[0]
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token"
 	done := make(chan bool)
@@ -251,15 +310,15 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	for i := 0; i < notificationsToSend; i++ {
 		mockApnsClient.EXPECT().
 			Push(gomock.Any()).
-			DoAndReturn(func(notification *apns2.Notification) error {
-				s.Equal(s.config.Apns.Certs[app].Topic, notification.Topic)
+			DoAndReturn(func(notification *structs.ApnsNotification) error {
 
 				go func() {
 					responsesChannel <- &structs.ResponseWithMetadata{
-						ApnsID:      notification.ApnsID,
-						Sent:        true,
-						StatusCode:  200,
-						DeviceToken: notification.DeviceToken,
+						ApnsID:       notification.ApnsID,
+						Sent:         true,
+						StatusCode:   200,
+						DeviceToken:  notification.DeviceToken,
+						Notification: notification,
 					}
 				}()
 				return nil
@@ -287,7 +346,7 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 		Return(nil)
 
 	for i := 0; i < notificationsToSend; i++ {
-		err = producer.Produce(&kafka.Message{
+		err := s.producer.Produce(&kafka.Message{
 			TopicPartition: kafka.TopicPartition{
 				Topic:     &topic,
 				Partition: kafka.PartitionAny,
@@ -310,23 +369,197 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	time.Sleep(wait)
 }
 
-func (s *ApnsE2ETestSuite) assureTopicsExist() {
-	producer, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": s.config.Queue.Brokers,
-	})
-	s.Require().NoError(err)
+func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	c := context.Background()
+	ctx, cancel := context.WithCancel(c)
+	go p.Start(ctx)
+	time.Sleep(wait)
 
-	apnsApps := s.config.GetApnsAppsArray()
-	for _, a := range apnsApps {
-		topic := fmt.Sprintf(apnsTopicTemplate, a)
-		err = producer.Produce(&kafka.Message{
+	notificationsToSend := 30
+
+	topic := fmt.Sprintf(apnsTopicTemplate, app)
+	token := "token"
+	done := make(chan bool)
+
+	for i := 0; i < notificationsToSend; i++ {
+		mockApnsClient.EXPECT().
+			Push(gomock.Any()).
+			DoAndReturn(func(notification *structs.ApnsNotification) error {
+				// Simulate a delay in the push to make sure it will not have finished during the graceful shutdown
+				time.Sleep(50 * time.Millisecond)
+				go func() {
+					responsesChannel <- &structs.ResponseWithMetadata{
+						ApnsID:       notification.ApnsID,
+						Sent:         true,
+						StatusCode:   200,
+						DeviceToken:  notification.DeviceToken,
+						Notification: notification,
+					}
+				}()
+				return nil
+			})
+	}
+
+	statsdClientMock.EXPECT().
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		Times(notificationsToSend).
+		DoAndReturn(func(string, []string, float64) error {
+			return nil
+		})
+
+	statsdClientMock.EXPECT().
+		Incr("ack", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		Times(notificationsToSend).
+		DoAndReturn(func(string, []string, float64) error {
+			return nil
+		})
+
+	statsdClientMock.EXPECT().
+		Timing("send_notification_latency", gomock.Any(), gomock.Any(), gomock.Any()).
+		Times(notificationsToSend).
+		Return(nil)
+
+	for i := 0; i < notificationsToSend; i++ {
+		err := s.producer.Produce(&kafka.Message{
 			TopicPartition: kafka.TopicPartition{
 				Topic:     &topic,
 				Partition: kafka.PartitionAny,
 			},
-			Value: []byte("not a notification"),
+			Value: []byte(`{"deviceToken":"` + fmt.Sprintf("%s%d", token, i) + `", "payload": {"aps": {"alert": "Hello"}}}`),
 		},
 			nil)
 		s.Require().NoError(err)
 	}
+
+	// Give it some time to pull messages from Kafka
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	wg := p.Queue.PendingMessagesWaitGroup()
+	go func() {
+		wg.Wait()
+		done <- true
+	}()
+
+	timer := time.NewTimer(timeout)
+	select {
+	case <-done:
+	case <-timer.C:
+		s.FailNow("Did not consume all messages before exiting")
+		return
+	}
+	// Wait some time to make sure it won't call the push client again after everything is done
+	time.Sleep(wait)
+}
+
+func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExitingWithRetries() {
+
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	go p.Start(ctx)
+	time.Sleep(wait)
+
+	topic := fmt.Sprintf(apnsTopicTemplate, app)
+	token := "token"
+	done := make(chan bool)
+
+	mockApnsClient.EXPECT().
+		Push(gomock.Any()).
+		Times(2).
+		DoAndReturn(func(notification *structs.ApnsNotification) error {
+			s.Equal(token, notification.DeviceToken)
+			// Simulate a delay in the push to make sure it will not have finished during the graceful shutdown
+			time.Sleep(50 * time.Millisecond)
+			go func() {
+				responsesChannel <- &structs.ResponseWithMetadata{
+					ApnsID:       notification.ApnsID,
+					Sent:         true,
+					StatusCode:   429,
+					Reason:       apns2.ReasonTooManyRequests,
+					DeviceToken:  token,
+					Notification: notification,
+				}
+			}()
+			return nil
+		})
+
+	mockApnsClient.EXPECT().
+		Push(gomock.Any()).
+		DoAndReturn(func(notification *structs.ApnsNotification) error {
+			s.Equal(token, notification.DeviceToken)
+			// Simulate a delay in the push to make sure it will not have finished during the graceful shutdown
+			time.Sleep(50 * time.Millisecond)
+			go func() {
+				responsesChannel <- &structs.ResponseWithMetadata{
+					ApnsID:       notification.ApnsID,
+					Sent:         true,
+					StatusCode:   200,
+					DeviceToken:  token,
+					Notification: notification,
+				}
+			}()
+			return nil
+		})
+
+	statsdClientMock.EXPECT().
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		DoAndReturn(func(string, []string, float64) error {
+			return nil
+		})
+
+	statsdClientMock.EXPECT().
+		Incr("ack", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		DoAndReturn(func(string, []string, float64) error {
+			//done <- true
+			return nil
+		})
+	statsdClientMock.EXPECT().
+		Timing("send_notification_latency", gomock.Any(), gomock.Any(), gomock.Any()).
+		Times(3).
+		Return(nil)
+
+	err := s.producer.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{
+			Topic:     &topic,
+			Partition: kafka.PartitionAny,
+		},
+		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello"}}}`),
+	},
+		nil)
+	s.Require().NoError(err)
+
+	// Give it some time to pull messages from Kafka
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	wg := p.Queue.PendingMessagesWaitGroup()
+	go func() {
+		wg.Wait()
+		done <- true
+	}()
+
+	timer := time.NewTimer(timeout)
+	select {
+	case <-done:
+	case <-timer.C:
+		s.FailNow("Timeout waiting for Handler to report notification sent")
+	}
+	// Wait some time to make sure it won't call the push client again after everything is done
+	time.Sleep(wait)
+}
+
+func (s *ApnsE2ETestSuite) assureTopicsExist(app string) {
+
+	topic := fmt.Sprintf(apnsTopicTemplate, app)
+	err := s.producer.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{
+			Topic:     &topic,
+			Partition: kafka.PartitionAny,
+		},
+		Value: []byte("not a notification"),
+	},
+		nil)
+	s.Require().NoError(err)
 }

@@ -75,7 +75,7 @@ func NewGCMPusher(
 		return nil, fmt.Errorf("could not configure feedback reporters: %w", err)
 	}
 
-	q, err := extensions.NewKafkaConsumer(g.ViperConfig, g.Logger, &g.stopChannel)
+	q, err := extensions.NewKafkaConsumer(g.ViperConfig, g.Logger, g.stopChannel)
 	if err != nil {
 		l.WithError(err).Error("could not create kafka consumer")
 		return nil, fmt.Errorf("could not create kafka consumer: %w", err)

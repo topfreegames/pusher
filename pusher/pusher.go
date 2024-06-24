@@ -77,11 +77,12 @@ func (p *Pusher) configureStatsReporters(clientOrNil interfaces.StatsDClient) er
 	return nil
 }
 
-func (p *Pusher) routeMessages(ctx context.Context, msgChan *chan interfaces.KafkaMessage) {
+func (p *Pusher) routeMessages(msgChan *chan interfaces.KafkaMessage) {
 	l := p.Logger.WithFields(logrus.Fields{
 		"method": "routeMessages",
 		"source": "pusher",
 	})
+
 	//nolint[:gosimple]
 	for {
 		select {
@@ -95,16 +96,10 @@ func (p *Pusher) routeMessages(ctx context.Context, msgChan *chan interfaces.Kaf
 			l.Debug("got message from message channel")
 
 			if handler, ok := p.MessageHandler[message.Game]; ok {
-				handler.HandleMessages(ctx, message)
+				handler.HandleMessages(context.Background(), message)
 			} else {
 				l.Error("Game not found")
 			}
-		case <-ctx.Done():
-			l.Info("Context done. Will stop routing messages.")
-			return
-		case <-p.stopChannel:
-			l.Info("Stop channel closed. Will stop routing messages.")
-			return
 		}
 	}
 }
@@ -115,7 +110,7 @@ func (p *Pusher) Start(ctx context.Context) {
 		"method": "start",
 	})
 	l.Info("starting pusher...")
-	go p.routeMessages(ctx, p.Queue.MessagesChannel())
+	go p.routeMessages(p.Queue.MessagesChannel())
 	for _, v := range p.MessageHandler {
 		go v.HandleResponses()
 		go v.LogStats()

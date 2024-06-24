@@ -23,14 +23,13 @@
 package interfaces
 
 import (
-	"github.com/sideshow/apns2"
 	"github.com/topfreegames/pusher/structs"
 )
 
-//APNSPushQueue represents the contract for a APNS Push Queue.
+// APNSPushQueue represents the contract for a APNS Push Queue.
 type APNSPushQueue interface {
 	ResponseChannel() chan *structs.ResponseWithMetadata
 	Configure() error
-	Push(*apns2.Notification)
+	Push(notification *structs.ApnsNotification)
 	Close()
 }

@@ -23,11 +23,10 @@
 package extensions
 
 import (
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-
 	"github.com/sideshow/apns2"
 	token "github.com/sideshow/apns2/token"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/structs"
 )
 
@@ -37,7 +36,7 @@ type APNSPushQueue struct {
 	keyID           string
 	teamID          string
 	token           *token.Token
-	pushChannel     chan *apns2.Notification
+	pushChannel     chan *structs.ApnsNotification
 	responseChannel chan *structs.ResponseWithMetadata
 	Logger          *log.Logger
 	Config          *viper.Viper
@@ -98,7 +97,7 @@ func (p *APNSPushQueue) Configure() error {
 		p.clients <- client
 	}
 	l.Debug("clients configured")
-	p.pushChannel = make(chan *apns2.Notification, pushQueueSize)
+	p.pushChannel = make(chan *structs.ApnsNotification, pushQueueSize)
 	p.responseChannel = make(chan *structs.ResponseWithMetadata, respChannelSize)
 
 	for i := 0; i < p.Config.GetInt("apns.concurrentWorkers"); i++ {
@@ -137,26 +136,28 @@ func (p *APNSPushQueue) pushWorker() {
 		client := <-p.clients
 		p.clients <- client
 
-		res, err := client.Push(notification)
+		apnsRes, err := client.Push(&notification.Notification)
 		if err != nil {
 			l.WithError(err).Error("push error")
 		}
-		if res == nil {
+		if apnsRes == nil {
 			continue
 		}
-		newRes := &structs.ResponseWithMetadata{
-			StatusCode:  res.StatusCode,
-			Reason:      res.Reason,
-			ApnsID:      res.ApnsID,
-			Sent:        res.Sent(),
-			DeviceToken: notification.DeviceToken,
+		res := &structs.ResponseWithMetadata{
+			StatusCode:   apnsRes.StatusCode,
+			Reason:       apnsRes.Reason,
+			ApnsID:       apnsRes.ApnsID,
+			Sent:         apnsRes.Sent(),
+			DeviceToken:  notification.DeviceToken,
+			Notification: notification,
 		}
-		p.responseChannel <- newRes
+
+		p.responseChannel <- res
 	}
 }
 
 // Push sends the notification
-func (p *APNSPushQueue) Push(notification *apns2.Notification) {
+func (p *APNSPushQueue) Push(notification *structs.ApnsNotification) {
 	p.pushChannel <- notification
 }
 
