@@ -375,7 +375,6 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
 	ctx, cancel := context.WithCancel(c)
 	go p.Start(ctx)
 	time.Sleep(wait)
-	time.Sleep(20 * time.Second)
 
 	notificationsToSend := 30
 

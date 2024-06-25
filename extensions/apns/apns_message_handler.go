@@ -41,8 +41,6 @@ import (
 	"github.com/topfreegames/pusher/structs"
 )
 
-var apnsResMutex sync.Mutex
-
 // pusherAPNSKafkaMessage is the notification format received in Kafka messages.
 type pusherAPNSKafkaMessage struct {
 	ApnsID      string
