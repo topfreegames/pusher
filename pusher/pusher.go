@@ -113,7 +113,6 @@ func (p *Pusher) Start(ctx context.Context) {
 	go p.routeMessages(p.Queue.MessagesChannel())
 	for _, v := range p.MessageHandler {
 		go v.HandleResponses()
-		go v.CleanMetadataCache()
 	}
 	//nolint[:errcheck]
 	go p.Queue.ConsumeLoop(ctx)

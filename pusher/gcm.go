@@ -116,6 +116,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 			g.feedbackReporters,
 			g.StatsReporters,
 			extensions.NewRateLimiter(rateLimit, g.ViperConfig, g.StatsReporters, l.Logger),
+			g.Queue.PendingMessagesWaitGroup(),
 			g.Logger,
 			g.Config.GCM.ConcurrentWorkers,
 		)
