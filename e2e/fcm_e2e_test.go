@@ -17,7 +17,6 @@ import (
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/extensions/firebase"
 	"github.com/topfreegames/pusher/interfaces"
-	firebaseMock "github.com/topfreegames/pusher/mocks/firebase"
 	mocks "github.com/topfreegames/pusher/mocks/interfaces"
 	"github.com/topfreegames/pusher/pusher"
 	"go.uber.org/mock/gomock"
@@ -46,7 +45,7 @@ func (s *FcmE2ETestSuite) SetupSuite() {
 	s.vConfig = v
 }
 
-func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPushClient, *mocks.MockStatsDClient) {
+func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*mocks.MockPushClient, *mocks.MockStatsDClient) {
 	ctrl := gomock.NewController(s.T())
 
 	statsdClientMock := mocks.NewMockStatsDClient(ctrl)
@@ -74,7 +73,7 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 	limit := s.vConfig.GetInt("gcm.rateLimit.rpm")
 	rateLimiter := extensions.NewRateLimiter(limit, s.vConfig, []interfaces.StatsReporter{statsReport}, logger)
 
-	pushClient := firebaseMock.NewMockPushClient(ctrl)
+	pushClient := mocks.NewMockPushClient(ctrl)
 	gcmPusher.MessageHandler = map[string]interfaces.MessageHandler{
 		appName: firebase.NewMessageHandler(
 			appName,
@@ -82,6 +81,7 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*firebaseMock.MockPush
 			[]interfaces.FeedbackReporter{},
 			[]interfaces.StatsReporter{statsReport},
 			rateLimiter,
+			nil,
 			logger,
 			s.config.GCM.ConcurrentWorkers,
 		),
