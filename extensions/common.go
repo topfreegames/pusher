@@ -88,6 +88,18 @@ func StatsReporterHandleNotificationFailure(
 	}
 }
 
+func StatsReporterNotificationRateLimitReached(statsReporters []interfaces.StatsReporter, game string, platform string) {
+	for _, statsReporter := range statsReporters {
+		statsReporter.NotificationRateLimitReached(game, platform)
+	}
+}
+
+func StatsReporterNotificationRateLimitFailed(statsReporters []interfaces.StatsReporter, game string, platform string) {
+	for _, statsReporter := range statsReporters {
+		statsReporter.NotificationRateLimitFailed(game, platform)
+	}
+}
+
 func StatsReporterReportSendNotificationLatency(statsReporters []interfaces.StatsReporter, latencyMs time.Duration, game string, platform string, labels ...string) {
 	for _, statsReporter := range statsReporters {
 		statsReporter.ReportSendNotificationLatency(latencyMs, game, platform, labels...)

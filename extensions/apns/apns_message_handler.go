@@ -192,7 +192,7 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 
 	allowed := a.rateLimiter.Allow(ctx, parsedNotification.DeviceToken, a.appName, "apns")
 	if !allowed {
-		statsReporterNotificationRateLimitReached(a.StatsReporters, a.appName, "apns")
+		extensions.StatsReporterNotificationRateLimitReached(a.StatsReporters, a.appName, "apns")
 		a.waitGroupDone()
 		return
 	}

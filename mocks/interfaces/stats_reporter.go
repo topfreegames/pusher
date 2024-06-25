@@ -88,6 +88,30 @@ func (mr *MockStatsReporterMockRecorder) InitializeFailure(game, platform any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitializeFailure", reflect.TypeOf((*MockStatsReporter)(nil).InitializeFailure), game, platform)
 }
 
+// NotificationRateLimitFailed mocks base method.
+func (m *MockStatsReporter) NotificationRateLimitFailed(game, platform string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "NotificationRateLimitFailed", game, platform)
+}
+
+// NotificationRateLimitFailed indicates an expected call of NotificationRateLimitFailed.
+func (mr *MockStatsReporterMockRecorder) NotificationRateLimitFailed(game, platform any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotificationRateLimitFailed", reflect.TypeOf((*MockStatsReporter)(nil).NotificationRateLimitFailed), game, platform)
+}
+
+// NotificationRateLimitReached mocks base method.
+func (m *MockStatsReporter) NotificationRateLimitReached(game, platform string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "NotificationRateLimitReached", game, platform)
+}
+
+// NotificationRateLimitReached indicates an expected call of NotificationRateLimitReached.
+func (mr *MockStatsReporterMockRecorder) NotificationRateLimitReached(game, platform any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotificationRateLimitReached", reflect.TypeOf((*MockStatsReporter)(nil).NotificationRateLimitReached), game, platform)
+}
+
 // ReportFirebaseLatency mocks base method.
 func (m *MockStatsReporter) ReportFirebaseLatency(latencyMs time.Duration, game string, labels ...string) {
 	m.ctrl.T.Helper()

@@ -61,6 +61,7 @@ type ApnsMessageHandlerTestSuite struct {
 	mockApnsPushQueue    *mock_interfaces.MockAPNSPushQueue
 	mockStatsReporter    *mock_interfaces.MockStatsReporter
 	mockFeedbackReporter *mock_interfaces.MockFeedbackReporter
+	mockRateLimiter      *mock_interfaces.MockRateLimiter
 	waitGroup            *sync.WaitGroup
 	handler              *APNSMessageHandler
 }
@@ -93,6 +94,7 @@ func (s *ApnsMessageHandlerTestSuite) SetupTest() {
 	feedbackClients := []interfaces.FeedbackReporter{mockFeedbackReporter}
 
 	mockPushQueue := mock_interfaces.NewMockAPNSPushQueue(ctrl)
+	mockRateLimiter := mock_interfaces.NewMockRateLimiter(ctrl)
 	wg := &sync.WaitGroup{}
 
 	handler, err := NewAPNSMessageHandler(
@@ -108,6 +110,7 @@ func (s *ApnsMessageHandlerTestSuite) SetupTest() {
 		statsClients,
 		feedbackClients,
 		mockPushQueue,
+		mockRateLimiter,
 	)
 	require.NoError(s.T(), err)
 
@@ -116,6 +119,7 @@ func (s *ApnsMessageHandlerTestSuite) SetupTest() {
 	s.mockStatsReporter = mockStatsReporter
 	s.mockFeedbackReporter = mockFeedbackReporter
 	s.waitGroup = wg
+	s.mockRateLimiter = mockRateLimiter
 }
 
 func (s *ApnsMessageHandlerTestSuite) SetupSubTest() {
@@ -142,9 +146,37 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			Value: []byte(fmt.Sprintf(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" } }, "Metadata": { "expiration": 0 }, "push_expiry": %d }`, expiration)),
 		}
 
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), gomock.Any(), s.appName, "apns").
+			Return(true)
+
 		s.waitGroup.Add(1)
 		s.handler.HandleMessages(context.Background(), msg)
 
+		waitWG(s.T(), s.waitGroup)
+	})
+
+	s.Run("should fail if rate limit reached", func() {
+		expiration := time.Now().Add(1 * time.Hour).UnixNano()
+		token := uuid.NewV4().String()
+		msg := interfaces.KafkaMessage{
+			Topic: "push-game_apns",
+			Value: []byte(fmt.Sprintf(`{"DeviceToken": "%s", "Payload": { "aps" : { "alert" : "Hello HTTP/2" } }, "Metadata": { "expiration": 0 }, "push_expiry": %d }`,
+				token,
+				expiration,
+			)),
+		}
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.appName, "apns").
+			Return(false)
+
+		s.mockStatsReporter.EXPECT().
+			NotificationRateLimitReached(s.appName, "apns").
+			Return()
+
+		s.waitGroup.Add(1)
+		s.handler.HandleMessages(context.Background(), msg)
 		waitWG(s.T(), s.waitGroup)
 	})
 
@@ -158,6 +190,10 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 				expiration),
 			),
 		}
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.appName, "apns").
+			Return(true)
 
 		s.mockApnsPushQueue.EXPECT().
 			Push(gomock.Any()).
@@ -182,6 +218,10 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			Topic: "push-game_apns",
 			Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" } }, "Metadata": { "some": "data" }}`),
 		}
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), gomock.Any(), s.appName, "apns").
+			Return(true)
 
 		s.mockApnsPushQueue.EXPECT().
 			Push(gomock.Any()).
@@ -214,6 +254,10 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" }, "M": { "previous": "value" }}, "Metadata": { "some": "data" } }`),
 		}
 
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), gomock.Any(), s.appName, "apns").
+			Return(true)
+
 		s.mockApnsPushQueue.EXPECT().
 			Push(gomock.Any()).
 			Do(func(n *structs.ApnsNotification) {
@@ -245,6 +289,10 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			Topic: "push-game_apns",
 			Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" }}, "Metadata": { "nested": { "some": "data" }}}`),
 		}
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), gomock.Any(), s.appName, "apns").
+			Return(true)
 
 		s.mockApnsPushQueue.EXPECT().
 			Push(gomock.Any()).

@@ -101,41 +101,24 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 		rateLimit := g.ViperConfig.GetInt("gcm.rateLimit.rpm")
 
 		l = l.WithField("app", app)
-		if credentials != "" { // Firebase is configured, use new handler
-			pushClient, err := client.NewFirebaseClient(ctx, credentials, g.Logger)
-			if err != nil {
-				l.WithError(err).Error("could not create firebase client")
-				return fmt.Errorf("could not create firebase pushClient for all apps: %w", err)
-			}
-			l.Debug("created new message handler with firebase client")
-			g.MessageHandler[app] = firebase.NewMessageHandler(
-				app,
-				pushClient,
-				g.feedbackReporters,
-				g.StatsReporters,
-				extensions.NewRateLimiter(rateLimit, g.ViperConfig, g.StatsReporters, l.Logger),
-				g.Logger,
-				g.Config.GCM.ConcurrentWorkers,
-			)
-		} else { // Firebase credentials not yet configured, use legacy XMPP client
-			handler, err := extensions.NewGCMMessageHandler(
-				app,
-				g.IsProduction,
-				g.ViperConfig,
-				g.Logger,
-				g.Queue.PendingMessagesWaitGroup(),
-				g.StatsReporters,
-				g.feedbackReporters,
-				extensions.NewRateLimiter(rateLimit, g.ViperConfig, g.StatsReporters, l.Logger),
-			)
-			if err != nil {
-				l.WithError(err).Error("could not create gcm message handler")
-				return fmt.Errorf("could not create gcm message handler for all apps: %w", err)
-			}
-
-			l.Debug("created legacy message handler with xmpp client")
-			g.MessageHandler[app] = handler
+		if credentials == "" {
+			l.Fatalf("firebase credentials not found for %s", app)
 		}
+		pushClient, err := client.NewFirebaseClient(ctx, credentials, g.Logger)
+		if err != nil {
+			l.WithError(err).Error("could not create firebase client")
+			return fmt.Errorf("could not create firebase pushClient for all apps: %w", err)
+		}
+		l.Debug("created new message handler with firebase client")
+		g.MessageHandler[app] = firebase.NewMessageHandler(
+			app,
+			pushClient,
+			g.feedbackReporters,
+			g.StatsReporters,
+			extensions.NewRateLimiter(rateLimit, g.ViperConfig, g.StatsReporters, l.Logger),
+			g.Logger,
+			g.Config.GCM.ConcurrentWorkers,
+		)
 	}
 	return nil
 }

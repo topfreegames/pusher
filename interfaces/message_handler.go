@@ -28,5 +28,4 @@ import "context"
 type MessageHandler interface {
 	HandleMessages(ctx context.Context, msg KafkaMessage)
 	HandleResponses()
-	CleanMetadataCache()
 }

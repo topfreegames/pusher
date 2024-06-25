@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/topfreegames/pusher/errors"
+	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,11 +16,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"github.com/topfreegames/pusher/config"
-	pushererrors "github.com/topfreegames/pusher/errors"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/interfaces"
-	"github.com/topfreegames/pusher/mocks"
-	mock_interfaces "github.com/topfreegames/pusher/mocks/firebase"
 	"go.uber.org/mock/gomock"
 )
 
@@ -29,11 +29,13 @@ type MessageHandlerTestSuite struct {
 	config  *config.Config
 	game    string
 
-	mockClient        *mock_interfaces.MockPushClient
-	mockStatsdClient  *mocks.StatsDClientMock
-	mockKafkaProducer *mocks.KafkaProducerClientMock
+	mockClient           *mock_interfaces.MockPushClient
+	mockStatsReporter    *mock_interfaces.MockStatsReporter
+	mockFeedbackReporter *mock_interfaces.MockFeedbackReporter
+	mockRateLimiter      *mock_interfaces.MockRateLimiter
+	waitGroup            *sync.WaitGroup
 
-	handler *messageHandler
+	handler interfaces.MessageHandler
 }
 
 func TestMessageHandlerSuite(t *testing.T) {
@@ -59,204 +61,134 @@ func (s *MessageHandlerTestSuite) SetupSubTest() {
 
 	l, _ := test.NewNullLogger()
 
-	s.mockStatsdClient = mocks.NewStatsDClientMock()
-	statsD, err := extensions.NewStatsD(s.vConfig, l, s.mockStatsdClient)
-	s.Require().NoError(err)
-
-	s.mockKafkaProducer = mocks.NewKafkaProducerClientMock()
-	kc, err := extensions.NewKafkaProducer(s.vConfig, l, s.mockKafkaProducer)
-	s.Require().NoError(err)
-
-	statsClients := []interfaces.StatsReporter{statsD}
-	feedbackClients := []interfaces.FeedbackReporter{kc}
-	mockRateLimiter := mocks.NewRateLimiterMock()
+	s.mockStatsReporter = mock_interfaces.NewMockStatsReporter(ctrl)
+	s.mockFeedbackReporter = mock_interfaces.NewMockFeedbackReporter(ctrl)
+	statsClients := []interfaces.StatsReporter{s.mockStatsReporter}
+	feedbackClients := []interfaces.FeedbackReporter{s.mockFeedbackReporter}
+	s.mockRateLimiter = mock_interfaces.NewMockRateLimiter(ctrl)
+	s.waitGroup = &sync.WaitGroup{}
 
 	cfg := newDefaultMessageHandlerConfig()
 	cfg.concurrentResponseHandlers = concurrentWorkers
-	handler := &messageHandler{
-		app:                        s.game,
-		client:                     s.mockClient,
-		feedbackReporters:          feedbackClients,
-		statsReporters:             statsClients,
-		rateLimiter:                mockRateLimiter,
-		logger:                     l,
-		config:                     cfg,
-		sendPushConcurrencyControl: make(chan interface{}, concurrentWorkers),
-		responsesChannel: make(chan struct {
-			msg   interfaces.Message
-			error error
-		}, concurrentWorkers),
-	}
-
-	// sendPushConcurrencyControl is a channel that controls the number of concurrent workers
-	// that are going to be sending messages to FCM. Once the message is sent, the struct is going
-	// to be pushed back into the channel buffer to be reused.
-	for i := 0; i < concurrentWorkers; i++ {
-		handler.sendPushConcurrencyControl <- struct{}{}
-	}
-
-	s.NoError(err)
-	s.Require().NotNil(handler)
+	handler := NewMessageHandler(
+		s.game,
+		s.mockClient,
+		feedbackClients,
+		statsClients,
+		s.mockRateLimiter,
+		s.waitGroup,
+		l,
+		concurrentWorkers,
+	)
 
 	s.handler = handler
 }
 
-func (s *MessageHandlerTestSuite) TestSendMessage() {
-	ctx := context.Background()
-	s.Run("should do nothing for bad message format", func() {
-		message := interfaces.KafkaMessage{
-			Value: []byte("bad message"),
+func (s *MessageHandlerTestSuite) TestHandleMessage() {
+	s.Run("should fail if invalid kafka message format", func() {
+		msg := interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Value: []byte(`not json`),
 		}
-		s.handler.HandleMessages(ctx, message)
 
-		s.handler.statsMutex.Lock()
-		s.Equal(int64(0), s.handler.stats.sent)
-		s.Equal(int64(0), s.handler.stats.failures)
-		s.Equal(int64(0), s.handler.stats.ignored)
-		s.handler.statsMutex.Unlock()
+		s.waitGroup.Add(1)
+		s.handler.HandleMessages(context.Background(), msg)
+
+		waitWG(s.T(), s.waitGroup)
 	})
 
-	s.Run("should ignore message if it has expired", func() {
+	s.Run("should fail if notification expired", func() {
 		message := interfaces.Message{}
-		km := &extensions.KafkaGCMMessage{
+		km := &kafkaFCMMessage{
 			Message:    message,
 			PushExpiry: extensions.MakeTimestamp() - time.Hour.Milliseconds(),
 		}
 		bytes, err := json.Marshal(km)
 		s.Require().NoError(err)
 
-		s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes})
-		s.handler.statsMutex.Lock()
-		s.Equal(int64(1), s.handler.stats.ignored)
-		s.handler.statsMutex.Unlock()
+		s.waitGroup.Add(1)
+		s.handler.HandleMessages(context.Background(), interfaces.KafkaMessage{Value: bytes})
+
+		waitWG(s.T(), s.waitGroup)
 	})
 
-	s.Run("should report failure if cannot send message", func() {
-		ttl := uint(0)
-		token := "token"
-		metadata := map[string]interface{}{
-			"some":     "metadata",
-			"game":     "game",
-			"platform": "gcm",
-		}
-		km := &extensions.KafkaGCMMessage{
-			Message: interfaces.Message{
-				TimeToLive:               &ttl,
-				DeliveryReceiptRequested: false,
-				DryRun:                   true,
-				To:                       token,
-				Data: map[string]interface{}{
-					"title": "notification",
-				},
-			},
-			Metadata:   metadata,
-			PushExpiry: extensions.MakeTimestamp() + int64(1000000),
+	s.Run("should fail if rate limit reached", func() {
+		expiration := time.Now().Add(1 * time.Hour).UnixNano()
+		token := uuid.NewString()
+		msg := interfaces.KafkaMessage{
+			Topic: "push-game_gcm",
+			Game:  s.game,
+			Value: []byte(fmt.Sprintf(`{"To": "%s", "Payload": { "aps" : { "alert" : "Hello HTTP/2" } }, "Metadata": { "expiration": 0 }, "push_expiry": %d }`,
+				token,
+				expiration,
+			)),
 		}
 
-		expected := interfaces.Message{
-			TimeToLive:               &ttl,
-			DeliveryReceiptRequested: false,
-			DryRun:                   true,
-			To:                       token,
-			Data: map[string]interface{}{
-				"title":    "notification",
-				"some":     "metadata",
-				"game":     "game",
-				"platform": "gcm",
-			},
-		}
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.game, "gcm").
+			Return(false)
 
-		bytes, err := json.Marshal(km)
-		s.Require().NoError(err)
+		s.mockStatsReporter.EXPECT().
+			NotificationRateLimitReached(s.game, "gcm").
+			Return()
 
-		s.mockClient.EXPECT().
-			SendPush(gomock.Any(), expected).
-			Return(pushererrors.NewPushError("INVALID_TOKEN", "invalid token"))
-
-		s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes})
-		s.handler.HandleResponses()
-
-		select {
-		case m := <-s.mockKafkaProducer.ProduceChannel():
-			val := &FeedbackResponse{}
-			err = json.Unmarshal(m.Value, val)
-			s.NoError(err)
-			s.Equal("INVALID_TOKEN", val.Error)
-		case <-time.After(time.Second * 1):
-			s.Fail("did not send feedback to kafka")
-		}
-
-		s.handler.statsMutex.Lock()
-		s.Equal(int64(1), s.handler.stats.failures)
-		s.handler.statsMutex.Unlock()
-
-		s.Equal(int64(1), s.mockStatsdClient.Counts["failed"])
+		s.waitGroup.Add(1)
+		s.handler.HandleMessages(context.Background(), msg)
+		waitWG(s.T(), s.waitGroup)
 	})
 
-	s.Run("should report sent and success if message was sent", func() {
-		ttl := uint(0)
-		token := "token"
-		metadata := map[string]interface{}{
-			"some":     "metadata",
-			"game":     "game",
-			"platform": "gcm",
-		}
-		km := &extensions.KafkaGCMMessage{
+	s.Run("should succeed", func() {
+		token := uuid.NewString()
+		msgValue := kafkaFCMMessage{
 			Message: interfaces.Message{
-				TimeToLive:               &ttl,
-				DeliveryReceiptRequested: false,
-				DryRun:                   true,
-				To:                       token,
+				To: token,
 				Data: map[string]interface{}{
 					"title": "notification",
+					"body":  "body",
 				},
 			},
-			Metadata:   metadata,
-			PushExpiry: extensions.MakeTimestamp() + int64(1000000),
-		}
-
-		expected := interfaces.Message{
-			TimeToLive:               &ttl,
-			DeliveryReceiptRequested: false,
-			DryRun:                   true,
-			To:                       token,
-			Data: map[string]interface{}{
-				"title":    "notification",
-				"some":     "metadata",
-				"game":     "game",
-				"platform": "gcm",
+			Metadata: map[string]interface{}{
+				"some": "metadata",
 			},
 		}
-
-		bytes, err := json.Marshal(km)
+		bytes, err := json.Marshal(msgValue)
+		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
 		s.Require().NoError(err)
 
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.game, "gcm").
+			Return(true)
+
+		done := make(chan struct{})
+
 		s.mockClient.EXPECT().
-			SendPush(gomock.Any(), expected).
-			Return(nil)
+			SendPush(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, msg interfaces.Message) {
+				s.Equal(token, msg.To)
+				done <- struct{}{}
+			})
 
-		s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes})
-		s.handler.HandleResponses()
+		s.mockStatsReporter.EXPECT().
+			ReportSendNotificationLatency(gomock.Any(), s.game, "gcm", gomock.Any()).Return()
 
+		s.mockStatsReporter.EXPECT().
+			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSent(s.game, "gcm").
+			Return()
+
+		s.handler.HandleMessages(context.Background(), msg)
+		timeout := time.NewTimer(10 * time.Millisecond)
 		select {
-		case m := <-s.mockKafkaProducer.ProduceChannel():
-			val := &FeedbackResponse{}
-			err = json.Unmarshal(m.Value, val)
-			s.NoError(err)
-			s.Empty(val.Error)
-		case <-time.After(time.Second * 1):
-			s.Fail("did not send feedback to kafka")
+		case <-done:
+		case <-timeout.C:
+			s.Fail("timed out waiting for message to be sent")
 		}
-
-		s.handler.statsMutex.Lock()
-		s.Equal(int64(1), s.handler.stats.sent)
-		s.handler.statsMutex.Unlock()
-		s.Equal(int64(1), s.mockStatsdClient.Counts["sent"])
-		s.Equal(int64(1), s.mockStatsdClient.Counts["ack"])
 	})
 
 	s.Run("should not lock sendPushConcurrencyControl when sending multiple messages", func() {
-		newMessage := func() extensions.KafkaGCMMessage {
+		newMessage := func() kafkaFCMMessage {
 			ttl := uint(0)
 			token := uuid.NewString()
 			title := fmt.Sprintf("title - %s", uuid.NewString())
@@ -265,8 +197,7 @@ func (s *MessageHandlerTestSuite) TestSendMessage() {
 				"game":     "game",
 				"platform": "gcm",
 			}
-
-			km := extensions.KafkaGCMMessage{
+			km := kafkaFCMMessage{
 				Message: interfaces.Message{
 					TimeToLive:               &ttl,
 					DeliveryReceiptRequested: false,
@@ -279,45 +210,201 @@ func (s *MessageHandlerTestSuite) TestSendMessage() {
 				Metadata:   metadata,
 				PushExpiry: extensions.MakeTimestamp() + int64(1000000),
 			}
-
 			return km
 		}
-
 		go s.handler.HandleResponses()
+		qtyMsgs := 100
 
-		qtyMsgs := 20
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), gomock.Any(), s.game, "gcm").
+			Return(true).
+			Times(qtyMsgs)
 
 		s.mockClient.EXPECT().
 			SendPush(gomock.Any(), gomock.Any()).
 			Return(nil).
 			Times(qtyMsgs)
 
+		s.mockStatsReporter.EXPECT().
+			ReportSendNotificationLatency(gomock.Any(), s.game, "gcm", gomock.Any()).
+			Times(qtyMsgs).
+			Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSent(s.game, "gcm").
+			Times(qtyMsgs).
+			Return()
+
+		done := make(chan struct{})
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSuccess(s.game, "gcm").
+			Times(qtyMsgs).
+			Do(func(game, platform string) {
+				done <- struct{}{}
+			})
+
+		s.mockStatsReporter.EXPECT().
+			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return().
+			Times(qtyMsgs)
+
+		ctx := context.Background()
 		for i := 0; i < qtyMsgs; i++ {
 			km := newMessage()
 			bytes, err := json.Marshal(km)
 			s.Require().NoError(err)
-
-			go s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes})
+			s.waitGroup.Add(1)
+			go s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes, Game: s.game})
 		}
 
+		timeout := time.NewTimer(50 * time.Millisecond)
 		for i := 0; i < qtyMsgs; i++ {
 			select {
-			case m := <-s.mockKafkaProducer.ProduceChannel():
-				val := &FeedbackResponse{}
-				err := json.Unmarshal(m.Value, val)
-				s.NoError(err)
-				s.Empty(val.Error)
-			case <-time.After(time.Second * 1):
-				s.Fail("did not send feedback to kafka")
+			case <-done:
+			case <-timeout.C:
+				s.FailNow("timed out waiting for message to be sent")
 			}
 		}
-
-		time.Sleep(2 * time.Second)
-
-		s.handler.statsMutex.Lock()
-		s.Equal(int64(20), s.handler.stats.sent)
-		s.handler.statsMutex.Unlock()
-		s.Equal(int64(20), s.mockStatsdClient.Counts["sent"])
-		s.Equal(int64(20), s.mockStatsdClient.Counts["ack"])
 	})
+}
+
+func (s *MessageHandlerTestSuite) TestHandleResponse() {
+	s.Run("should send metric and feedback on failure", func() {
+		token := uuid.NewString()
+		msgValue := kafkaFCMMessage{
+			Message: interfaces.Message{
+				To: token,
+				Data: map[string]interface{}{
+					"title": "notification",
+					"body":  "body",
+				},
+			},
+			Metadata: map[string]interface{}{
+				"some": "metadata",
+			},
+		}
+		bytes, err := json.Marshal(msgValue)
+		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
+		s.Require().NoError(err)
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.game, "gcm").
+			Return(true)
+
+		done := make(chan struct{})
+
+		s.mockClient.EXPECT().
+			SendPush(gomock.Any(), gomock.Any()).
+			Return(errors.NewPushError("DEVICE_UNREGISTERED", "device unregistered"))
+
+		s.mockStatsReporter.EXPECT().
+			ReportSendNotificationLatency(gomock.Any(), s.game, "gcm", gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSent(s.game, "gcm").
+			Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationFailure(s.game, "gcm", gomock.Any())
+
+		s.mockFeedbackReporter.EXPECT().
+			SendFeedback(s.game, "gcm", gomock.Any()).
+			DoAndReturn(func(game, platform string, feedback []byte) {
+				obj := &FeedbackResponse{}
+				err := json.Unmarshal(feedback, obj)
+				s.NoError(err)
+				s.Equal(token, obj.From)
+				done <- struct{}{}
+			})
+
+		go s.handler.HandleResponses()
+
+		s.waitGroup.Add(1)
+
+		s.handler.HandleMessages(context.Background(), msg)
+
+		timeout := time.NewTimer(10 * time.Millisecond)
+		select {
+		case <-done:
+		case <-timeout.C:
+			s.Fail("timed out waiting for message to be sent")
+		}
+	})
+
+	s.Run("should send ack metric on success", func() {
+		token := uuid.NewString()
+		msgValue := kafkaFCMMessage{
+			Message: interfaces.Message{
+				To: token,
+				Data: map[string]interface{}{
+					"title": "notification",
+					"body":  "body",
+				},
+			},
+			Metadata: map[string]interface{}{
+				"some": "metadata",
+			},
+		}
+		bytes, err := json.Marshal(msgValue)
+		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
+		s.Require().NoError(err)
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.game, "gcm").
+			Return(true)
+
+		done := make(chan struct{})
+
+		s.mockClient.EXPECT().
+			SendPush(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, msg interfaces.Message) {
+				s.Equal(token, msg.To)
+			})
+
+		s.mockStatsReporter.EXPECT().
+			ReportSendNotificationLatency(gomock.Any(), s.game, "gcm", gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSent(s.game, "gcm").
+			Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSuccess(s.game, "gcm").
+			Do(func(game, platform string) {
+				done <- struct{}{}
+			})
+
+		go s.handler.HandleResponses()
+
+		s.waitGroup.Add(1)
+
+		s.handler.HandleMessages(context.Background(), msg)
+
+		timeout := time.NewTimer(10 * time.Millisecond)
+		select {
+		case <-done:
+		case <-timeout.C:
+			s.Fail("timed out waiting for message to be sent")
+		}
+	})
+}
+
+func waitWG(t *testing.T, wg *sync.WaitGroup) {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	timeout := time.After(10 * time.Millisecond)
+	select {
+	case <-done:
+	case <-timeout:
+		t.Fatal("timed out waiting for waitgroup")
+	}
 }

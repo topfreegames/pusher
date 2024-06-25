@@ -17,10 +17,9 @@ type messageHandler struct {
 	logger                     *logrus.Logger
 	client                     interfaces.PushClient
 	config                     messageHandlerConfig
-	stats                      messagesStats
-	statsMutex                 sync.Mutex
 	feedbackReporters          []interfaces.FeedbackReporter
 	statsReporters             []interfaces.StatsReporter
+	pendingMessagesWaitGroup   *sync.WaitGroup
 	rateLimiter                interfaces.RateLimiter
 	statsDClient               extensions.StatsD
 	sendPushConcurrencyControl chan interface{}
@@ -28,6 +27,12 @@ type messageHandler struct {
 		msg   interfaces.Message
 		error error
 	}
+}
+
+type kafkaFCMMessage struct {
+	interfaces.Message
+	Metadata   map[string]interface{} `json:"metadata,omitempty"`
+	PushExpiry int64                  `json:"push_expiry,omitempty"`
 }
 
 var _ interfaces.MessageHandler = &messageHandler{}
@@ -38,6 +43,7 @@ func NewMessageHandler(
 	feedbackReporters []interfaces.FeedbackReporter,
 	statsReporters []interfaces.StatsReporter,
 	rateLimiter interfaces.RateLimiter,
+	pendingMessagesWaitGroup *sync.WaitGroup,
 	logger *logrus.Logger,
 	concurrentWorkers int,
 ) interfaces.MessageHandler {
@@ -54,6 +60,7 @@ func NewMessageHandler(
 		feedbackReporters:          feedbackReporters,
 		statsReporters:             statsReporters,
 		rateLimiter:                rateLimiter,
+		pendingMessagesWaitGroup:   pendingMessagesWaitGroup,
 		logger:                     l.Logger,
 		config:                     cfg,
 		sendPushConcurrencyControl: make(chan interface{}, concurrentWorkers),
@@ -74,26 +81,24 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 	l := h.logger.WithFields(logrus.Fields{
 		"method": "HandleMessages",
 	})
-	km := extensions.KafkaGCMMessage{}
+	km := kafkaFCMMessage{}
 	err := json.Unmarshal(msg.Value, &km)
 	if err != nil {
 		l.WithError(err).Error("Error unmarshalling message.")
+		h.waitGroupDone()
 		return
 	}
 
 	if km.PushExpiry > 0 && km.PushExpiry < extensions.MakeTimestamp() {
 		l.Warnf("ignoring push message because it has expired: %s", km.Data)
-
-		h.statsMutex.Lock()
-		h.stats.ignored++
-		h.statsMutex.Unlock()
-
+		h.waitGroupDone()
 		return
 	}
 
 	allowed := h.rateLimiter.Allow(ctx, km.To, msg.Game, "gcm")
 	if !allowed {
 		h.reportRateLimitReached(msg.Game)
+		h.waitGroupDone()
 		l.WithField("message", msg).Warn("rate limit reached")
 		return
 	}
@@ -146,40 +151,14 @@ func (h *messageHandler) HandleResponses() {
 			for {
 				response := <-h.responsesChannel
 				if response.error != nil {
-					h.handleNotificationFailure(response.error)
+					h.handleNotificationFailure(response.msg, response.error)
 				} else {
 					h.handleNotificationAck()
 				}
+				h.waitGroupDone()
 			}
 		}()
 	}
-}
-
-func (h *messageHandler) LogStats() {
-	l := h.logger.WithFields(logrus.Fields{
-		"method":       "logStats",
-		"interval(ns)": h.config.statusLogInterval.Nanoseconds(),
-	})
-
-	ticker := time.NewTicker(h.config.statusLogInterval)
-	for range ticker.C {
-		h.statsMutex.Lock()
-		if h.stats.sent > 0 || h.stats.ignored > 0 || h.stats.failures > 0 {
-			l.WithFields(logrus.Fields{
-				"sentMessages":     h.stats.sent,
-				"ignoredMessages":  h.stats.ignored,
-				"failuresReceived": h.stats.failures,
-			}).Info("flushing stats")
-
-			h.stats.sent = 0
-			h.stats.ignored = 0
-			h.stats.failures = 0
-		}
-		h.statsMutex.Unlock()
-	}
-}
-
-func (h *messageHandler) CleanMetadataCache() {
 }
 
 func (h *messageHandler) sendToFeedbackReporters(res interface{}) error {
@@ -205,19 +184,9 @@ func (h *messageHandler) handleNotificationAck() {
 	for _, statsReporter := range h.statsReporters {
 		statsReporter.HandleNotificationSuccess(h.app, "gcm")
 	}
-
-	for _, feedbackReporter := range h.feedbackReporters {
-		r := &FeedbackResponse{}
-		b, _ := json.Marshal(r)
-		feedbackReporter.SendFeedback(h.app, "gcm", b)
-	}
-
-	h.statsMutex.Lock()
-	h.stats.sent++
-	h.statsMutex.Unlock()
 }
 
-func (h *messageHandler) handleNotificationFailure(err error) {
+func (h *messageHandler) handleNotificationFailure(message interfaces.Message, err error) {
 	pushError := translateToPushError(err)
 	for _, statsReporter := range h.statsReporters {
 		statsReporter.HandleNotificationFailure(h.app, "gcm", pushError)
@@ -226,13 +195,11 @@ func (h *messageHandler) handleNotificationFailure(err error) {
 		feedback := &FeedbackResponse{
 			Error:            pushError.Key,
 			ErrorDescription: pushError.Description,
+			From:             message.To,
 		}
 		b, _ := json.Marshal(feedback)
 		feedbackReporter.SendFeedback(h.app, "gcm", b)
 	}
-	h.statsMutex.Lock()
-	h.stats.failures++
-	h.statsMutex.Unlock()
 }
 
 func (h *messageHandler) reportLatency(latency time.Duration) {
@@ -258,4 +225,10 @@ func translateToPushError(err error) *pushErrors.PushError {
 		return pusherError
 	}
 	return pushErrors.NewPushError("unknown", err.Error())
+}
+
+func (h *messageHandler) waitGroupDone() {
+	if h.pendingMessagesWaitGroup != nil {
+		h.pendingMessagesWaitGroup.Done()
+	}
 }
