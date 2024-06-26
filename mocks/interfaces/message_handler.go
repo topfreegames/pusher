@@ -75,15 +75,3 @@ func (mr *MockMessageHandlerMockRecorder) HandleResponses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleResponses", reflect.TypeOf((*MockMessageHandler)(nil).HandleResponses))
 }
-
-// LogStats mocks base method.
-func (m *MockMessageHandler) LogStats() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "LogStats")
-}
-
-// LogStats indicates an expected call of LogStats.
-func (mr *MockMessageHandlerMockRecorder) LogStats() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogStats", reflect.TypeOf((*MockMessageHandler)(nil).LogStats))
-}

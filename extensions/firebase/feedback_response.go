@@ -1,4 +1,4 @@
-package handler
+package firebase
 
 // FeedbackResponse struct is sent to feedback reporters
 // in order to keep the format expected by it

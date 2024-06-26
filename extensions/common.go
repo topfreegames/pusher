@@ -52,7 +52,7 @@ func GetGameAndPlatformFromTopic(topic string) ParsedTopic {
 	return getGameAndPlatformFromTopic(topic)
 }
 
-func sendToFeedbackReporters(feedbackReporters []interfaces.FeedbackReporter, res interface{}, topic ParsedTopic) error {
+func SendToFeedbackReporters(feedbackReporters []interfaces.FeedbackReporter, res interface{}, topic ParsedTopic) error {
 	jres, err := json.Marshal(res)
 	if err != nil {
 		return err
@@ -65,19 +65,19 @@ func sendToFeedbackReporters(feedbackReporters []interfaces.FeedbackReporter, re
 	return nil
 }
 
-func statsReporterHandleNotificationSent(statsReporters []interfaces.StatsReporter, game string, platform string) {
+func StatsReporterHandleNotificationSent(statsReporters []interfaces.StatsReporter, game string, platform string) {
 	for _, statsReporter := range statsReporters {
 		statsReporter.HandleNotificationSent(game, platform)
 	}
 }
 
-func statsReporterHandleNotificationSuccess(statsReporters []interfaces.StatsReporter, game string, platform string) {
+func StatsReporterHandleNotificationSuccess(statsReporters []interfaces.StatsReporter, game string, platform string) {
 	for _, statsReporter := range statsReporters {
 		statsReporter.HandleNotificationSuccess(game, platform)
 	}
 }
 
-func statsReporterHandleNotificationFailure(
+func StatsReporterHandleNotificationFailure(
 	statsReporters []interfaces.StatsReporter,
 	game string,
 	platform string,
@@ -88,19 +88,19 @@ func statsReporterHandleNotificationFailure(
 	}
 }
 
-func statsReporterNotificationRateLimitReached(statsReporters []interfaces.StatsReporter, game string, platform string) {
+func StatsReporterNotificationRateLimitReached(statsReporters []interfaces.StatsReporter, game string, platform string) {
 	for _, statsReporter := range statsReporters {
 		statsReporter.NotificationRateLimitReached(game, platform)
 	}
 }
 
-func statsReporterNotificationRateLimitFailed(statsReporters []interfaces.StatsReporter, game string, platform string) {
+func StatsReporterNotificationRateLimitFailed(statsReporters []interfaces.StatsReporter, game string, platform string) {
 	for _, statsReporter := range statsReporters {
 		statsReporter.NotificationRateLimitFailed(game, platform)
 	}
 }
 
-func statsReporterReportSendNotificationLatency(statsReporters []interfaces.StatsReporter, latencyMs time.Duration, game string, platform string, labels ...string) {
+func StatsReporterReportSendNotificationLatency(statsReporters []interfaces.StatsReporter, latencyMs time.Duration, game string, platform string, labels ...string) {
 	for _, statsReporter := range statsReporters {
 		statsReporter.ReportSendNotificationLatency(latencyMs, game, platform, labels...)
 	}

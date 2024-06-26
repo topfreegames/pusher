@@ -66,7 +66,7 @@ func (r rateLimiter) Allow(ctx context.Context, device string, game string, plat
 	if err != nil && !errors.Is(err, redis.Nil) {
 		// Something went wrong, return true to avoid blocking notifications.
 		l.WithError(err).Error("could not get current rate in redis")
-		statsReporterNotificationRateLimitFailed(r.statsReporters, game, platform)
+		StatsReporterNotificationRateLimitFailed(r.statsReporters, game, platform)
 		return true
 	}
 	if errors.Is(err, redis.Nil) {
@@ -78,7 +78,7 @@ func (r rateLimiter) Allow(ctx context.Context, device string, game string, plat
 	if err != nil {
 		// Something went wrong, return true to avoid blocking notifications.
 		l.WithError(err).Error("current rate is invalid")
-		statsReporterNotificationRateLimitFailed(r.statsReporters, game, platform)
+		StatsReporterNotificationRateLimitFailed(r.statsReporters, game, platform)
 		return true
 	}
 
@@ -94,7 +94,7 @@ func (r rateLimiter) Allow(ctx context.Context, device string, game string, plat
 	if err != nil {
 		// Allow the operation even if the transaction fails, to avoid blocking notifications.
 		l.WithError(err).Error("increment to current rate failed")
-		statsReporterNotificationRateLimitFailed(r.statsReporters, game, platform)
+		StatsReporterNotificationRateLimitFailed(r.statsReporters, game, platform)
 	}
 
 	l.WithField("currentRate", current).Debug("current rate allows message")
