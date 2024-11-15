@@ -118,7 +118,7 @@ func (p *Pusher) Start(ctx context.Context) {
 	go p.Queue.ConsumeLoop(ctx)
 	go p.reportGoStats()
 
-	sigchan := make(chan os.Signal)
+	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	select {

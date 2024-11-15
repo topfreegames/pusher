@@ -138,7 +138,7 @@ func (l *Listener) Start() {
 	statsReporterReportMetricCount(l.StatsReporters,
 		"feedback_listener_restart", 1, "", "")
 
-	sigchan := make(chan os.Signal)
+	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	flushTicker := time.NewTicker(l.statsFlushTime)
