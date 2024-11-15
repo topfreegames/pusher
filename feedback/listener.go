@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -132,6 +133,8 @@ func (l *Listener) Start() {
 	l.Broker.Start()
 	l.InvalidTokenHandler.Start()
 
+	go l.reportGoStats()
+
 	statsReporterReportMetricCount(l.StatsReporters,
 		"feedback_listener_restart", 1, "", "")
 
@@ -170,6 +173,23 @@ func (l *Listener) flushStats() {
 	l.InvalidTokenHandler.BufferLock.Unlock()
 	statsReporterReportMetricGauge(l.StatsReporters,
 		"invalid_token_handler_buffer", bufferSize, "", "")
+}
+
+func (l *Listener) reportGoStats() {
+	for {
+		num := runtime.NumGoroutine()
+		m := &runtime.MemStats{}
+		runtime.ReadMemStats(m)
+		gcTime := m.PauseNs[(m.NumGC+255)%256]
+		for _, statsReporter := range l.StatsReporters {
+			statsReporter.ReportGoStats(
+				num,
+				m.Alloc, m.HeapObjects, m.NextGC,
+				gcTime,
+			)
+		}
+		time.Sleep(30 * time.Second)
+	}
 }
 
 // Cleanup ends the Listener execution
