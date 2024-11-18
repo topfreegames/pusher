@@ -78,6 +78,9 @@ func NewListener(
 func (l *Listener) loadConfigurationDefaults() {
 	l.Config.SetDefault("feedbackListeners.gracefulShutdownTimeout", 1)
 	l.Config.SetDefault("stats.flush.s", 5)
+
+	l.Config.SetDefault("pprof.host", "127.0.0.1")
+	l.Config.SetDefault("pprof.port", 8081)
 }
 
 func (l *Listener) configure(statsdClientrOrNil interfaces.StatsDClient) error {
@@ -251,8 +254,9 @@ func (l *Listener) StartPprofServer() error {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
+	addr := fmt.Sprintf("%s:%d", l.Config.GetString("pprof.host"), l.Config.GetInt("pprof.port"))
 	server := &http.Server{
-		Addr:    "127.0.0.1:8081",
+		Addr:    addr,
 		Handler: mux,
 	}
 
