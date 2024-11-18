@@ -25,6 +25,8 @@ package feedback
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -128,6 +130,8 @@ func (l *Listener) Start() {
 		"method", "start",
 	)
 	log.Info("starting the feedback listener...")
+
+	go l.StartPprofServer()
 
 	go l.Queue.ConsumeLoop(context.Background())
 	l.Broker.Start()
@@ -236,4 +240,21 @@ func WaitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	case <-time.After(timeout):
 		return true // timed out
 	}
+}
+
+func (l *Listener) StartPprofServer() error {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+	server := &http.Server{
+		Addr:    "127.0.0.1:8081",
+		Handler: mux,
+	}
+
+	return server.ListenAndServe()
 }
