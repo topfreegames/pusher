@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
+
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
 	"github.com/sirupsen/logrus"
 	"github.com/topfreegames/pusher/interfaces"
 	"google.golang.org/api/option"
-	"time"
 )
 
 type firebaseClientImpl struct {
@@ -122,12 +123,13 @@ func toFirebaseMessage(message interfaces.Message) messaging.Message {
 		if message.Notification.TitleLocArgs != "" {
 			firebaseMessage.Android.Notification.TitleLocArgs = []string{message.Notification.TitleLocArgs}
 		}
-	}
 
-	if message.TimeToLive != nil {
-		secs := int(*message.TimeToLive)
-		ttl := time.Duration(secs) * time.Second
-		firebaseMessage.Android.TTL = &ttl
+		if message.TimeToLive != nil {
+			secs := int(*message.TimeToLive)
+			ttl := time.Duration(secs) * time.Second
+			// Add TTL only if there is a Notification, otherwise fails with nil pointer
+			firebaseMessage.Android.TTL = &ttl
+		}
 	}
 
 	return firebaseMessage
