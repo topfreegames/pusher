@@ -54,6 +54,9 @@ stats:
     host: "statsd:8125"
     prefix: "push"
     flushIntervalMs: 5000
+pprof:
+  host: "127.0.0.1"
+  port: 8081
 invalidToken:
   handlers:
     - pg

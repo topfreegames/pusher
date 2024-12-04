@@ -55,6 +55,9 @@ stats:
     host: "localhost:8125"
     prefix: "push"
     buflen: 1
+pprof:
+  host: "127.0.0.1"
+  port: 8081
 invalidToken:
   pg:
     table: "test_apns"
