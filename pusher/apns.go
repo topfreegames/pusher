@@ -88,9 +88,16 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 		a.Logger,
 		a.stopChannel,
 	)
+
 	if err != nil {
 		return err
 	}
+
+	for _, a := range a.Config.GetApnsAppsArray() {
+		q.Topics = append(q.Topics, fmt.Sprintf("push-%s_apns-single", a))
+		q.Topics = append(q.Topics, fmt.Sprintf("push-%s_apns-massive", a))
+	}
+
 	a.MessageHandler = make(map[string]interfaces.MessageHandler)
 	a.Queue = q
 	l.Info("Configuring messageHandler")
