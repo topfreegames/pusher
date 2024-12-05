@@ -81,6 +81,10 @@ func NewGCMPusher(
 		return nil, fmt.Errorf("could not create kafka consumer: %w", err)
 	}
 	g.Queue = q
+	for _, a := range g.Config.GetGcmAppsArray() {
+		q.Topics = append(q.Topics, fmt.Sprintf("push-%s_gcm-single", a))
+		q.Topics = append(q.Topics, fmt.Sprintf("push-%s_gcm-massive", a))
+	}
 
 	err = g.createMessageHandlerForApps(ctx)
 	if err != nil {

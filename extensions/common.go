@@ -31,7 +31,7 @@ import (
 	"github.com/topfreegames/pusher/interfaces"
 )
 
-var topicRegex = regexp.MustCompile("push-([^-_]+)[-_]([^-_]+)")
+var topicRegex = regexp.MustCompile("^push-([\\w]+(?:[_-][\\w]+)*)[-_](gcm|apns)")
 
 // ParsedTopic contains game and platform extracted from topic name
 type ParsedTopic struct {
