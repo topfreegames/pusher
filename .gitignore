@@ -38,6 +38,7 @@ vendor/
 *.swo
 .*swp
 
+.vscode
 .idea
 
 .tool-versions

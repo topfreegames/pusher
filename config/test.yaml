@@ -51,7 +51,11 @@ stats:
   statsd:
     host: "localhost:40001"
     prefix: "push"
-    flushIntervalMs: 5000
+    flushIntervalMs: 
+pprof:
+  enabled: false
+  host: "127.0.0.1"
+  port: 8081
 invalidToken:
   handlers:
     - pg

@@ -25,8 +25,11 @@ package feedback
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -75,6 +78,10 @@ func NewListener(
 func (l *Listener) loadConfigurationDefaults() {
 	l.Config.SetDefault("feedbackListeners.gracefulShutdownTimeout", 1)
 	l.Config.SetDefault("stats.flush.s", 5)
+
+	l.Config.SetDefault("pprof.enabled", false)
+	l.Config.SetDefault("pprof.host", "127.0.0.1")
+	l.Config.SetDefault("pprof.port", 8081)
 }
 
 func (l *Listener) configure(statsdClientrOrNil interfaces.StatsDClient) error {
@@ -128,14 +135,20 @@ func (l *Listener) Start() {
 	)
 	log.Info("starting the feedback listener...")
 
+	if l.Config.GetBool("pprof.enabled") {
+		go l.StartPprofServer()
+	}
+
 	go l.Queue.ConsumeLoop(context.Background())
 	l.Broker.Start()
 	l.InvalidTokenHandler.Start()
 
+	go l.reportGoStats()
+
 	statsReporterReportMetricCount(l.StatsReporters,
 		"feedback_listener_restart", 1, "", "")
 
-	sigchan := make(chan os.Signal)
+	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	flushTicker := time.NewTicker(l.statsFlushTime)
@@ -170,6 +183,23 @@ func (l *Listener) flushStats() {
 	l.InvalidTokenHandler.BufferLock.Unlock()
 	statsReporterReportMetricGauge(l.StatsReporters,
 		"invalid_token_handler_buffer", bufferSize, "", "")
+}
+
+func (l *Listener) reportGoStats() {
+	for {
+		num := runtime.NumGoroutine()
+		m := &runtime.MemStats{}
+		runtime.ReadMemStats(m)
+		gcTime := m.PauseNs[(m.NumGC+255)%256]
+		for _, statsReporter := range l.StatsReporters {
+			statsReporter.ReportGoStats(
+				num,
+				m.Alloc, m.HeapObjects, m.NextGC,
+				gcTime,
+			)
+		}
+		time.Sleep(30 * time.Second)
+	}
 }
 
 // Cleanup ends the Listener execution
@@ -216,4 +246,22 @@ func WaitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	case <-time.After(timeout):
 		return true // timed out
 	}
+}
+
+func (l *Listener) StartPprofServer() error {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+	addr := fmt.Sprintf("%s:%d", l.Config.GetString("pprof.host"), l.Config.GetInt("pprof.port"))
+	server := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+
+	return server.ListenAndServe()
 }
