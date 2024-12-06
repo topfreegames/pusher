@@ -79,6 +79,7 @@ func (l *Listener) loadConfigurationDefaults() {
 	l.Config.SetDefault("feedbackListeners.gracefulShutdownTimeout", 1)
 	l.Config.SetDefault("stats.flush.s", 5)
 
+	l.Config.SetDefault("pprof.enabled", false)
 	l.Config.SetDefault("pprof.host", "127.0.0.1")
 	l.Config.SetDefault("pprof.port", 8081)
 }
@@ -134,7 +135,9 @@ func (l *Listener) Start() {
 	)
 	log.Info("starting the feedback listener...")
 
-	go l.StartPprofServer()
+	if l.Config.GetBool("pprof.enabled") {
+		go l.StartPprofServer()
+	}
 
 	go l.Queue.ConsumeLoop(context.Background())
 	l.Broker.Start()

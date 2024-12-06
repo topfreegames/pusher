@@ -55,6 +55,7 @@ stats:
     prefix: "push"
     flushIntervalMs: 5000
 pprof:
+  enabled: false
   host: "127.0.0.1"
   port: 8081
 invalidToken:
