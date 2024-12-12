@@ -25,6 +25,7 @@ package pusher
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -94,8 +95,14 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 	}
 
 	for _, a := range a.Config.GetApnsAppsArray() {
-		q.Topics = append(q.Topics, fmt.Sprintf("push-%s_apns-single", a))
-		q.Topics = append(q.Topics, fmt.Sprintf("push-%s_apns-massive", a))
+		singleTopic := fmt.Sprintf("push-%s_apns-single", a)
+		if !slices.Contains(q.Topics, singleTopic) {
+			q.Topics = append(q.Topics, singleTopic)
+		}
+		massiveTopic := fmt.Sprintf("push-%s_apns-massive", a)
+		if !slices.Contains(q.Topics, massiveTopic) {
+			q.Topics = append(q.Topics, massiveTopic)
+		}
 	}
 
 	a.MessageHandler = make(map[string]interfaces.MessageHandler)
