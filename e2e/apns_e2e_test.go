@@ -454,7 +454,6 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
 }
 
 func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExitingWithRetries() {
-
 	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)

@@ -25,6 +25,7 @@ package pusher
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -88,9 +89,22 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 		a.Logger,
 		a.stopChannel,
 	)
+
 	if err != nil {
 		return err
 	}
+
+	for _, a := range a.Config.GetApnsAppsArray() {
+		singleTopic := fmt.Sprintf("push-%s_apns-single", a)
+		if !slices.Contains(q.Topics, singleTopic) {
+			q.Topics = append(q.Topics, singleTopic)
+		}
+		massiveTopic := fmt.Sprintf("push-%s_apns-massive", a)
+		if !slices.Contains(q.Topics, massiveTopic) {
+			q.Topics = append(q.Topics, massiveTopic)
+		}
+	}
+
 	a.MessageHandler = make(map[string]interfaces.MessageHandler)
 	a.Queue = q
 	l.Info("Configuring messageHandler")
@@ -129,7 +143,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			for _, statsReporter := range a.StatsReporters {
 				statsReporter.InitializeFailure(k, "apns")
 			}
-			return fmt.Errorf("failed to initialize apns firebase for %s", k)
+			return fmt.Errorf("failed to initialize apns firebase for %s: %w", k, err)
 		}
 	}
 	if len(a.MessageHandler) == 0 {
