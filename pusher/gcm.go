@@ -25,14 +25,14 @@ package pusher
 import (
 	"context"
 	"fmt"
-	"github.com/topfreegames/pusher/extensions/firebase/client"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/config"
 	"github.com/topfreegames/pusher/extensions"
 	"github.com/topfreegames/pusher/extensions/firebase"
+	"github.com/topfreegames/pusher/extensions/firebase/client"
 	"github.com/topfreegames/pusher/interfaces"
+	"slices"
 )
 
 // GCMPusher struct for GCM pusher
@@ -82,8 +82,14 @@ func NewGCMPusher(
 	}
 	g.Queue = q
 	for _, a := range g.Config.GetGcmAppsArray() {
-		q.Topics = append(q.Topics, fmt.Sprintf("push-%s_gcm-single", a))
-		q.Topics = append(q.Topics, fmt.Sprintf("push-%s_gcm-massive", a))
+		singleTopic := fmt.Sprintf("push-%s_gcm-single", a)
+		if !slices.Contains(q.Topics, singleTopic) {
+			q.Topics = append(q.Topics, singleTopic)
+		}
+		massiveTopic := fmt.Sprintf("push-%s_gcm-massive", a)
+		if !slices.Contains(q.Topics, massiveTopic) {
+			q.Topics = append(q.Topics, massiveTopic)
+		}
 	}
 
 	err = g.createMessageHandlerForApps(ctx)
