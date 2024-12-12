@@ -143,7 +143,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			for _, statsReporter := range a.StatsReporters {
 				statsReporter.InitializeFailure(k, "apns")
 			}
-			return fmt.Errorf("failed to initialize apns firebase for %s", k)
+			return fmt.Errorf("failed to initialize apns firebase for %s: %w", k, err)
 		}
 	}
 	if len(a.MessageHandler) == 0 {
