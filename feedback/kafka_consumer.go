@@ -25,6 +25,7 @@ package feedback
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/getsentry/raven-go"
@@ -211,7 +212,7 @@ func (q *KafkaConsumer) ConsumeLoop(ctx context.Context) error {
 			l.Info("context done, stopping consuming")
 			return nil
 		default:
-			message, err := q.Consumer.ReadMessage(100)
+			message, err := q.Consumer.ReadMessage(100 * time.Millisecond)
 			if message == nil && err.(kafka.Error).IsTimeout() {
 				continue
 			}
