@@ -39,17 +39,13 @@ type ParsedTopic struct {
 	Game     string
 }
 
-func getGameAndPlatformFromTopic(topic string) ParsedTopic {
+// GetGameAndPlatformFromTopic returns the game and platform specified in the Kafka topic
+func GetGameAndPlatformFromTopic(topic string) ParsedTopic {
 	res := topicRegex.FindStringSubmatch(topic)
 	return ParsedTopic{
 		Platform: res[2],
 		Game:     res[1],
 	}
-}
-
-// GetGameAndPlatformFromTopic returns the game and plaform specified in the Kafka topic
-func GetGameAndPlatformFromTopic(topic string) ParsedTopic {
-	return getGameAndPlatformFromTopic(topic)
 }
 
 func SendToFeedbackReporters(feedbackReporters []interfaces.FeedbackReporter, res interface{}, topic ParsedTopic) error {
