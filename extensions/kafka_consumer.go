@@ -274,7 +274,7 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 	}
 
 	message := interfaces.KafkaMessage{
-		Game:  getGameAndPlatformFromTopic(*topicPartition.Topic).Game,
+		Game:  GetGameAndPlatformFromTopic(*topicPartition.Topic).Game,
 		Topic: *topicPartition.Topic,
 		Value: value,
 	}
