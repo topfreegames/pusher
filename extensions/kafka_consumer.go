@@ -25,6 +25,7 @@ package extensions
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sync"
 	"time"
 
@@ -212,6 +213,15 @@ func (q *KafkaConsumer) ConsumeLoop(ctx context.Context) error {
 		"topics": q.Topics,
 	})
 
+	parsedTopicsLists := make([]string, len(q.Topics))
+	for i, t := range q.Topics {
+		rgx, err := regexp.Compile(t)
+		if err != nil {
+			parsedTopicsLists[i] = t
+		}
+		parsedTopicsLists[i] = rgx.String()
+	}
+
 	err := q.Consumer.SubscribeTopics(q.Topics, func(_ *kafka.Consumer, event kafka.Event) error {
 		l.WithField("event", event.String()).Debug("got event from Kafka")
 		return nil
@@ -264,7 +274,7 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 	}
 
 	message := interfaces.KafkaMessage{
-		Game:  getGameAndPlatformFromTopic(*topicPartition.Topic).Game,
+		Game:  GetGameAndPlatformFromTopic(*topicPartition.Topic).Game,
 		Topic: *topicPartition.Topic,
 		Value: value,
 	}
