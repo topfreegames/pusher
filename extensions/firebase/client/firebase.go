@@ -57,11 +57,12 @@ func NewFirebaseClient(
 }
 
 func (f *firebaseClientImpl) SendPush(ctx context.Context, msg interfaces.Message) error {
+	firebaseMsg := toFirebaseMessage(msg)
 	l := f.logger.WithFields(logrus.Fields{
-		"method": "SendPush",
+		"method":  "SendPush",
+		"message": firebaseMsg,
 	})
 
-	firebaseMsg := toFirebaseMessage(msg)
 	res, err := f.firebase.Send(ctx, &firebaseMsg)
 	if err != nil {
 		l.WithError(err).Error("error sending message")
