@@ -98,9 +98,9 @@ func toFirebaseMessage(message interfaces.Message) messaging.Message {
 	}
 	if message.Notification != nil {
 		firebaseMessage.Notification = &messaging.Notification{
-			Title:    message.Notification.Title,
-			Body:     message.Notification.Body,
-			ImageURL: message.Notification.Icon,
+			Title: message.Notification.Title,
+			Body:  message.Notification.Body,
+			// ImageURL: message.Notification.Icon,
 		}
 		firebaseMessage.Android = &messaging.AndroidConfig{
 			CollapseKey: message.CollapseKey,
