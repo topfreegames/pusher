@@ -35,6 +35,7 @@ type Notification struct {
 	BodyLocArgs  string `json:"body_loc_args,omitempty"`
 	TitleLocKey  string `json:"title_loc_key,omitempty"`
 	TitleLocArgs string `json:"title_loc_args,omitempty"`
+	ImageUrl     string `json:"image_url,omitempty"`
 
 	// Android-only fields.
 	Icon  string `json:"icon,omitempty"`

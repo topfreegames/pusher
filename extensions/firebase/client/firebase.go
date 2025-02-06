@@ -100,7 +100,7 @@ func toFirebaseMessage(message interfaces.Message) messaging.Message {
 		firebaseMessage.Notification = &messaging.Notification{
 			Title:    message.Notification.Title,
 			Body:     message.Notification.Body,
-			ImageURL: message.Notification.Icon,
+			ImageURL: message.Notification.ImageUrl,
 		}
 		firebaseMessage.Android = &messaging.AndroidConfig{
 			CollapseKey: message.CollapseKey,
