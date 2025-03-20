@@ -23,6 +23,7 @@
 package extensions
 
 import (
+	"crypto/tls"
 	"fmt"
 	"time"
 
@@ -72,6 +73,14 @@ func (c *PGClient) Connect(prefix string, db interfaces.DB) error {
 	port := c.Config.GetInt(fmt.Sprintf("%s.port", prefix))
 	poolSize := c.Config.GetInt(fmt.Sprintf("%s.poolSize", prefix))
 	maxRetries := c.Config.GetInt(fmt.Sprintf("%s.maxRetries", prefix))
+	sslmode := c.Config.GetBool(fmt.Sprintf("%s.sslmode", prefix))
+
+	var tlsConfig *tls.Config
+	if sslmode {
+		tlsConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
 
 	c.Options = &pg.Options{
 		Addr:       fmt.Sprintf("%s:%d", host, port),
@@ -80,6 +89,7 @@ func (c *PGClient) Connect(prefix string, db interfaces.DB) error {
 		Database:   database,
 		PoolSize:   poolSize,
 		MaxRetries: maxRetries,
+		TLSConfig:  tlsConfig,
 	}
 
 	if db == nil {
