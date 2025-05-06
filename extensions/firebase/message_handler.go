@@ -21,6 +21,7 @@ type messageHandler struct {
 	statsReporters             []interfaces.StatsReporter
 	pendingMessagesWaitGroup   *sync.WaitGroup
 	rateLimiter                interfaces.RateLimiter
+	dedup                      interfaces.Dedup
 	statsDClient               extensions.StatsD
 	sendPushConcurrencyControl chan interface{}
 	responsesChannel           chan struct {
@@ -42,7 +43,8 @@ func NewMessageHandler(
 	client interfaces.PushClient,
 	feedbackReporters []interfaces.FeedbackReporter,
 	statsReporters []interfaces.StatsReporter,
-	rateLimiter interfaces.RateLimiter,
+	rateLimiter interfaces.RateLimiter, 
+	dedup interfaces.Dedup,
 	pendingMessagesWaitGroup *sync.WaitGroup,
 	logger *logrus.Logger,
 	concurrentWorkers int,
@@ -60,6 +62,7 @@ func NewMessageHandler(
 		feedbackReporters:          feedbackReporters,
 		statsReporters:             statsReporters,
 		rateLimiter:                rateLimiter,
+		dedup:                      dedup,
 		pendingMessagesWaitGroup:   pendingMessagesWaitGroup,
 		logger:                     l.Logger,
 		config:                     cfg,
@@ -93,6 +96,13 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 		l.Warnf("ignoring push message because it has expired: %s", km.Data)
 		h.waitGroupDone()
 		return
+	}
+
+	uniqueMessage := h.dedup.IsUnique(ctx, km.To, string(msg.Value), h.app, "gcm")
+	if !uniqueMessage {
+		extensions.StatsReporterDuplicateMessageDetected(h.statsReporters, h.app, "gcm")
+		h.waitGroupDone()
+		//does not return because we don't want to block the message
 	}
 
 	allowed := h.rateLimiter.Allow(ctx, km.To, msg.Game, "gcm")

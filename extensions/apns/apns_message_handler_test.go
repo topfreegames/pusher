@@ -62,6 +62,7 @@ type ApnsMessageHandlerTestSuite struct {
 	mockStatsReporter    *mock_interfaces.MockStatsReporter
 	mockFeedbackReporter *mock_interfaces.MockFeedbackReporter
 	mockRateLimiter      *mock_interfaces.MockRateLimiter
+	mockDedup            *mock_interfaces.MockDedup
 	waitGroup            *sync.WaitGroup
 	handler              *APNSMessageHandler
 }
@@ -95,6 +96,7 @@ func (s *ApnsMessageHandlerTestSuite) SetupTest() {
 
 	mockPushQueue := mock_interfaces.NewMockAPNSPushQueue(ctrl)
 	mockRateLimiter := mock_interfaces.NewMockRateLimiter(ctrl)
+	mockDedup := mock_interfaces.NewMockDedup(ctrl)
 	wg := &sync.WaitGroup{}
 
 	handler, err := NewAPNSMessageHandler(
@@ -111,6 +113,7 @@ func (s *ApnsMessageHandlerTestSuite) SetupTest() {
 		feedbackClients,
 		mockPushQueue,
 		mockRateLimiter,
+		mockDedup,
 	)
 	require.NoError(s.T(), err)
 
@@ -120,6 +123,7 @@ func (s *ApnsMessageHandlerTestSuite) SetupTest() {
 	s.mockFeedbackReporter = mockFeedbackReporter
 	s.waitGroup = wg
 	s.mockRateLimiter = mockRateLimiter
+	s.mockDedup = mockDedup
 }
 
 func (s *ApnsMessageHandlerTestSuite) SetupSubTest() {
@@ -146,6 +150,10 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			Value: []byte(fmt.Sprintf(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" } }, "Metadata": { "expiration": 0 }, "push_expiry": %d }`, expiration)),
 		}
 
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.appName, "apns").
+			Return(true)
+
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), gomock.Any(), s.appName, "apns").
 			Return(true)
@@ -167,9 +175,40 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			)),
 		}
 
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, gomock.Any(), s.appName, "apns").
+			Return(true)
+
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.appName, "apns").
 			Return(false)
+
+		s.mockStatsReporter.EXPECT().
+			NotificationRateLimitReached(s.appName, "apns").
+			Return()
+
+		s.waitGroup.Add(1)
+		s.handler.HandleMessages(context.Background(), msg)
+		waitWG(s.T(), s.waitGroup)
+	})
+
+	s.Run("should fail if deduplication fails", func() {
+		expiration := time.Now().Add(1 * time.Hour).UnixNano()
+		token := uuid.NewV4().String()
+		msg := interfaces.KafkaMessage{
+			Topic: "push-game_apns",
+			Value: []byte(fmt.Sprintf(`{"DeviceToken": "%s", "Payload": { "aps" : { "alert" : "Hello HTTP/2" } }, "Metadata": { "expiration": 0 }, "push_expiry": %d }`,
+				token,
+				expiration,
+			)),
+		}
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, gomock.Any(), s.appName, "apns").
+			Return(false)
+			
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.appName, "apns").
+			Return(true)
 
 		s.mockStatsReporter.EXPECT().
 			NotificationRateLimitReached(s.appName, "apns").
