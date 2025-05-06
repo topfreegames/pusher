@@ -114,7 +114,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 		teamID := a.ViperConfig.GetString("apns.certs." + k + ".teamID")
 		topic := a.ViperConfig.GetString("apns.certs." + k + ".topic")
 		rateLimit := a.ViperConfig.GetInt("apns.rateLimit.rpm")
-		dedupTimeframe := a.ViperConfig.GetDuration("apns.dedup.timeframe")
+		dedupTtl := a.ViperConfig.GetDuration("apns.dedup.ttl")
 
 
 		l.WithFields(logrus.Fields{
@@ -138,7 +138,7 @@ func (a *APNSPusher) configure(queue interfaces.APNSPushQueue, db interfaces.DB,
 			a.feedbackReporters,
 			queue,
 			extensions.NewRateLimiter(rateLimit, a.ViperConfig, a.StatsReporters, l.Logger),
-			extensions.NewDedup(dedupTimeframe, a.ViperConfig, a.StatsReporters, l.Logger),
+			extensions.NewDedup(dedupTtl, a.ViperConfig, a.StatsReporters, l.Logger),
 		)
 		if err == nil {
 			a.MessageHandler[k] = handler

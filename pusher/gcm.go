@@ -109,7 +109,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 	for _, app := range g.Config.GetGcmAppsArray() {
 		credentials := g.ViperConfig.GetString("gcm.firebaseCredentials." + app)
 		rateLimit := g.ViperConfig.GetInt("gcm.rateLimit.rpm")
-		dedupTimeframe := g.ViperConfig.GetDuration("gcm.dedup.timeframe")
+		dedupTtl := g.ViperConfig.GetDuration("gcm.dedup.ttl")
 
 		l = l.WithField("app", app)
 		if credentials == "" {
@@ -127,7 +127,7 @@ func (g *GCMPusher) createMessageHandlerForApps(ctx context.Context) error {
 			g.feedbackReporters,
 			g.StatsReporters,
 			extensions.NewRateLimiter(rateLimit, g.ViperConfig, g.StatsReporters, l.Logger),
-			extensions.NewDedup(dedupTimeframe, g.ViperConfig, g.StatsReporters, l.Logger),
+			extensions.NewDedup(dedupTtl, g.ViperConfig, g.StatsReporters, l.Logger),
 			g.Queue.PendingMessagesWaitGroup(),
 			g.Logger,
 			g.Config.GCM.ConcurrentWorkers,

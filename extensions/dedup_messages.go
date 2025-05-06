@@ -17,18 +17,18 @@ import (
 // Dedup struct
 type Dedup struct {
 	redis             *redis.Client
-	timeframe         time.Duration
+	ttl         time.Duration
 	statsReporters    []interfaces.StatsReporter
 	l                 *logrus.Entry
 	defaultPercentage int
 	gamePercentages   map[string]int
 }
 
-func NewDedup(timeframe time.Duration, config *viper.Viper, statsReporters []interfaces.StatsReporter, logger *logrus.Logger) Dedup {
+func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interfaces.StatsReporter, logger *logrus.Logger) Dedup {
 	host := config.GetString("dedup.redis.host")
 	port := config.GetInt("dedup.redis.port")
 	pwd := config.GetString("dedup.redis.password")
-	disableTLS := config.GetBool("dedup.tls.disabled")
+	enableTLS := config.GetBool("dedup.tls.enabled")
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	opts := &redis.Options{
@@ -37,7 +37,7 @@ func NewDedup(timeframe time.Duration, config *viper.Viper, statsReporters []int
 		DB:       1,
 	}
 
-	if !disableTLS {
+	if enableTLS {
 		opts.TLSConfig = &tls.Config{}
 	}
 
@@ -58,11 +58,11 @@ func NewDedup(timeframe time.Duration, config *viper.Viper, statsReporters []int
 
 	return Dedup{
 		redis:          rdb,
-		timeframe:      timeframe,
+		ttl:      ttl,
 		statsReporters: statsReporters,
 		l: logger.WithFields(logrus.Fields{
 			"extension": "Dedup",
-			"timeframe": timeframe,
+			"ttl": ttl,
 		}),
 		defaultPercentage: defaultPercentage,
 		gamePercentages:   gamePercentages,
@@ -96,7 +96,7 @@ func (d Dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 	rdbKey := Sha256Hex(device, msg)
 
 	// Store the key in Redis with a placeholder value ("1")—the actual value is irrelevant, as we only need to check for key existence.
-	unique, err := d.redis.SetNX(ctx, rdbKey, "1", d.timeframe).Result()
+	unique, err := d.redis.SetNX(ctx, rdbKey, "1", d.ttl).Result()
 
 	if err != nil {
 		d.l.WithFields(logrus.Fields{

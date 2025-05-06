@@ -22,6 +22,7 @@ type messageHandler struct {
 	pendingMessagesWaitGroup   *sync.WaitGroup
 	rateLimiter                interfaces.RateLimiter
 	dedup                      interfaces.Dedup
+	dedup                      interfaces.Dedup
 	statsDClient               extensions.StatsD
 	sendPushConcurrencyControl chan interface{}
 	responsesChannel           chan struct {
@@ -45,6 +46,7 @@ func NewMessageHandler(
 	statsReporters []interfaces.StatsReporter,
 	rateLimiter interfaces.RateLimiter,
 	dedup interfaces.Dedup,
+	dedup interfaces.Dedup,
 	pendingMessagesWaitGroup *sync.WaitGroup,
 	logger *logrus.Logger,
 	concurrentWorkers int,
@@ -62,6 +64,7 @@ func NewMessageHandler(
 		feedbackReporters:          feedbackReporters,
 		statsReporters:             statsReporters,
 		rateLimiter:                rateLimiter,
+		dedup:                      dedup,
 		dedup:                      dedup,
 		pendingMessagesWaitGroup:   pendingMessagesWaitGroup,
 		logger:                     l.Logger,
@@ -101,7 +104,6 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 	uniqueMessage := h.dedup.IsUnique(ctx, km.To, string(msg.Value), h.app, "gcm")
 	if !uniqueMessage {
 		extensions.StatsReporterDuplicateMessageDetected(h.statsReporters, h.app, "gcm")
-		h.waitGroupDone()
 		//does not return because we don't want to block the message
 	}
 

@@ -34,12 +34,12 @@ func TestNewDedup(t *testing.T) {
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
-		config.Set("dedup.tls.disabled", true)
+		config.Set("dedup.tls.enabled", false)
 
-		timeframe := 10 * time.Minute
-		d := NewDedup(timeframe, config, statsReporters, logger)
+		dedupTtl := 10 * time.Minute
+		d := NewDedup(dedupTtl, config, statsReporters, logger)
 
-		assert.Equal(t, timeframe, d.timeframe)
+		assert.Equal(t, dedupTtl, d.ttl)
 		assert.NotNil(t, d.redis)
 		assert.Equal(t, statsReporters, d.statsReporters)
 	})
@@ -62,7 +62,7 @@ func TestDedupIsUnique(t *testing.T) {
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
-		config.Set("dedup.tls.disabled", true)
+		config.Set("dedup.tls.enabled", false)
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
@@ -83,7 +83,7 @@ func TestDedupIsUnique(t *testing.T) {
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
-		config.Set("dedup.tls.disabled", true)
+		config.Set("dedup.tls.enabled", false)
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
@@ -98,7 +98,7 @@ func TestDedupIsUnique(t *testing.T) {
 		hook.Reset()
 	})
 
-	t.Run("respects configured timeframe", func(t *testing.T) {
+	t.Run("respects configured ttl", func(t *testing.T) {
 		mr, err := miniredis.Run()
 		require.NoError(t, err)
 		defer mr.Close()
@@ -107,9 +107,9 @@ func TestDedupIsUnique(t *testing.T) {
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
-		config.Set("dedup.tls.disabled", true)
+		config.Set("dedup.tls.enabled", false)
 
-		// Very short timeframe for testing
+		// Very short ttl for testing
 		d := NewDedup(50*time.Millisecond, config, statsReporters, logger)
 
 		// First message should be unique
@@ -117,7 +117,7 @@ func TestDedupIsUnique(t *testing.T) {
 		assert.True(t, unique1)
 
 		// Wait for expiration
-		mr.FastForward(d.timeframe + 1*time.Millisecond)
+		mr.FastForward(d.ttl + 1*time.Millisecond)
 
 		// After expiration, same message should be unique again
 		unique2 := d.IsUnique(context.Background(), "device123", "message123", "game", "platform")
@@ -135,7 +135,7 @@ func TestDedupIsUnique(t *testing.T) {
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
-		config.Set("dedup.tls.disabled", true)
+		config.Set("dedup.tls.enabled", false)
 		config.Set("dedup.default_percentage", 50) // 50% sampling
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
