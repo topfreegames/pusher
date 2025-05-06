@@ -158,13 +158,13 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
 			Return(false)
 
+		s.mockStatsReporter.EXPECT().
+			ReportMetricCount("duplicated_messages", int64(1), s.game, "apns").
+			Return()
+
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.game, "gcm").
 			Return(true)
-
-		s.mockStatsReporter.EXPECT().
-			NotificationRateLimitReached(s.game, "gcm").
-			Return()
 		
 		s.waitGroup.Add(1)
 		s.handler.HandleMessages(context.Background(), msg)
@@ -328,6 +328,10 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 		bytes, err := json.Marshal(msgValue)
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
 		s.Require().NoError(err)
+
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
+			Return(true)
 
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.game, "gcm").

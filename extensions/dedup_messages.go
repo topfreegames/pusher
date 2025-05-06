@@ -14,12 +14,14 @@ import (
 	"github.com/topfreegames/pusher/interfaces"
 )
 
-//Dedup struct
+// Dedup struct
 type Dedup struct {
-	redis *redis.Client
-	timeframe time.Duration
-	statsReporters []interfaces.StatsReporter
-	l              *logrus.Entry
+	redis             *redis.Client
+	timeframe         time.Duration
+	statsReporters    []interfaces.StatsReporter
+	l                 *logrus.Entry
+	defaultPercentage int
+	gamePercentages   map[string]int
 }
 
 func NewDedup(timeframe time.Duration, config *viper.Viper, statsReporters []interfaces.StatsReporter, logger *logrus.Logger) Dedup {
@@ -32,7 +34,7 @@ func NewDedup(timeframe time.Duration, config *viper.Viper, statsReporters []int
 	opts := &redis.Options{
 		Addr:     addr,
 		Password: pwd,
-		DB: 1,
+		DB:       1,
 	}
 
 	//receive which game
@@ -41,6 +43,19 @@ func NewDedup(timeframe time.Duration, config *viper.Viper, statsReporters []int
 
 	if !disableTLS {
 		opts.TLSConfig = &tls.Config{}
+	}
+
+	defaultPercentage := config.GetInt("dedup.default_percentage")
+	if defaultPercentage < 0 {
+		defaultPercentage = 0
+	}
+
+	gamePercentages := make(map[string]int)
+	games := config.GetStringMap("dedup.games")
+	for game := range games {
+		if config.IsSet("dedup.games." + game + ".percentage") {
+			gamePercentages[game] = config.GetInt("dedup.games." + game + ".percentage")
+		}
 	}
 
 	rdb := redis.NewClient(opts)
@@ -53,10 +68,35 @@ func NewDedup(timeframe time.Duration, config *viper.Viper, statsReporters []int
 			"extension": "Dedup",
 			"timeframe": timeframe,
 		}),
+		defaultPercentage: defaultPercentage,
+		gamePercentages: gamePercentages,
 	}
 }
 
 func (d Dedup) IsUnique(ctx context.Context, device, msg, game, platform string) bool {
+	
+	// Get percentage for dedup sampling for specific game
+	percentage := d.defaultPercentage
+
+	if p, exists := d.gamePercentages[game]; exists {
+		percentage = p
+	}
+	
+	if percentage == 0 {
+		return true
+	}
+
+	if percentage < 100 {
+		h := sha256.Sum256([]byte(device))
+		sampleValue := int(h[0])*256 + int(h[1])
+
+		samplePercentile := sampleValue % 100
+
+		if samplePercentile >= percentage {
+			return true
+		}
+	}
+	
 	rdbKey := Sha256Hex(device, msg)
 
 	// Store the key in Redis with a placeholder value ("1")—the actual value is irrelevant, as we only need to check for key existence.
@@ -64,24 +104,23 @@ func (d Dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 
 	if err != nil {
 		d.l.WithFields(logrus.Fields{
-            "error": err,
-            "key": rdbKey,
-            "device": device,
-            "game": game,
-        }).Error("Failed to check message dedup in Redis")
-        
-        StatsReporterDedupFailed(d.statsReporters, game, platform)
-        
-        // Return true on error to avoid blocking messages
+			"error":  err,
+			"key":    rdbKey,
+			"device": device,
+			"game":   game,
+		}).Error("Failed to check message dedup in Redis")
+
+		StatsReporterDedupFailed(d.statsReporters, game, platform)
+
+		// Return true on error to avoid blocking messages
 		return true
 	}
 
 	return unique
 }
 
-
 func Sha256Hex(deviceId, msg string) string {
-	
+
 	digest := fmt.Sprintf("%s|%s", deviceId, msg)
 	h := sha256.New()
 	h.Write([]byte(digest))

@@ -192,7 +192,7 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 		waitWG(s.T(), s.waitGroup)
 	})
 
-	s.Run("should fail if deduplication fails", func() {
+	s.Run("should fail open if finds duplicate message", func() {
 		expiration := time.Now().Add(1 * time.Hour).UnixNano()
 		token := uuid.NewV4().String()
 		msg := interfaces.KafkaMessage{
@@ -206,13 +206,13 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			IsUnique(gomock.Any(), token, gomock.Any(), s.appName, "apns").
 			Return(false)
 			
+		s.mockStatsReporter.EXPECT().
+			ReportMetricCount("duplicated_messages", int64(1), s.appName, "apns").
+			Return()
+
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.appName, "apns").
 			Return(true)
-
-		s.mockStatsReporter.EXPECT().
-			NotificationRateLimitReached(s.appName, "apns").
-			Return()
 
 		s.waitGroup.Add(1)
 		s.handler.HandleMessages(context.Background(), msg)
@@ -328,6 +328,10 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			Topic: "push-game_apns",
 			Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" }}, "Metadata": { "nested": { "some": "data" }}}`),
 		}
+
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.appName, "apns").
+			Return(true)
 
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), gomock.Any(), s.appName, "apns").

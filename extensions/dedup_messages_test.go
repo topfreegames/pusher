@@ -2,6 +2,7 @@ package extensions
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -123,6 +124,46 @@ func TestDedupIsUnique(t *testing.T) {
         assert.True(t, unique2)
         
         hook.Reset()
+    })
+    
+    t.Run("respects sampling percentage", func(t *testing.T) {
+        mr, err := miniredis.Run()
+        require.NoError(t, err)
+        defer mr.Close()
+        
+        config := viper.New()
+        config.Set("dedup.redis.host", mr.Host())
+        config.Set("dedup.redis.port", mr.Port())
+        config.Set("dedup.redis.password", "")
+        config.Set("dedup.tls.disabled", true)
+        config.Set("dedup.default_percentage", 50) // 50% sampling
+        
+        d := NewDedup(10*time.Minute, config, statsReporters, logger)
+        
+        // Test multiple devices to verify sampling distribution
+        sampledCount := 0
+        totalDevices := 100
+        
+        for i := 0; i < totalDevices; i++ {
+            device := fmt.Sprintf("test-device-%d", i)
+            message := "test-message"
+            
+            // Get keys count before
+            keyCountBefore := len(mr.Keys())
+            
+            // Call IsUnique
+            d.IsUnique(context.Background(), device, message, "game", "platform")
+            
+            // Check if Redis was actually called (key was created)
+            keyCountAfter := len(mr.Keys())
+            if keyCountAfter > keyCountBefore {
+                sampledCount++
+            }
+        }
+        
+        // Sampling should be approximately 50%, allow some variance
+        percentage := float64(sampledCount) / float64(totalDevices) * 100
+        assert.InDelta(t, 50.0, percentage, 15.0, "Expected approximately 50% sampling")
     })
 }
 

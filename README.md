@@ -130,6 +130,26 @@ If you wish Sentry integration simply set the following environment variable:
 
 * `PUSHER_SENTRY_URL` - Sentry Client Key (DSN);
 
+## Message Deduplication
+
+Pusher can detect and filter out duplicate messages to avoid sending the same notification multiple times to the same device. 
+
+* `PUSHER_DEDUP_REDIS_HOST` - Redis host for deduplication service
+* `PUSHER_DEDUP_REDIS_PORT` - Redis port for deduplication service
+* `PUSHER_DEDUP_REDIS_PASSWORD` - Redis password for deduplication service
+* `PUSHER_DEDUP_TLS_DISABLED` - Whether to disable TLS for Redis connection
+* `PUSHER_DEDUP_TIMEFRAME` - How long to remember duplicate messages (e.g., "1h")
+* `PUSHER_DEDUP_DEFAULT_PERCENTAGE` - Default percentage of messages to check (0-100)
+* `PUSHER_DEDUP_GAMES_<GAMENAME>_PERCENTAGE` - Game-specific percentage to check
+
+### Percentage-based Sampling
+
+The deduplication system supports percentage-based sampling to reduce Redis load:
+- `0%`: Completely disable deduplication for a game
+- `100%`: Check all messages for duplicates
+- `1-99%`: Check only that percentage of messages
+
+Sampling is based on a hash of the device ID, ensuring the same device always gets the same sampling decision.
 
 # Architecture
 

@@ -194,7 +194,6 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 	uniqueMessage := a.dedup.IsUnique(ctx, parsedNotification.DeviceToken, string(message.Value), a.appName, "apns")
 	if !uniqueMessage {
 		extensions.StatsReporterDuplicateMessageDetected(a.StatsReporters, a.appName, "apns")
-		a.waitGroupDone()
 		//does not return because we don't want to block the message
 	}
 
