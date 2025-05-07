@@ -37,10 +37,6 @@ func NewDedup(timeframe time.Duration, config *viper.Viper, statsReporters []int
 		DB:       1,
 	}
 
-	//receive which game
-	//what percentage of messages that will be dedupped
-	// how to know if the current message being processed is within the intended % of messages to be analysed
-
 	if !disableTLS {
 		opts.TLSConfig = &tls.Config{}
 	}
