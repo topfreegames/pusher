@@ -53,15 +53,15 @@ func (mr *MockStatsReporterMockRecorder) HandleNotificationFailure(game, platfor
 }
 
 // HandleNotificationSent mocks base method.
-func (m *MockStatsReporter) HandleNotificationSent(game, platform string) {
+func (m *MockStatsReporter) HandleNotificationSent(game, platform, topic string) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "HandleNotificationSent", game, platform)
+	m.ctrl.Call(m, "HandleNotificationSent", game, platform, topic)
 }
 
 // HandleNotificationSent indicates an expected call of HandleNotificationSent.
-func (mr *MockStatsReporterMockRecorder) HandleNotificationSent(game, platform any) *gomock.Call {
+func (mr *MockStatsReporterMockRecorder) HandleNotificationSent(game, platform, topic any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleNotificationSent", reflect.TypeOf((*MockStatsReporter)(nil).HandleNotificationSent), game, platform)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleNotificationSent", reflect.TypeOf((*MockStatsReporter)(nil).HandleNotificationSent), game, platform, topic)
 }
 
 // HandleNotificationSuccess mocks base method.

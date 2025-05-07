@@ -40,18 +40,6 @@ func (m *MockMessageHandler) EXPECT() *MockMessageHandlerMockRecorder {
 	return m.recorder
 }
 
-// CleanMetadataCache mocks base method.
-func (m *MockMessageHandler) CleanMetadataCache() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "CleanMetadataCache")
-}
-
-// CleanMetadataCache indicates an expected call of CleanMetadataCache.
-func (mr *MockMessageHandlerMockRecorder) CleanMetadataCache() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanMetadataCache", reflect.TypeOf((*MockMessageHandler)(nil).CleanMetadataCache))
-}
-
 // HandleMessages mocks base method.
 func (m *MockMessageHandler) HandleMessages(ctx context.Context, msg interfaces.KafkaMessage) {
 	m.ctrl.T.Helper()

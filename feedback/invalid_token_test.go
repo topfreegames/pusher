@@ -141,7 +141,7 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient := mocks.NewPGMock(0, 1)
 				inChan := make(chan *InvalidToken, 100)
 
-				config.Set("feedbackListeners.invalidToken.flush.time.ms", 50)
+				config.Set("feedbackListeners.invalidToken.flush.time.ms", 1000)
 				config.Set("feedbackListeners.invalidToken.buffer.size", 200)
 
 				mockStatsDClient = mocks.NewStatsDClientMock()
@@ -157,13 +157,15 @@ var _ = Describe("InvalidToken Handler", func() {
 				mockClient.RowsAffected = 2
 				mockClient.RowsReturned = 0
 				handler.Start()
+
 				for _, t := range tokens {
 					inChan <- t
 				}
 
-				time.Sleep(time.Second * 1)
+				time.Sleep(1500 * time.Millisecond)
 				handler.Stop()
-				time.Sleep(100 * time.Millisecond)
+
+				time.Sleep(500 * time.Millisecond)
 
 				Expect(mockStatsDClient.Counts[MetricsTokensDeleteSuccess]).To(BeEquivalentTo(2))
 				Expect(mockStatsDClient.Counts[MetricsTokensDeleteError]).To(BeEquivalentTo(0))

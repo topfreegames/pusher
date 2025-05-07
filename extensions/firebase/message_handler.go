@@ -126,10 +126,10 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 	}
 	before := time.Now()
 	defer h.reportLatency(time.Since(before))
-	h.sendPush(ctx, km.Message)
+	h.sendPush(ctx, km.Message, msg.Topic)
 }
 
-func (h *messageHandler) sendPush(ctx context.Context, msg interfaces.Message) {
+func (h *messageHandler) sendPush(ctx context.Context, msg interfaces.Message, topic string) {
 	lock := <-h.sendPushConcurrencyControl
 
 	go func(l interface{}) {
@@ -141,7 +141,7 @@ func (h *messageHandler) sendPush(ctx context.Context, msg interfaces.Message) {
 		err := h.client.SendPush(ctx, msg)
 		h.reportFirebaseLatency(time.Since(before))
 
-		h.handleNotificationSent()
+		h.handleNotificationSent(topic)
 
 		h.responsesChannel <- struct {
 			msg   interfaces.Message
@@ -184,9 +184,9 @@ func (h *messageHandler) sendToFeedbackReporters(res interface{}) error {
 	return nil
 }
 
-func (h *messageHandler) handleNotificationSent() {
+func (h *messageHandler) handleNotificationSent(topic string) {
 	for _, statsReporter := range h.statsReporters {
-		statsReporter.HandleNotificationSent(h.app, "gcm")
+		statsReporter.HandleNotificationSent(h.app, "gcm", topic)
 	}
 }
 

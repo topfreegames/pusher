@@ -33,7 +33,7 @@ import (
 
 type statsReporterInitializer func(*viper.Viper, *logrus.Logger, interfaces.StatsDClient) (interfaces.StatsReporter, error)
 
-//AvailableStatsReporters contains functions to initialize all stats reporters
+// AvailableStatsReporters contains functions to initialize all stats reporters
 var AvailableStatsReporters = map[string]statsReporterInitializer{
 	"statsd": func(config *viper.Viper, logger *logrus.Logger, clientOrNil interfaces.StatsDClient) (interfaces.StatsReporter, error) {
 		return extensions.NewStatsD(config, logger, clientOrNil)
@@ -64,7 +64,7 @@ func configureStatsReporters(
 
 func statsReporterReportMetricCount(
 	statsReporters []interfaces.StatsReporter,
-	metric string, value int64, game string, platform string,
+	metric string, value int64, game, platform string,
 ) {
 	for _, statsReporter := range statsReporters {
 		statsReporter.ReportMetricCount(metric, value, game, platform)

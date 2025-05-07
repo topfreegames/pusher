@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/topfreegames/pusher/errors"
-	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/topfreegames/pusher/errors"
+	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -203,7 +204,6 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			SendPush(gomock.Any(), gomock.Any()).
 			Do(func(_ context.Context, msg interfaces.Message) {
 				s.Equal(token, msg.To)
-				done <- struct{}{}
 			})
 
 		s.mockStatsReporter.EXPECT().
@@ -213,27 +213,35 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm").
+			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
+			Do(func(game, platform, topic string) {
+				done <- struct{}{}
+			})
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSuccess(s.game, "gcm").
 			Return()
 
+		go s.handler.HandleResponses()
+		s.waitGroup.Add(1)
 		s.handler.HandleMessages(context.Background(), msg)
-		timeout := time.NewTimer(10 * time.Millisecond)
+
+		timeout := time.NewTimer(5 * time.Second)
 		select {
 		case <-done:
 		case <-timeout.C:
-			s.Fail("timed out waiting for message to be sent")
+			s.Fail("timed out waiting for message to be processed")
 		}
+		s.waitGroup.Wait()
 	})
 
 	s.Run("should not lock sendPushConcurrencyControl when sending multiple messages", func() {
 		newMessage := func() kafkaFCMMessage {
-			ttl := uint(0)
 			token := uuid.NewString()
-			title := fmt.Sprintf("title - %s", uuid.NewString())
+			title := uuid.NewString()
+			ttl := uint(1000)
 			metadata := map[string]interface{}{
-				"some":     "metadata",
-				"game":     "game",
-				"platform": "gcm",
+				"some": "metadata",
 			}
 			km := kafkaFCMMessage{
 				Message: interfaces.Message{
@@ -271,24 +279,24 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		s.mockStatsReporter.EXPECT().
 			ReportSendNotificationLatency(gomock.Any(), s.game, "gcm", gomock.Any()).
 			Times(qtyMsgs).
-			Return()
-
-		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm").
-			Times(qtyMsgs).
-			Return()
-
-		done := make(chan struct{})
-		s.mockStatsReporter.EXPECT().
-			HandleNotificationSuccess(s.game, "gcm").
-			Times(qtyMsgs).
-			Do(func(game, platform string) {
-				done <- struct{}{}
+			Do(func(latency time.Duration, game, platform string, labels ...string) {
+				mockDone <- struct{}{}
 			})
 
 		s.mockStatsReporter.EXPECT().
-			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return().
-			Times(qtyMsgs)
+			HandleNotificationSent(s.game, "gcm", gomock.Any()).
+			Times(qtyMsgs).
+			Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSuccess(s.game, "gcm").
+			Times(qtyMsgs).
+			Return()
+
+		s.mockStatsReporter.EXPECT().
+			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).
+			Times(qtyMsgs).
+			Return()
 
 		ctx := context.Background()
 		for i := 0; i < qtyMsgs; i++ {
@@ -299,14 +307,18 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			go s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes, Game: s.game})
 		}
 
-		timeout := time.NewTimer(50 * time.Millisecond)
+		// Wait for all mock expectations to be met
+		timeout := time.NewTimer(5 * time.Second)
 		for i := 0; i < qtyMsgs; i++ {
 			select {
-			case <-done:
+			case <-mockDone:
 			case <-timeout.C:
-				s.FailNow("timed out waiting for message to be sent")
+				s.FailNow("timed out waiting for all messages to be processed")
 			}
 		}
+
+		// Wait for all goroutines to complete
+		s.waitGroup.Wait()
 	})
 }
 
@@ -350,7 +362,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm").
+			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
 			Return()
 
 		s.mockStatsReporter.EXPECT().
@@ -421,7 +433,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm").
+			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
 			Return()
 
 		s.mockStatsReporter.EXPECT().

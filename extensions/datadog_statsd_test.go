@@ -58,8 +58,8 @@ var _ = Describe("StatsD Extension", func() {
 				Expect(err).NotTo(HaveOccurred())
 				defer statsd.Cleanup()
 
-				statsd.HandleNotificationSent("game", "apns")
-				statsd.HandleNotificationSent("game", "apns")
+				statsd.HandleNotificationSent("game", "apns", "topic")
+				statsd.HandleNotificationSent("game", "apns", "topic")
 				Expect(mockClient.Counts["sent"]).To(Equal(int64(2)))
 			})
 		})
