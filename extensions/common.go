@@ -61,13 +61,13 @@ func SendToFeedbackReporters(feedbackReporters []interfaces.FeedbackReporter, re
 	return nil
 }
 
-func StatsReporterHandleNotificationSent(statsReporters []interfaces.StatsReporter, game string, platform string) {
+func StatsReporterHandleNotificationSent(statsReporters []interfaces.StatsReporter, game string, platform, topic string) {
 	for _, statsReporter := range statsReporters {
-		statsReporter.HandleNotificationSent(game, platform)
+		statsReporter.HandleNotificationSent(game, platform, topic)
 	}
 }
 
-func StatsReporterHandleNotificationSuccess(statsReporters []interfaces.StatsReporter, game string, platform string) {
+func StatsReporterHandleNotificationSuccess(statsReporters []interfaces.StatsReporter, game, platform string) {
 	for _, statsReporter := range statsReporters {
 		statsReporter.HandleNotificationSuccess(game, platform)
 	}
@@ -75,8 +75,7 @@ func StatsReporterHandleNotificationSuccess(statsReporters []interfaces.StatsRep
 
 func StatsReporterHandleNotificationFailure(
 	statsReporters []interfaces.StatsReporter,
-	game string,
-	platform string,
+	game, platform string,
 	err *errors.PushError,
 ) {
 	for _, statsReporter := range statsReporters {
