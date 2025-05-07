@@ -110,7 +110,7 @@ func (s *FcmE2ETestSuite) TestSimpleNotification() {
 		Return(nil)
 
 	statsdClientMock.EXPECT().
-		Incr("sent", []string{fmt.Sprintf("platform:%s", "gcm"), fmt.Sprintf("game:%s", appName)}, float64(1)).
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "gcm"), fmt.Sprintf("game:%s", appName), fmt.Sprintf("topic:%s", topic)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
 		})
@@ -175,7 +175,7 @@ func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 	}
 
 	statsdClientMock.EXPECT().
-		Incr("sent", []string{fmt.Sprintf("platform:%s", "gcm"), fmt.Sprintf("game:%s", appName)}, float64(1)).
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "gcm"), fmt.Sprintf("game:%s", appName), fmt.Sprintf("topic:%s", topic)}, float64(1)).
 		Times(notificationsToSend).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil

@@ -26,6 +26,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
+	"testing"
+	"time"
+
 	uuid "github.com/satori/go.uuid"
 	"github.com/sideshow/apns2"
 	"github.com/spf13/viper"
@@ -35,9 +39,6 @@ import (
 	"github.com/topfreegames/pusher/errors"
 	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
 	"go.uber.org/mock/gomock"
-	"sync"
-	"testing"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -207,7 +208,7 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			ReportSendNotificationLatency(gomock.Any(), s.appName, "apns", gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.appName, "apns").
+			HandleNotificationSent(s.appName, "apns", gomock.Any()).
 			Return()
 
 		s.handler.HandleMessages(context.Background(), msg)
@@ -242,7 +243,7 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			ReportSendNotificationLatency(gomock.Any(), s.appName, "apns", gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.appName, "apns").
+			HandleNotificationSent(s.appName, "apns", gomock.Any()).
 			Return()
 
 		s.handler.HandleMessages(context.Background(), msg)
@@ -278,7 +279,7 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			ReportSendNotificationLatency(gomock.Any(), s.appName, "apns", gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.appName, "apns").
+			HandleNotificationSent(s.appName, "apns", gomock.Any()).
 			Return()
 
 		s.handler.HandleMessages(context.Background(), msg)
@@ -315,7 +316,7 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			ReportSendNotificationLatency(gomock.Any(), s.appName, "apns", gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.appName, "apns").
+			HandleNotificationSent(s.appName, "apns", gomock.Any()).
 			Return()
 
 		s.handler.HandleMessages(context.Background(), msg)

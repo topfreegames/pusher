@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/topfreegames/pusher/errors"
-	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/topfreegames/pusher/errors"
+	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -175,7 +176,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm").
+			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
 			Return()
 
 		s.handler.HandleMessages(context.Background(), msg)
@@ -231,7 +232,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm").
+			HandleNotificationSent(s.game, "gcm", gomock.Any()).
 			Times(qtyMsgs).
 			Return()
 
@@ -303,7 +304,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm").
+			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
 			Return()
 
 		s.mockStatsReporter.EXPECT().
@@ -370,7 +371,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm").
+			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
 			Return()
 
 		s.mockStatsReporter.EXPECT().

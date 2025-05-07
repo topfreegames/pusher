@@ -27,10 +27,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/topfreegames/pusher/extensions"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/topfreegames/pusher/extensions"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/sideshow/apns2"
@@ -203,7 +204,7 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 
 	}
 	a.sendNotification(n)
-	extensions.StatsReporterHandleNotificationSent(a.StatsReporters, a.appName, "apns")
+	extensions.StatsReporterHandleNotificationSent(a.StatsReporters, a.appName, "apns", message.Topic)
 }
 
 func (a *APNSMessageHandler) parseKafkaMessage(message interfaces.KafkaMessage) (*pusherAPNSKafkaMessage, error) {

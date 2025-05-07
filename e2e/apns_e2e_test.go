@@ -112,7 +112,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 		})
 
 	statsdClientMock.EXPECT().
-		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
 		})
@@ -194,7 +194,7 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 		})
 
 	statsdClientMock.EXPECT().
-		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
 		})
@@ -260,7 +260,7 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 		})
 
 	statsdClientMock.EXPECT().
-		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
 		})
@@ -326,7 +326,7 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	}
 
 	statsdClientMock.EXPECT().
-		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
 		Times(notificationsToSend).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
@@ -402,7 +402,7 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
 	}
 
 	statsdClientMock.EXPECT().
-		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
 		Times(notificationsToSend).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
@@ -503,7 +503,7 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExitingWithRetries() {
 		})
 
 	statsdClientMock.EXPECT().
-		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
 		})

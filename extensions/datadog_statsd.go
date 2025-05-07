@@ -93,20 +93,39 @@ func (s *StatsD) configure(client interfaces.StatsDClient) error {
 }
 
 // HandleNotificationSent stores notification count in StatsD
-func (s *StatsD) HandleNotificationSent(game string, platform string) {
-	s.Client.Incr("sent", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
+func (s *StatsD) HandleNotificationSent(game, platform, topic string) {
+	s.Client.Incr(
+		"sent",
+		[]string{
+			fmt.Sprintf("platform:%s", platform),
+			fmt.Sprintf("game:%s", game),
+			fmt.Sprintf("topic:%s", topic),
+		},
+		1,
+	)
 }
 
 // HandleNotificationSuccess stores notifications success in StatsD
-func (s *StatsD) HandleNotificationSuccess(game string, platform string) {
-	s.Client.Incr("ack", []string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game)}, 1)
+func (s *StatsD) HandleNotificationSuccess(game, platform string) {
+	s.Client.Incr(
+		"ack",
+		[]string{
+			fmt.Sprintf("platform:%s", platform),
+			fmt.Sprintf("game:%s", game),
+		},
+		1,
+	)
 }
 
 // HandleNotificationFailure stores each type of failure
-func (s *StatsD) HandleNotificationFailure(game string, platform string, err *errors.PushError) {
+func (s *StatsD) HandleNotificationFailure(game, platform string, err *errors.PushError) {
 	s.Client.Incr(
 		"failed",
-		[]string{fmt.Sprintf("platform:%s", platform), fmt.Sprintf("game:%s", game), fmt.Sprintf("reason:%s", err.Key)},
+		[]string{
+			fmt.Sprintf("platform:%s", platform),
+			fmt.Sprintf("game:%s", game),
+			fmt.Sprintf("reason:%s", err.Key),
+		},
 		1,
 	)
 }
