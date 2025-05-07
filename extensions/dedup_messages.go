@@ -65,19 +65,19 @@ func NewDedup(timeframe time.Duration, config *viper.Viper, statsReporters []int
 			"timeframe": timeframe,
 		}),
 		defaultPercentage: defaultPercentage,
-		gamePercentages: gamePercentages,
+		gamePercentages:   gamePercentages,
 	}
 }
 
 func (d Dedup) IsUnique(ctx context.Context, device, msg, game, platform string) bool {
-	
+
 	// Get percentage for dedup sampling for specific game
 	percentage := d.defaultPercentage
 
 	if p, exists := d.gamePercentages[game]; exists {
 		percentage = p
 	}
-	
+
 	if percentage == 0 {
 		return true
 	}
@@ -92,7 +92,7 @@ func (d Dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 			return true
 		}
 	}
-	
+
 	rdbKey := Sha256Hex(device, msg)
 
 	// Store the key in Redis with a placeholder value ("1")—the actual value is irrelevant, as we only need to check for key existence.

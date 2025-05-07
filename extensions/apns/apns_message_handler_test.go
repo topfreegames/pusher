@@ -205,7 +205,7 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 		s.mockDedup.EXPECT().
 			IsUnique(gomock.Any(), token, gomock.Any(), s.appName, "apns").
 			Return(false)
-			
+
 		s.mockStatsReporter.EXPECT().
 			ReportMetricCount("duplicated_messages", int64(1), s.appName, "apns").
 			Return()

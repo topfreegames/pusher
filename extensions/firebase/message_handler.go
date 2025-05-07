@@ -43,7 +43,7 @@ func NewMessageHandler(
 	client interfaces.PushClient,
 	feedbackReporters []interfaces.FeedbackReporter,
 	statsReporters []interfaces.StatsReporter,
-	rateLimiter interfaces.RateLimiter, 
+	rateLimiter interfaces.RateLimiter,
 	dedup interfaces.Dedup,
 	pendingMessagesWaitGroup *sync.WaitGroup,
 	logger *logrus.Logger,

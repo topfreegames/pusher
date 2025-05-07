@@ -165,7 +165,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.game, "gcm").
 			Return(true)
-		
+
 		s.waitGroup.Add(1)
 		s.handler.HandleMessages(context.Background(), msg)
 		waitWG(s.T(), s.waitGroup)
