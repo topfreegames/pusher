@@ -22,7 +22,6 @@ type messageHandler struct {
 	pendingMessagesWaitGroup   *sync.WaitGroup
 	rateLimiter                interfaces.RateLimiter
 	dedup                      interfaces.Dedup
-	dedup                      interfaces.Dedup
 	statsDClient               extensions.StatsD
 	sendPushConcurrencyControl chan interface{}
 	responsesChannel           chan struct {
@@ -46,7 +45,6 @@ func NewMessageHandler(
 	statsReporters []interfaces.StatsReporter,
 	rateLimiter interfaces.RateLimiter,
 	dedup interfaces.Dedup,
-	dedup interfaces.Dedup,
 	pendingMessagesWaitGroup *sync.WaitGroup,
 	logger *logrus.Logger,
 	concurrentWorkers int,
@@ -64,7 +62,6 @@ func NewMessageHandler(
 		feedbackReporters:          feedbackReporters,
 		statsReporters:             statsReporters,
 		rateLimiter:                rateLimiter,
-		dedup:                      dedup,
 		dedup:                      dedup,
 		pendingMessagesWaitGroup:   pendingMessagesWaitGroup,
 		logger:                     l.Logger,

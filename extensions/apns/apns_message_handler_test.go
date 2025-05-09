@@ -64,7 +64,6 @@ type ApnsMessageHandlerTestSuite struct {
 	mockFeedbackReporter *mock_interfaces.MockFeedbackReporter
 	mockRateLimiter      *mock_interfaces.MockRateLimiter
 	mockDedup            *mock_interfaces.MockDedup
-	mockDedup            *mock_interfaces.MockDedup
 	waitGroup            *sync.WaitGroup
 	handler              *APNSMessageHandler
 }

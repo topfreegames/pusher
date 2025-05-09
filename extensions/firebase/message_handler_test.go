@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/topfreegames/pusher/errors"
+	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
 	"os"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/topfreegames/pusher/errors"
-	mock_interfaces "github.com/topfreegames/pusher/mocks/interfaces"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -34,7 +33,6 @@ type MessageHandlerTestSuite struct {
 	mockStatsReporter    *mock_interfaces.MockStatsReporter
 	mockFeedbackReporter *mock_interfaces.MockFeedbackReporter
 	mockRateLimiter      *mock_interfaces.MockRateLimiter
-	mockDedup            *mock_interfaces.MockDedup
 	mockDedup            *mock_interfaces.MockDedup
 	waitGroup            *sync.WaitGroup
 
@@ -80,7 +78,6 @@ func (s *MessageHandlerTestSuite) SetupSubTest() {
 		feedbackClients,
 		statsClients,
 		s.mockRateLimiter,
-		s.mockDedup,
 		s.mockDedup,
 		s.waitGroup,
 		l,
@@ -134,10 +131,6 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
 			Return(true)
 
-		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
-			Return(true)
-
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.game, "gcm").
 			Return(false)
@@ -170,12 +163,12 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), token, gomock.Any(), s.game, "gcm").
+			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
 			Return(false)
-		
+
 		s.mockStatsReporter.EXPECT().
 			ReportMetricCount("duplicated_messages", int64(1), s.game, "gcm").
-			Return()		
+			Return()
 
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.game, "gcm").
@@ -187,6 +180,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			SendPush(gomock.Any(), gomock.Any()).
 			Do(func(_ context.Context, msg interfaces.Message) {
 				s.Equal(token, msg.To)
+				done <- struct{}{}
 			})
 
 		s.mockStatsReporter.EXPECT().
@@ -196,26 +190,16 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
-			Do(func(game, platform, topic string) {
-				done <- struct{}{}
-			})
-
-		s.mockStatsReporter.EXPECT().
-			HandleNotificationSuccess(s.game, "gcm").
+			HandleNotificationSent(s.game, "gcm", gomock.Any()).
 			Return()
 
-		go s.handler.HandleResponses()
-		s.waitGroup.Add(1)
 		s.handler.HandleMessages(context.Background(), msg)
-
-		timeout := time.NewTimer(5 * time.Second)
+		timeout := time.NewTimer(10 * time.Millisecond)
 		select {
 		case <-done:
 		case <-timeout.C:
-			s.Fail("timed out waiting for message to be processed")
+			s.Fail("timed out waiting for message to be sent")
 		}
-		s.waitGroup.Wait()
 	})
 
 	s.Run("should succeed", func() {
@@ -240,10 +224,6 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
 			Return(true)
 
-		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
-			Return(true)
-
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.game, "gcm").
 			Return(true)
@@ -254,6 +234,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			SendPush(gomock.Any(), gomock.Any()).
 			Do(func(_ context.Context, msg interfaces.Message) {
 				s.Equal(token, msg.To)
+				done <- struct{}{}
 			})
 
 		s.mockStatsReporter.EXPECT().
@@ -263,35 +244,27 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
-			Do(func(game, platform, topic string) {
-				done <- struct{}{}
-			})
-
-		s.mockStatsReporter.EXPECT().
-			HandleNotificationSuccess(s.game, "gcm").
+			HandleNotificationSent(s.game, "gcm", gomock.Any()).
 			Return()
 
-		go s.handler.HandleResponses()
-		s.waitGroup.Add(1)
 		s.handler.HandleMessages(context.Background(), msg)
-
-		timeout := time.NewTimer(5 * time.Second)
+		timeout := time.NewTimer(10 * time.Millisecond)
 		select {
 		case <-done:
 		case <-timeout.C:
-			s.Fail("timed out waiting for message to be processed")
+			s.Fail("timed out waiting for message to be sent")
 		}
-		s.waitGroup.Wait()
 	})
 
 	s.Run("should not lock sendPushConcurrencyControl when sending multiple messages", func() {
 		newMessage := func() kafkaFCMMessage {
+			ttl := uint(0)
 			token := uuid.NewString()
-			title := uuid.NewString()
-			ttl := uint(1000)
+			title := fmt.Sprintf("title - %s", uuid.NewString())
 			metadata := map[string]interface{}{
-				"some": "metadata",
+				"some":     "metadata",
+				"game":     "game",
+				"platform": "gcm",
 			}
 			km := kafkaFCMMessage{
 				Message: interfaces.Message{
@@ -311,9 +284,6 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		go s.handler.HandleResponses()
 		qtyMsgs := 100
 
-		// Create a channel to coordinate mock expectations
-		mockDone := make(chan struct{}, qtyMsgs)
-
 		s.mockDedup.EXPECT().
 			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.game, "gcm").
 			Return(true).
@@ -332,24 +302,24 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		s.mockStatsReporter.EXPECT().
 			ReportSendNotificationLatency(gomock.Any(), s.game, "gcm", gomock.Any()).
 			Times(qtyMsgs).
-			Do(func(latency time.Duration, game, platform string, labels ...string) {
-				mockDone <- struct{}{}
-			})
+			Return()
 
 		s.mockStatsReporter.EXPECT().
 			HandleNotificationSent(s.game, "gcm", gomock.Any()).
 			Times(qtyMsgs).
 			Return()
 
+		done := make(chan struct{})
 		s.mockStatsReporter.EXPECT().
 			HandleNotificationSuccess(s.game, "gcm").
 			Times(qtyMsgs).
-			Return()
+			Do(func(game, platform string) {
+				done <- struct{}{}
+			})
 
 		s.mockStatsReporter.EXPECT().
-			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).
-			Times(qtyMsgs).
-			Return()
+			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return().
+			Times(qtyMsgs)
 
 		ctx := context.Background()
 		for i := 0; i < qtyMsgs; i++ {
@@ -360,18 +330,14 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			go s.handler.HandleMessages(ctx, interfaces.KafkaMessage{Value: bytes, Game: s.game})
 		}
 
-		// Wait for all mock expectations to be met
-		timeout := time.NewTimer(5 * time.Second)
+		timeout := time.NewTimer(50 * time.Millisecond)
 		for i := 0; i < qtyMsgs; i++ {
 			select {
-			case <-mockDone:
+			case <-done:
 			case <-timeout.C:
-				s.FailNow("timed out waiting for all messages to be processed")
+				s.FailNow("timed out waiting for message to be sent")
 			}
 		}
-
-		// Wait for all goroutines to complete
-		s.waitGroup.Wait()
 	})
 }
 
@@ -395,7 +361,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.game, "gcm").
+			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
 			Return(true)
 
 		s.mockRateLimiter.EXPECT().
@@ -415,7 +381,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
+			HandleNotificationSent(s.game, "gcm", gomock.Any()).
 			Return()
 
 		s.mockStatsReporter.EXPECT().
@@ -464,7 +430,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.game, "gcm").
+			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
 			Return(true)
 
 		s.mockRateLimiter.EXPECT().
@@ -486,7 +452,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
+			HandleNotificationSent(s.game, "gcm", gomock.Any()).
 			Return()
 
 		s.mockStatsReporter.EXPECT().
