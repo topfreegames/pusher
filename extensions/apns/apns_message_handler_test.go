@@ -98,7 +98,6 @@ func (s *ApnsMessageHandlerTestSuite) SetupTest() {
 	mockPushQueue := mock_interfaces.NewMockAPNSPushQueue(ctrl)
 	mockRateLimiter := mock_interfaces.NewMockRateLimiter(ctrl)
 	mockDedup := mock_interfaces.NewMockDedup(ctrl)
-	mockDedup := mock_interfaces.NewMockDedup(ctrl)
 	wg := &sync.WaitGroup{}
 
 	handler, err := NewAPNSMessageHandler(
@@ -116,7 +115,6 @@ func (s *ApnsMessageHandlerTestSuite) SetupTest() {
 		mockPushQueue,
 		mockRateLimiter,
 		mockDedup,
-		mockDedup,
 	)
 	require.NoError(s.T(), err)
 
@@ -126,7 +124,6 @@ func (s *ApnsMessageHandlerTestSuite) SetupTest() {
 	s.mockFeedbackReporter = mockFeedbackReporter
 	s.waitGroup = wg
 	s.mockRateLimiter = mockRateLimiter
-	s.mockDedup = mockDedup
 	s.mockDedup = mockDedup
 }
 
@@ -158,10 +155,6 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.appName, "apns").
 			Return(true)
 
-		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.appName, "apns").
-			Return(true)
-
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), gomock.Any(), s.appName, "apns").
 			Return(true)
@@ -182,10 +175,6 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 				expiration,
 			)),
 		}
-
-		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), token, gomock.Any(), s.appName, "apns").
-			Return(true)
 
 		s.mockDedup.EXPECT().
 			IsUnique(gomock.Any(), token, gomock.Any(), s.appName, "apns").
@@ -257,7 +246,7 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 		}
 
 		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), "apns").
+			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.appName, "apns").
 			Return(true)
 
 		s.mockRateLimiter.EXPECT().
@@ -289,7 +278,7 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 		}
 
 		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), "apns").
+			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.appName, "apns").
 			Return(true)
 
 		s.mockRateLimiter.EXPECT().
@@ -328,7 +317,7 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 		}
 
 		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), "apns").
+			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.appName, "apns").
 			Return(true)
 
 		s.mockRateLimiter.EXPECT().
@@ -366,10 +355,6 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 			Topic: "push-game_apns",
 			Value: []byte(`{ "Payload": { "aps" : { "alert" : "Hello HTTP/2" }}, "Metadata": { "nested": { "some": "data" }}}`),
 		}
-
-		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.appName, "apns").
-			Return(true)
 
 		s.mockDedup.EXPECT().
 			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.appName, "apns").
