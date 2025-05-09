@@ -303,6 +303,8 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			Return(nil).
 			Times(qtyMsgs)
 
+		
+		mockDone := make(chan struct{}, qtyMsgs)
 		s.mockStatsReporter.EXPECT().
 			ReportSendNotificationLatency(gomock.Any(), s.game, "gcm", gomock.Any()).
 			Times(qtyMsgs).
