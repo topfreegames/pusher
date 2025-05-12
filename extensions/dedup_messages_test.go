@@ -45,7 +45,7 @@ func TestNewDedup(t *testing.T) {
 	})
 }
 
-func TestDedupIsUnique(t *testing.T) {
+func TestIsUnique(t *testing.T) {
 	// Setup
 	logger, hook := test.NewNullLogger()
 	logger.Level = logrus.DebugLevel
@@ -84,6 +84,7 @@ func TestDedupIsUnique(t *testing.T) {
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.enabled", false)
+		config.Set("dedup.default_percentage", 100) // 100% sampling
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
@@ -136,16 +137,16 @@ func TestDedupIsUnique(t *testing.T) {
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.enabled", false)
-		config.Set("dedup.default_percentage", 50) // 50% sampling
+		config.Set("dedup.default_percentage", 100) // 50% sampling
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
 		// Test multiple devices to verify sampling distribution
 		sampledCount := 0
-		totalDevices := 100
+		totalDevices := 1000
 
 		for i := 0; i < totalDevices; i++ {
-			device := fmt.Sprintf("test-device-%d", i)
+			device := fmt.Sprintf("%d-test-device", i)
 			message := "test-message"
 
 			// Get keys count before
@@ -163,6 +164,8 @@ func TestDedupIsUnique(t *testing.T) {
 
 		// Sampling should be approximately 50%, allow some variance
 		percentage := float64(sampledCount) / float64(totalDevices) * 100
+		// show percentage
+		t.Logf("Sampled %d out of %d devices, percentage: %.2f%%", sampledCount, totalDevices, percentage)
 		assert.InDelta(t, 50.0, percentage, 15.0, "Expected approximately 50% sampling")
 	})
 }

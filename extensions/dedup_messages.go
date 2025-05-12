@@ -15,7 +15,7 @@ import (
 )
 
 // Dedup struct
-type Dedup struct {
+type dedup struct {
 	redis             *redis.Client
 	ttl         time.Duration
 	statsReporters    []interfaces.StatsReporter
@@ -24,7 +24,7 @@ type Dedup struct {
 	gamePercentages   map[string]int
 }
 
-func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interfaces.StatsReporter, logger *logrus.Logger) Dedup {
+func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interfaces.StatsReporter, logger *logrus.Logger) dedup {
 	host := config.GetString("dedup.redis.host")
 	port := config.GetInt("dedup.redis.port")
 	pwd := config.GetString("dedup.redis.password")
@@ -56,7 +56,7 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 
 	rdb := redis.NewClient(opts)
 
-	return Dedup{
+	return dedup{
 		redis:          rdb,
 		ttl:      ttl,
 		statsReporters: statsReporters,
@@ -69,7 +69,7 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 	}
 }
 
-func (d Dedup) IsUnique(ctx context.Context, device, msg, game, platform string) bool {
+func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string) bool {
 
 	// Get percentage for dedup sampling for specific game
 	percentage := d.defaultPercentage
