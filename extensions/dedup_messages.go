@@ -2,10 +2,10 @@ package extensions
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
-	"encoding/hex"
 	"fmt"
+	"hash/fnv"
+	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -17,7 +17,7 @@ import (
 // Dedup struct
 type dedup struct {
 	redis             *redis.Client
-	ttl         time.Duration
+	ttl               time.Duration
 	statsReporters    []interfaces.StatsReporter
 	l                 *logrus.Entry
 	defaultPercentage int
@@ -58,11 +58,11 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 
 	return dedup{
 		redis:          rdb,
-		ttl:      ttl,
+		ttl:            ttl,
 		statsReporters: statsReporters,
 		l: logger.WithFields(logrus.Fields{
 			"extension": "Dedup",
-			"ttl": ttl,
+			"ttl":       ttl,
 		}),
 		defaultPercentage: defaultPercentage,
 		gamePercentages:   gamePercentages,
@@ -78,14 +78,13 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 		percentage = p
 	}
 
-	if percentage == 0 {
-		return true
-	}
+	if percentage > 0 && percentage < 100 {
+		h := fnv.New64a()
+		h.Write([]byte(device))
 
-	if percentage < 100 {
-		h := sha256.Sum256([]byte(device))
-		sampleValue := int(h[0])*256 + int(h[1])
-
+		sum := h.Sum64()
+		// Use the top 16 bits of the hash to determine if we should sample
+		sampleValue := int(sum >> 48)
 		samplePercentile := sampleValue % 100
 
 		if samplePercentile >= percentage {
@@ -93,7 +92,7 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 		}
 	}
 
-	rdbKey := Sha256Hex(device, msg)
+	rdbKey := keyFor(device, msg)
 
 	// Store the key in Redis with a placeholder value ("1")—the actual value is irrelevant, as we only need to check for key existence.
 	unique, err := d.redis.SetNX(ctx, rdbKey, "1", d.ttl).Result()
@@ -115,11 +114,10 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 	return unique
 }
 
-func Sha256Hex(deviceId, msg string) string {
-
-	digest := fmt.Sprintf("%s|%s", deviceId, msg)
-	h := sha256.New()
-	h.Write([]byte(digest))
-
-	return hex.EncodeToString(h.Sum(nil))
+func keyFor(device, msg string) string {
+	h := fnv.New64a()
+	h.Write([]byte(device))
+	h.Write([]byte("|"))
+	h.Write([]byte(msg))
+	return strconv.FormatUint(h.Sum64(), 10)
 }

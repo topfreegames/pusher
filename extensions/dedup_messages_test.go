@@ -137,7 +137,7 @@ func TestIsUnique(t *testing.T) {
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.enabled", false)
-		config.Set("dedup.default_percentage", 100) // 50% sampling
+		config.Set("dedup.default_percentage", 50) // 50% sampling
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
@@ -150,13 +150,13 @@ func TestIsUnique(t *testing.T) {
 			message := "test-message"
 
 			// Get keys count before
-			keyCountBefore := len(mr.Keys())
+			keyCountBefore := len(mr.DB(1).Keys())
 
 			// Call IsUnique
 			d.IsUnique(context.Background(), device, message, "game", "platform")
 
 			// Check if Redis was actually called (key was created)
-			keyCountAfter := len(mr.Keys())
+			keyCountAfter := len(mr.DB(1).Keys())
 			if keyCountAfter > keyCountBefore {
 				sampledCount++
 			}
@@ -164,23 +164,23 @@ func TestIsUnique(t *testing.T) {
 
 		// Sampling should be approximately 50%, allow some variance
 		percentage := float64(sampledCount) / float64(totalDevices) * 100
-		// show percentage
+
 		t.Logf("Sampled %d out of %d devices, percentage: %.2f%%", sampledCount, totalDevices, percentage)
 		assert.InDelta(t, 50.0, percentage, 15.0, "Expected approximately 50% sampling")
 	})
 }
 
-func TestSha256Hex(t *testing.T) {
+func TestKeyFor(t *testing.T) {
 	t.Run("generates consistent hashes", func(t *testing.T) {
-		hash1 := Sha256Hex("device123", "message123")
-		hash2 := Sha256Hex("device123", "message123")
+		hash1 := keyFor("device123", "message123")
+		hash2 := keyFor("device123", "message123")
 		assert.Equal(t, hash1, hash2)
 	})
 
 	t.Run("different inputs produce different hashes", func(t *testing.T) {
-		hash1 := Sha256Hex("device123", "message123")
-		hash2 := Sha256Hex("device123", "message456")
-		hash3 := Sha256Hex("device456", "message123")
+		hash1 := keyFor("device123", "message123")
+		hash2 := keyFor("device123", "message456")
+		hash3 := keyFor("device456", "message123")
 
 		assert.NotEqual(t, hash1, hash2)
 		assert.NotEqual(t, hash1, hash3)
