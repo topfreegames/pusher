@@ -104,3 +104,13 @@ rateLimiter:
     password: ""
   tls:
     disabled: true
+dedup:
+  redis:
+    host: "localhost"
+    port: 6379
+    password: ""
+  tls:
+    enabled: false
+  ttl: 60
+  default_percentage: 0.5
+    

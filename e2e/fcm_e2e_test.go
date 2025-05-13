@@ -71,9 +71,10 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*mocks.MockPushClient,
 	s.Require().NoError(err)
 
 	limit := s.vConfig.GetInt("gcm.rateLimit.rpm")
-	dedupTtl := s.vConfig.GetDuration("gcm.dedup.ttl")
 	rateLimiter := extensions.NewRateLimiter(limit, s.vConfig, []interfaces.StatsReporter{statsReport}, logger)
-	dedup := extensions.NewDedup(dedupTtl, s.vConfig, []interfaces.StatsReporter{statsReport}, logger)
+
+	ttl := s.vConfig.GetDuration("dedup.ttl")
+	dedup := extensions.NewDedup(ttl, s.vConfig, []interfaces.StatsReporter{statsReport}, logger)
 
 	pushClient := mocks.NewMockPushClient(ctrl)
 	gcmPusher.MessageHandler = map[string]interfaces.MessageHandler{
