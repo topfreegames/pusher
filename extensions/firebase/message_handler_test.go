@@ -245,7 +245,6 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 
 		s.mockStatsReporter.EXPECT().
 			HandleNotificationSent(s.game, "gcm", gomock.Any()).
-
 			Return()
 
 		go s.handler.HandleResponses()
@@ -292,7 +291,6 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			Return(true).
 			Times(qtyMsgs)
 
-
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), gomock.Any(), s.game, "gcm").
 			Return(true).
@@ -303,7 +301,6 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			Return(nil).
 			Times(qtyMsgs)
 
-		
 		mockDone := make(chan struct{}, qtyMsgs)
 		s.mockStatsReporter.EXPECT().
 			ReportSendNotificationLatency(gomock.Any(), s.game, "gcm", gomock.Any()).
@@ -391,7 +388,6 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-
 			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
 			Return()
 
@@ -463,7 +459,6 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-
 			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
 			Return()
 

@@ -210,7 +210,7 @@ func (s *ApnsMessageHandlerTestSuite) TestHandleMessage() {
 
 		s.mockStatsReporter.EXPECT().
 			ReportMetricCount("duplicated_messages", int64(1), s.appName, "apns").
-			Return()		
+			Return()
 
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.appName, "apns").
