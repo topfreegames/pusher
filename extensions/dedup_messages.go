@@ -72,7 +72,10 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string) bool {
 
 	// Get percentage for dedup sampling for specific game
-	percentage := d.defaultPercentage * 100
+	percentage := d.defaultPercentage
+
+	fmt.Println("Percentage is ", percentage)
+
 
 	if p, exists := d.gamePercentages[game]; exists {
 		percentage = p
