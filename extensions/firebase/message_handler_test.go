@@ -244,7 +244,13 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
 
 		s.mockStatsReporter.EXPECT().
-			HandleNotificationSent(s.game, "gcm", gomock.Any()).
+			HandleNotificationSent(s.game, "gcm", "push-game_gcm").
+			Do(func(game, platform, topic string) {
+				done <- struct{}{}
+			})
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSuccess(s.game, "gcm").
 			Return()
 
 		go s.handler.HandleResponses()
