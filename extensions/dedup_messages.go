@@ -28,7 +28,7 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 	host := config.GetString("dedup.redis.host")
 	port := config.GetInt("dedup.redis.port")
 	pwd := config.GetString("dedup.redis.password")
-	enableTLS := config.GetBool("dedup.tls.enabled")
+	disableTLS := config.GetBool("dedup.tls.disabled")
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	opts := &redis.Options{
@@ -37,7 +37,7 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 		DB:       1,
 	}
 
-	if enableTLS {
+	if !disableTLS {
 		opts.TLSConfig = &tls.Config{}
 	}
 
@@ -73,8 +73,6 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 
 	// Get percentage for dedup sampling for specific game
 	percentage := d.defaultPercentage
-
-	fmt.Println("Percentage is ", percentage)
 
 
 	if p, exists := d.gamePercentages[game]; exists {

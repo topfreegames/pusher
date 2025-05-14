@@ -106,3 +106,11 @@ rateLimiter:
     password: ""
   tls:
     disabled: true
+dedup:
+  redis:
+    host: "redis"
+    port: 6379
+    password: ""
+  tls:
+    disabled: true
+  ttl: "60s"

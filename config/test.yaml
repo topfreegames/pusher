@@ -110,7 +110,7 @@ dedup:
     port: 6379
     password: ""
   tls:
-    enabled: false
-  ttl: 60
-  default_percentage: 0.5
+    disabled: true
+  ttl: "60s"
+  default_percentage: 50
     

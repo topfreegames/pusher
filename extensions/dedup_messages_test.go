@@ -34,7 +34,7 @@ func TestNewDedup(t *testing.T) {
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
-		config.Set("dedup.tls.enabled", false)
+		config.Set("dedup.tls.disabled", true)
 
 		dedupTtl := 10 * time.Minute
 		d := NewDedup(dedupTtl, config, statsReporters, logger)
@@ -62,7 +62,7 @@ func TestIsUnique(t *testing.T) {
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
-		config.Set("dedup.tls.enabled", false)
+		config.Set("dedup.tls.disabled", true)
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
@@ -83,7 +83,7 @@ func TestIsUnique(t *testing.T) {
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
-		config.Set("dedup.tls.enabled", false)
+		config.Set("dedup.tls.disabled", true)
 		config.Set("dedup.default_percentage", 100) // 100% sampling
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
@@ -108,7 +108,7 @@ func TestIsUnique(t *testing.T) {
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
-		config.Set("dedup.tls.enabled", false)
+		config.Set("dedup.tls.disabled", true)
 
 		// Very short ttl for testing
 		d := NewDedup(50*time.Millisecond, config, statsReporters, logger)
@@ -136,7 +136,7 @@ func TestIsUnique(t *testing.T) {
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
-		config.Set("dedup.tls.enabled", false)
+		config.Set("dedup.tls.disabled", true)
 		config.Set("dedup.default_percentage", 50) // 50% sampling
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
