@@ -194,6 +194,12 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 		})
 
 	statsdClientMock.EXPECT().
+		Count("duplicated_messages", 1, app, "apns").
+		DoAndReturn(func(string, []string, float64) error {
+			return nil
+		})
+
+	statsdClientMock.EXPECT().
 		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
 			return nil
