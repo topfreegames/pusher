@@ -114,7 +114,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	statsdClientMock.EXPECT().Count(
 			"duplicated_messages", 
 			int64(1),              
-			gomock.Any(),          
+			[]string{fmt.Sprintf("hostname:%s", gomock.Any()), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
 			float64(1.0),         
 		).
 		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
@@ -206,7 +206,7 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 	statsdClientMock.EXPECT().Count(
 			"duplicated_messages", 
 			int64(1),              
-			gomock.Any(),          
+			[]string{fmt.Sprintf("hostname:%s", gomock.Any()), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
 			float64(1.0),         
 		).
 		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
@@ -282,7 +282,7 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 	statsdClientMock.EXPECT().Count(
 			"duplicated_messages", 
 			int64(1),              
-			gomock.Any(),          
+			[]string{fmt.Sprintf("hostname:%s", gomock.Any()), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
 			float64(1.0),         
 		).
 		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
@@ -358,7 +358,7 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	statsdClientMock.EXPECT().Count(
 			"duplicated_messages", 
 			int64(1),              
-			gomock.Any(),          
+			[]string{fmt.Sprintf("hostname:%s", gomock.Any()), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
 			float64(1.0),         
 		).
 		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
