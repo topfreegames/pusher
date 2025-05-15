@@ -113,7 +113,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 
 	statsdClientMock.EXPECT().
 		Count("duplicated_messages", int64(1), app, "apns").
-		DoAndReturn(func(string, []string, float64) error {
+		DoAndReturn(func(string, int64, string, string) error {
 			return nil
 		})
 
@@ -201,7 +201,7 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 
 	statsdClientMock.EXPECT().
 		Count("duplicated_messages", int64(1), app, "apns").
-		DoAndReturn(func(string, []string, float64) error {
+		DoAndReturn(func(string, int64, string, string) error {
 			return nil
 		})
 
@@ -273,7 +273,7 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 
 	statsdClientMock.EXPECT().
 		Count("duplicated_messages", int64(1), app, "apns").
-		DoAndReturn(func(string, []string, float64) error {
+		DoAndReturn(func(string, int64, string, string) error {
 			return nil
 		})
 		
@@ -345,7 +345,7 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 
 	statsdClientMock.EXPECT().
 		Count("duplicated_messages", int64(1), app, "apns").
-		DoAndReturn(func(string, []string, float64) error {
+		DoAndReturn(func(string, int64, string, string) error {
 			return nil
 		})
 
