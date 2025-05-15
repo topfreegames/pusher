@@ -111,9 +111,13 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 			return nil
 		})
 
-	statsdClientMock.EXPECT().
-		Count("duplicated_messages", int64(1), app, "apns").
-		DoAndReturn(func(string, int64, string, string) error {
+	statsdClientMock.EXPECT().Count(
+			"duplicated_messages", 
+			int64(1),              
+			gomock.Any(),          
+			float64(1.0),         
+		).
+		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
 			return nil
 		})
 
@@ -199,9 +203,13 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 			return nil
 		})
 
-	statsdClientMock.EXPECT().
-		Count("duplicated_messages", int64(1), app, "apns").
-		DoAndReturn(func(string, int64, string, string) error {
+	statsdClientMock.EXPECT().Count(
+			"duplicated_messages", 
+			int64(1),              
+			gomock.Any(),          
+			float64(1.0),         
+		).
+		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
 			return nil
 		})
 
@@ -271,9 +279,13 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 			return nil
 		})
 
-	statsdClientMock.EXPECT().
-		Count("duplicated_messages", int64(1), app, "apns").
-		DoAndReturn(func(string, int64, string, string) error {
+	statsdClientMock.EXPECT().Count(
+			"duplicated_messages", 
+			int64(1),              
+			gomock.Any(),          
+			float64(1.0),         
+		).
+		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
 			return nil
 		})
 		
@@ -343,9 +355,13 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 			})
 	}
 
-	statsdClientMock.EXPECT().
-		Count("duplicated_messages", int64(1), app, "apns").
-		DoAndReturn(func(string, int64, string, string) error {
+	statsdClientMock.EXPECT().Count(
+			"duplicated_messages", 
+			int64(1),              
+			gomock.Any(),          
+			float64(1.0),         
+		).
+		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
 			return nil
 		})
 
