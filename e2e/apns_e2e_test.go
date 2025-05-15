@@ -91,6 +91,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
+	hostname, _ := os.Hostname()
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token"
 	testDone := make(chan bool)
@@ -114,7 +115,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	statsdClientMock.EXPECT().Count(
 			"duplicated_messages", 
 			int64(1),              
-			[]string{fmt.Sprintf("hostname:%s", gomock.Any()), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
+			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
 			float64(1.0),         
 		).
 		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
@@ -164,6 +165,7 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
+	hostname, _ := os.Hostname()
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token"
 	done := make(chan bool)
@@ -206,7 +208,7 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 	statsdClientMock.EXPECT().Count(
 			"duplicated_messages", 
 			int64(1),              
-			[]string{fmt.Sprintf("hostname:%s", gomock.Any()), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
+			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
 			float64(1.0),         
 		).
 		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
@@ -256,6 +258,7 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
+	hostname, _ := os.Hostname()
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token"
 	done := make(chan bool)
@@ -282,7 +285,7 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 	statsdClientMock.EXPECT().Count(
 			"duplicated_messages", 
 			int64(1),              
-			[]string{fmt.Sprintf("hostname:%s", gomock.Any()), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
+			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
 			float64(1.0),         
 		).
 		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
@@ -332,6 +335,7 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
+	hostname, _ := os.Hostname()
 	notificationsToSend := 10
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token"
@@ -358,7 +362,7 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	statsdClientMock.EXPECT().Count(
 			"duplicated_messages", 
 			int64(1),              
-			[]string{fmt.Sprintf("hostname:%s", gomock.Any()), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
+			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
 			float64(1.0),         
 		).
 		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
