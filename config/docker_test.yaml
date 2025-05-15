@@ -1,7 +1,7 @@
 ---
 gracefulShutdownTimeout: 10
 apns:
-  rateLimit.rpm: 100
+  rateLimit.rpm: 300
   concurrentWorkers: 300
   connectionPoolSize: 1
   logStatsInterval: 750
@@ -15,7 +15,7 @@ apns:
   responsechannelsize: 100
   connectionpoolsize: 10
 gcm:
-  rateLimit.rpm: 100
+  rateLimit.rpm: 300
   pingInterval: 30
   pingTimeout: 10
   maxPendingMessages: 3
