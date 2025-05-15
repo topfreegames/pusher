@@ -365,6 +365,7 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
 			float64(1.0),         
 		).
+		Times(notificationsToSend).
 		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
 			return nil
 		})
@@ -422,6 +423,7 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
 
 	notificationsToSend := 30
 
+	hostname, _ := os.Hostname()
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token"
 	done := make(chan bool)
@@ -444,6 +446,17 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
 				return nil
 			})
 	}
+
+	statsdClientMock.EXPECT().Count(
+			"duplicated_messages", 
+			int64(1),              
+			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
+			float64(1.0),         
+		).
+		Times(notificationsToSend).
+		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
+			return nil
+		})
 
 	statsdClientMock.EXPECT().
 		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
