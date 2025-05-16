@@ -136,8 +136,7 @@ Pusher can detect and filter out duplicate messages to avoid sending the same no
 * `PUSHER_DEDUP_REDIS_PORT` - Redis port for deduplication service
 * `PUSHER_DEDUP_REDIS_PASSWORD` - Redis password for deduplication service
 * `PUSHER_DEDUP_TLS_DISABLED` - Whether to enable TLS for Redis connection
-* `PUSHER_DEDUP_TTL` - How long to remember duplicate messages (e.g., "1h")
-* `PUSHER_DEDUP_DEFAULT_PERCENTAGE` - Default percentage of messages to check (0-100)
+* `PUSHER_<GCM/APNS>_DEDUP_TTL` - How long to remember duplicate messages (e.g., "1h")
 * `PUSHER_DEDUP_GAMES_<GAMENAME>_PERCENTAGE` - Game-specific percentage to check
 
 ### Percentage-based Sampling

@@ -91,9 +91,8 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
-	hostname, _ := os.Hostname()
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
-	token := "token"
+	token := "token-simple"
 	testDone := make(chan bool)
 	mockApnsClient.EXPECT().
 		Push(gomock.Any()).
@@ -109,16 +108,6 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 					Notification: notification,
 				}
 			}()
-			return nil
-		})
-
-	statsdClientMock.EXPECT().Count(
-			"duplicated_messages", 
-			int64(1),              
-			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
-			float64(1.0),         
-		).
-		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
 			return nil
 		})
 
@@ -144,7 +133,7 @@ func (s *ApnsE2ETestSuite) TestSimpleNotification() {
 			Topic:     &topic,
 			Partition: kafka.PartitionAny,
 		},
-		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello"}}}`),
+		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello-Simple"}}}`),
 	},
 		nil)
 	s.Require().NoError(err)
@@ -165,9 +154,8 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
-	hostname, _ := os.Hostname()
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
-	token := "token"
+	token := "token-retry"
 	done := make(chan bool)
 
 	mockApnsClient.EXPECT().
@@ -205,16 +193,6 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 			return nil
 		})
 
-	statsdClientMock.EXPECT().Count(
-			"duplicated_messages", 
-			int64(1),              
-			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
-			float64(1.0),         
-		).
-		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
-			return nil
-		})
-
 	statsdClientMock.EXPECT().
 		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
@@ -237,7 +215,7 @@ func (s *ApnsE2ETestSuite) TestNotificationRetry() {
 			Topic:     &topic,
 			Partition: kafka.PartitionAny,
 		},
-		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello"}}}`),
+		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello-Retry"}}}`),
 	},
 		nil)
 	s.Require().NoError(err)
@@ -258,9 +236,8 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
-	hostname, _ := os.Hostname()
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
-	token := "token"
+	token := "token-retry-limit"
 	done := make(chan bool)
 
 	mockApnsClient.EXPECT().
@@ -282,16 +259,7 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 			return nil
 		})
 
-	statsdClientMock.EXPECT().Count(
-			"duplicated_messages", 
-			int64(1),              
-			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
-			float64(1.0),         
-		).
-		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
-			return nil
-		})
-		
+
 	statsdClientMock.EXPECT().
 		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
 		DoAndReturn(func(string, []string, float64) error {
@@ -314,7 +282,7 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 			Topic:     &topic,
 			Partition: kafka.PartitionAny,
 		},
-		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello"}}}`),
+		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello-Retry-Limit"}}}`),
 	},
 		nil)
 	s.Require().NoError(err)
@@ -335,10 +303,9 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 	go p.Start(context.Background())
 	time.Sleep(wait)
 
-	hostname, _ := os.Hostname()
 	notificationsToSend := 10
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
-	token := "token"
+	token := "token-multiple"
 	done := make(chan bool)
 
 	for i := 0; i < notificationsToSend; i++ {
@@ -358,17 +325,6 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 				return nil
 			})
 	}
-
-	statsdClientMock.EXPECT().Count(
-			"duplicated_messages", 
-			int64(1),              
-			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
-			float64(1.0),         
-		).
-		Times(notificationsToSend).
-		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
-			return nil
-		})
 
 	statsdClientMock.EXPECT().
 		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
@@ -396,7 +352,7 @@ func (s *ApnsE2ETestSuite) TestMultipleNotifications() {
 				Topic:     &topic,
 				Partition: kafka.PartitionAny,
 			},
-			Value: []byte(`{"deviceToken":"` + fmt.Sprintf("%s%d", token, i) + `", "payload": {"aps": {"alert": "Hello"}}}`),
+			Value: []byte(`{"deviceToken":"` + fmt.Sprintf("%s%d", token, i) + `", "payload": {"aps": {"alert": "Hello-Multiple"}}}`),
 		},
 			nil)
 		s.Require().NoError(err)
@@ -424,7 +380,7 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
 	notificationsToSend := 30
 
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
-	token := "token"
+	token := "token-before-exit"
 	done := make(chan bool)
 
 	for i := 0; i < notificationsToSend; i++ {
@@ -471,7 +427,7 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExiting() {
 				Topic:     &topic,
 				Partition: kafka.PartitionAny,
 			},
-			Value: []byte(`{"deviceToken":"` + fmt.Sprintf("%s%d", token, i) + `", "payload": {"aps": {"alert": "Hello"}}}`),
+			Value: []byte(`{"deviceToken":"` + fmt.Sprintf("%s%d", token, i) + `", "payload": {"aps": {"alert": "Hello-Multiple"}}}`),
 		},
 			nil)
 		s.Require().NoError(err)
@@ -506,7 +462,7 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExitingWithRetries() {
 	time.Sleep(wait)
 
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
-	token := "token"
+	token := "token-before-exit-retry"
 	done := make(chan bool)
 
 	mockApnsClient.EXPECT().
@@ -569,7 +525,7 @@ func (s *ApnsE2ETestSuite) TestConsumeMessagesBeforeExitingWithRetries() {
 			Topic:     &topic,
 			Partition: kafka.PartitionAny,
 		},
-		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello"}}}`),
+		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello-Before-Exiting-Retry"}}}`),
 	},
 		nil)
 	s.Require().NoError(err)
@@ -606,4 +562,88 @@ func (s *ApnsE2ETestSuite) assureTopicsExist(app string) {
 	},
 		nil)
 	s.Require().NoError(err)
+}
+
+func (s *ApnsE2ETestSuite) TestDuplicatedMessages() {
+	app, p, mockApnsClient, statsdClientMock, responsesChannel := s.setupApnsPusher()
+	go p.Start(context.Background())
+	time.Sleep(wait)
+
+	hostname, _ := os.Hostname()
+	notificationsToSend := 10
+	topic := fmt.Sprintf(apnsTopicTemplate, app)
+	token := "token-duplicated"
+	done := make(chan bool)
+
+	for i := 0; i < notificationsToSend; i++ {
+		mockApnsClient.EXPECT().
+			Push(gomock.Any()).
+			DoAndReturn(func(notification *structs.ApnsNotification) error {
+
+				go func() {
+					responsesChannel <- &structs.ResponseWithMetadata{
+						ApnsID:       notification.ApnsID,
+						Sent:         true,
+						StatusCode:   200,
+						DeviceToken:  notification.DeviceToken,
+						Notification: notification,
+					}
+				}()
+				return nil
+			})
+	}
+
+	statsdClientMock.EXPECT().Count(
+			"duplicated_messages", 
+			int64(1),              
+			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
+			float64(1.0),         
+		).
+		Times(notificationsToSend - 1).
+		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
+			return nil
+		})
+
+	statsdClientMock.EXPECT().
+		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
+		Times(notificationsToSend).
+		DoAndReturn(func(string, []string, float64) error {
+			return nil
+		})
+
+	statsdClientMock.EXPECT().
+		Incr("ack", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app)}, float64(1)).
+		Times(notificationsToSend).
+		DoAndReturn(func(string, []string, float64) error {
+			done <- true
+			return nil
+		})
+
+	statsdClientMock.EXPECT().
+		Timing("send_notification_latency", gomock.Any(), gomock.Any(), gomock.Any()).
+		Times(notificationsToSend).
+		Return(nil)
+
+	for i := 0; i < notificationsToSend; i++ {
+		err := s.producer.Produce(&kafka.Message{
+			TopicPartition: kafka.TopicPartition{
+				Topic:     &topic,
+				Partition: kafka.PartitionAny,
+			},
+			Value: []byte(`{"deviceToken":"` + token + `", "payload": {"aps": {"alert": "Hello-Duplicated"}}}`),
+		},
+			nil)
+		s.Require().NoError(err)
+	}
+	// Give it some time to process the message
+	timer := time.NewTimer(timeout)
+	for i := 0; i < notificationsToSend; i++ {
+		select {
+		case <-done:
+		case <-timer.C:
+			s.FailNow("Timeout waiting for Handler to report notification sent")
+		}
+	}
+	// Wait some time to make sure it won't call the push client again after everything is done
+	time.Sleep(wait)
 }

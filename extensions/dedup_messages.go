@@ -20,7 +20,6 @@ type dedup struct {
 	ttl               time.Duration
 	statsReporters    []interfaces.StatsReporter
 	l                 *logrus.Entry
-	defaultPercentage int
 	gamePercentages   map[string]int
 }
 
@@ -41,16 +40,13 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 		opts.TLSConfig = &tls.Config{}
 	}
 
-	defaultPercentage := config.GetInt("dedup.default_percentage")
-	if defaultPercentage < 0 {
-		defaultPercentage = 0
-	}
-
 	gamePercentages := make(map[string]int)
 	games := config.GetStringMap("dedup.games")
 	for game := range games {
 		if config.IsSet("dedup.games." + game + ".percentage") {
 			gamePercentages[game] = config.GetInt("dedup.games." + game + ".percentage")
+		} else {
+			gamePercentages[game] = 0
 		}
 	}
 
@@ -64,7 +60,6 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 			"extension": "Dedup",
 			"ttl":       ttl,
 		}),
-		defaultPercentage: defaultPercentage,
 		gamePercentages:   gamePercentages,
 	}
 }
@@ -72,11 +67,15 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string) bool {
 
 	// Get percentage for dedup sampling for specific game
-	percentage := d.defaultPercentage
+	percentage := d.gamePercentages[game]
 
 
 	if p, exists := d.gamePercentages[game]; exists {
 		percentage = p
+	}
+
+	if percentage == 0 {
+		return true
 	}
 
 	if percentage > 0 && percentage < 100 {

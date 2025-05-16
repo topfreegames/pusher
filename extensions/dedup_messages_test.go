@@ -84,7 +84,6 @@ func TestIsUnique(t *testing.T) {
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.disabled", true)
-		config.Set("dedup.default_percentage", 100) // 100% sampling
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
@@ -137,7 +136,6 @@ func TestIsUnique(t *testing.T) {
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.disabled", true)
-		config.Set("dedup.default_percentage", 50) // 50% sampling
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 

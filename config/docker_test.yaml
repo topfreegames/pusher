@@ -2,6 +2,7 @@
 gracefulShutdownTimeout: 10
 apns:
   rateLimit.rpm: 300
+  dedup.ttl: "60s"
   concurrentWorkers: 300
   connectionPoolSize: 1
   logStatsInterval: 750
@@ -16,6 +17,7 @@ apns:
   connectionpoolsize: 10
 gcm:
   rateLimit.rpm: 300
+  dedup.ttl: "60s"
   pingInterval: 30
   pingTimeout: 10
   maxPendingMessages: 3
@@ -113,4 +115,3 @@ dedup:
     password: ""
   tls:
     disabled: true
-  ttl: "60s"
