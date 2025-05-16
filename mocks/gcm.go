@@ -27,13 +27,13 @@ import (
 	gcm "github.com/topfreegames/go-gcm"
 )
 
-//GCMClientMock should be used for tests that need to send xmpp messages to GCM
+// GCMClientMock should be used for tests that need to send xmpp messages to GCM
 type GCMClientMock struct {
 	MessagesSent []gcm.XMPPMessage
 	Closed       bool
 }
 
-//NewGCMClientMock creates a new instance
+// NewGCMClientMock creates a new instance
 func NewGCMClientMock() *GCMClientMock {
 	return &GCMClientMock{
 		Closed:       false,
@@ -41,13 +41,13 @@ func NewGCMClientMock() *GCMClientMock {
 	}
 }
 
-//SendXMPP records the sent message in the MessagesSent collection
+// SendXMPP records the sent message in the MessagesSent collection
 func (m *GCMClientMock) SendXMPP(msg gcm.XMPPMessage) (string, int, error) {
 	m.MessagesSent = append(m.MessagesSent, msg)
 	return uuid.NewV4().String(), 0, nil
 }
 
-//Close records that it is closed
+// Close records that it is closed
 func (m *GCMClientMock) Close() error {
 	m.Closed = true
 	return nil

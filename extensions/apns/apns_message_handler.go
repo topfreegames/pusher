@@ -77,6 +77,7 @@ type APNSMessageHandler struct {
 	retryInterval                time.Duration
 	maxRetryAttempts             uint
 	rateLimiter                  interfaces.RateLimiter
+	dedup                        interfaces.Dedup
 }
 
 var _ interfaces.MessageHandler = &APNSMessageHandler{}
@@ -92,6 +93,7 @@ func NewAPNSMessageHandler(
 	feedbackReporters []interfaces.FeedbackReporter,
 	pushQueue interfaces.APNSPushQueue,
 	rateLimiter interfaces.RateLimiter,
+	dedup interfaces.Dedup,
 ) (*APNSMessageHandler, error) {
 	a := &APNSMessageHandler{
 		authKeyPath:       authKeyPath,
@@ -107,6 +109,7 @@ func NewAPNSMessageHandler(
 		StatsReporters:    statsReporters,
 		PushQueue:         pushQueue,
 		rateLimiter:       rateLimiter,
+		dedup:             dedup,
 	}
 
 	if a.Logger != nil {
@@ -188,6 +191,13 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 		return
 	}
 	l = l.WithField("notification", parsedNotification)
+
+	uniqueMessage := a.dedup.IsUnique(ctx, parsedNotification.DeviceToken, string(message.Value), a.appName, "apns")
+	if !uniqueMessage {
+		l.WithField("message", message).Info("duplicate message detected")
+		extensions.StatsReporterDuplicateMessageDetected(a.StatsReporters, a.appName, "apns")
+		//does not return because we don't want to block the message
+	}
 
 	allowed := a.rateLimiter.Allow(ctx, parsedNotification.DeviceToken, a.appName, "apns")
 	if !allowed {
