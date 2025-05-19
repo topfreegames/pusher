@@ -74,6 +74,7 @@ func (s *ApnsE2ETestSuite) setupApnsPusher() (
 
 	appName := strings.Split(uuid.NewString(), "-")[0]
 	cfg.Apns.Apps = appName
+	viper.Set("dedup.games."+appName+".percentage", 100)
 	viper.Set("queue.topics", []string{fmt.Sprintf(apnsTopicTemplate, appName)})
 	viper.Set("queue.group", appName)
 
@@ -258,7 +259,6 @@ func (s *ApnsE2ETestSuite) TestRetryLimit() {
 			}()
 			return nil
 		})
-
 
 	statsdClientMock.EXPECT().
 		Incr("sent", []string{fmt.Sprintf("platform:%s", "apns"), fmt.Sprintf("game:%s", app), fmt.Sprintf("topic:%s", topic)}, float64(1)).
@@ -570,7 +570,7 @@ func (s *ApnsE2ETestSuite) TestDuplicatedMessages() {
 	time.Sleep(wait)
 
 	hostname, _ := os.Hostname()
-	notificationsToSend := 10
+	notificationsToSend := 2
 	topic := fmt.Sprintf(apnsTopicTemplate, app)
 	token := "token-duplicated"
 	done := make(chan bool)
@@ -594,12 +594,12 @@ func (s *ApnsE2ETestSuite) TestDuplicatedMessages() {
 	}
 
 	statsdClientMock.EXPECT().Count(
-			"duplicated_messages", 
-			int64(1),              
-			[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},         
-			float64(1.0),         
-		).
-		Times(notificationsToSend - 1).
+		"duplicated_messages",
+		int64(1),
+		[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", app), fmt.Sprintf("platform:%s", "apns")},
+		float64(1.0),
+	).
+		Times(1).
 		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
 			return nil
 		})

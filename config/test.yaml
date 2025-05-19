@@ -6,7 +6,7 @@ apns:
   concurrentWorkers: 300
   connectionPoolSize: 1
   logStatsInterval: 750
-  apps: "game"
+  apps: "game100"
   certs:
     game:
       authKeyPath: ../tls/authkey.p8
@@ -20,7 +20,7 @@ gcm:
   pingTimeout: 10
   maxPendingMessages: 3
   logStatsInterval: 750
-  apps: "game"
+  apps: "game100"
   certs:
     game:
       apiKey: game-api-key
@@ -112,4 +112,9 @@ dedup:
     port: 6379
     password: ""
   tls:
-    disabled: true    
+    disabled: true
+  games:
+    game100:
+      percentage: 100
+    game50:
+      percentage: 100

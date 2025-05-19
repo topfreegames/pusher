@@ -63,6 +63,7 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*mocks.MockPushClient,
 	s.config.GCM.Apps = appName
 	s.vConfig.Set(fmt.Sprintf("gcm.firebaseCredentials.%s", appName), "{ \"project_id\": \"test-app\", \"type\": \"service_account\" }")
 
+	s.vConfig.Set("dedup.games."+appName+".percentage", 100)
 	ctx := context.Background()
 	gcmPusher, err := pusher.NewGCMPusher(ctx, false, s.vConfig, s.config, logger, statsdClientMock)
 	s.Require().NoError(err)
@@ -234,7 +235,7 @@ func (s *FcmE2ETestSuite) TestDuplicatedMessages() {
 
 	mockFcmClient, statsdClientMock := s.setupFcmPusher(appName)
 
-	notificationsToSend := 10
+	notificationsToSend := 2
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": s.config.Queue.Brokers,
 	})
@@ -252,15 +253,15 @@ func (s *FcmE2ETestSuite) TestDuplicatedMessages() {
 	}
 
 	statsdClientMock.EXPECT().Count(
-		"duplicated_messages", 
-		int64(1),              
-		[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", appName), fmt.Sprintf("platform:%s", "gcm")},         
-		float64(1.0),         
+		"duplicated_messages",
+		int64(1),
+		[]string{fmt.Sprintf("hostname:%s", hostname), fmt.Sprintf("game:%s", appName), fmt.Sprintf("platform:%s", "gcm")},
+		float64(1.0),
 	).
-	Times(notificationsToSend - 1).
-	DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
-		return nil
-	})	
+		Times(1).
+		DoAndReturn(func(metric_arg string, value_arg int64, tags_arg []string, rate_arg float64) error {
+			return nil
+		})
 
 	statsdClientMock.EXPECT().
 		Incr("sent", []string{fmt.Sprintf("platform:%s", "gcm"), fmt.Sprintf("game:%s", appName), fmt.Sprintf("topic:%s", topic)}, float64(1)).

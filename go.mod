@@ -27,6 +27,10 @@ require (
 require (
 	github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 // indirect
 	github.com/garyburd/redigo v1.6.4 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/willf/bitset v1.1.11 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	gopkg.in/bculberson/bloom.v2 v2.0.0-20170119030643-25749c15bf21 // indirect
@@ -58,6 +62,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jinzhu/inflection v0.0.0-20170102125226-1c35d901db3d // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
+	github.com/labstack/gommon v0.4.2
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mattn/go-xmpp v0.0.0-20170423100754-906d9d747d2b // indirect
 	github.com/nxadm/tail v1.4.11 // indirect

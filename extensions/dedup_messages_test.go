@@ -35,6 +35,7 @@ func TestNewDedup(t *testing.T) {
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.disabled", true)
+		config.Set("dedup.games.gametest.percentage", 100)
 
 		dedupTtl := 10 * time.Minute
 		d := NewDedup(dedupTtl, config, statsReporters, logger)
@@ -63,11 +64,12 @@ func TestIsUnique(t *testing.T) {
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.disabled", true)
+		config.Set("dedup.games.gametest.percentage", 100)
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
 		// First attempt should be unique
-		unique := d.IsUnique(context.Background(), "device123", "message123", "game", "platform")
+		unique := d.IsUnique(context.Background(), "device123", "message123", "gametest", "platform")
 		assert.True(t, unique)
 
 		// No metrics should be reported for unique messages
@@ -84,6 +86,7 @@ func TestIsUnique(t *testing.T) {
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.disabled", true)
+		config.Set("dedup.games.game.percentage", 100)
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
@@ -108,6 +111,7 @@ func TestIsUnique(t *testing.T) {
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.disabled", true)
+		config.Set("dedup.games.game.percentage", 100)
 
 		// Very short ttl for testing
 		d := NewDedup(50*time.Millisecond, config, statsReporters, logger)
@@ -136,6 +140,7 @@ func TestIsUnique(t *testing.T) {
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.disabled", true)
+		config.Set("dedup.games.game.percentage", 50)
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 

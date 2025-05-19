@@ -6,7 +6,7 @@ apns:
   concurrentWorkers: 300
   connectionPoolSize: 1
   logStatsInterval: 750
-  apps: "game"
+  apps: "game100"
   certs:
     game:
       authKeyPath: ../tls/authkey.p8
@@ -115,3 +115,8 @@ dedup:
     password: ""
   tls:
     disabled: true
+  games:
+    game100:
+      percentage: 0
+    game50:
+      percentage: 0
