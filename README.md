@@ -138,16 +138,7 @@ Note: This feature is not yet active. Currently, deduplication only tracks metri
 * `PUSHER_DEDUP_REDIS_PASSWORD` - Redis password for deduplication service
 * `PUSHER_DEDUP_TLS_DISABLED` - Whether to enable TLS for Redis connection
 * `PUSHER_<GCM/APNS>_DEDUP_TTL` - How long to remember duplicate messages (e.g., "1h")
-* `PUSHER_DEDUP_GAMES_<GAMENAME>_PERCENTAGE` - Game-specific percentage to check
-
-### Percentage-based Sampling
-
-The deduplication system supports percentage-based sampling to reduce Redis load:
-- `0%`: Completely disable deduplication for a game
-- `100%`: Check all messages for duplicates
-- `1-99%`: Check only that percentage of messages
-
-Sampling is based on a hash of the device ID, ensuring the same device always gets the same sampling decision.
+* `PUSHER_DEDUP_GAMES_<GAMENAME>_PERCENTAGE` - Sets the deduplication sampling rate for a specific game. 0% disables sampling, 100% checks all messages. Sampling is deterministic per device.
 
 # Architecture
 
