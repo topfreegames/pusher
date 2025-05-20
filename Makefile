@@ -180,3 +180,4 @@ mocks:
 	$(MOCKGENERATE) -source=interfaces/feedback_reporter.go -destination=mocks/interfaces/feedback_reporter.go
 	$(MOCKGENERATE) -source=interfaces/message_handler.go -destination=mocks/interfaces/message_handler.go
 	$(MOCKGENERATE) -source=interfaces/rate_limiter.go -destination=mocks/interfaces/rate_limiter.go
+	$(MOCKGENERATE) -source=interfaces/dedup_messages.go -destination=mocks/interfaces/dedup_messages.go

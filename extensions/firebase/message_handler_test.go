@@ -34,6 +34,7 @@ type MessageHandlerTestSuite struct {
 	mockStatsReporter    *mock_interfaces.MockStatsReporter
 	mockFeedbackReporter *mock_interfaces.MockFeedbackReporter
 	mockRateLimiter      *mock_interfaces.MockRateLimiter
+	mockDedup            *mock_interfaces.MockDedup
 	waitGroup            *sync.WaitGroup
 
 	handler interfaces.MessageHandler
@@ -67,6 +68,7 @@ func (s *MessageHandlerTestSuite) SetupSubTest() {
 	statsClients := []interfaces.StatsReporter{s.mockStatsReporter}
 	feedbackClients := []interfaces.FeedbackReporter{s.mockFeedbackReporter}
 	s.mockRateLimiter = mock_interfaces.NewMockRateLimiter(ctrl)
+	s.mockDedup = mock_interfaces.NewMockDedup(ctrl)
 	s.waitGroup = &sync.WaitGroup{}
 
 	cfg := newDefaultMessageHandlerConfig()
@@ -77,6 +79,7 @@ func (s *MessageHandlerTestSuite) SetupSubTest() {
 		feedbackClients,
 		statsClients,
 		s.mockRateLimiter,
+		s.mockDedup,
 		s.waitGroup,
 		l,
 		concurrentWorkers,
@@ -125,6 +128,10 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			)),
 		}
 
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
+			Return(true)
+
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.game, "gcm").
 			Return(false)
@@ -136,6 +143,64 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		s.waitGroup.Add(1)
 		s.handler.HandleMessages(context.Background(), msg)
 		waitWG(s.T(), s.waitGroup)
+	})
+
+	s.Run("should fail open if message is not unique", func() {
+		token := uuid.NewString()
+		msgValue := kafkaFCMMessage{
+			Message: interfaces.Message{
+				To: token,
+				Data: map[string]interface{}{
+					"title": "notification",
+					"body":  "body",
+				},
+			},
+			Metadata: map[string]interface{}{
+				"some": "metadata",
+			},
+		}
+		bytes, err := json.Marshal(msgValue)
+		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
+		s.Require().NoError(err)
+
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
+			Return(false)
+
+		s.mockStatsReporter.EXPECT().
+			ReportMetricCount("duplicated_messages", int64(1), s.game, "gcm").
+			Return()
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.game, "gcm").
+			Return(true)
+
+		done := make(chan struct{})
+
+		s.mockClient.EXPECT().
+			SendPush(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, msg interfaces.Message) {
+				s.Equal(token, msg.To)
+				done <- struct{}{}
+			})
+
+		s.mockStatsReporter.EXPECT().
+			ReportSendNotificationLatency(gomock.Any(), s.game, "gcm", gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSent(s.game, "gcm", gomock.Any()).
+			Return()
+
+		s.handler.HandleMessages(context.Background(), msg)
+		timeout := time.NewTimer(10 * time.Millisecond)
+		select {
+		case <-done:
+		case <-timeout.C:
+			s.Fail("timed out waiting for message to be sent")
+		}
 	})
 
 	s.Run("should succeed", func() {
@@ -155,6 +220,10 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		bytes, err := json.Marshal(msgValue)
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
 		s.Require().NoError(err)
+
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
+			Return(true)
 
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.game, "gcm").
@@ -223,8 +292,10 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		go s.handler.HandleResponses()
 		qtyMsgs := 100
 
-		// Create a channel to coordinate mock expectations
-		mockDone := make(chan struct{}, qtyMsgs)
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), gomock.Any(), gomock.Any(), s.game, "gcm").
+			Return(true).
+			Times(qtyMsgs)
 
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), gomock.Any(), s.game, "gcm").
@@ -236,6 +307,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			Return(nil).
 			Times(qtyMsgs)
 
+		mockDone := make(chan struct{}, qtyMsgs)
 		s.mockStatsReporter.EXPECT().
 			ReportSendNotificationLatency(gomock.Any(), s.game, "gcm", gomock.Any()).
 			Times(qtyMsgs).
@@ -300,6 +372,10 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 		bytes, err := json.Marshal(msgValue)
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
 		s.Require().NoError(err)
+
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
+			Return(true)
 
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.game, "gcm").
@@ -366,6 +442,10 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
 		s.Require().NoError(err)
 
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
+			Return(true)
+
 		s.mockRateLimiter.EXPECT().
 			Allow(gomock.Any(), token, s.game, "gcm").
 			Return(true)
@@ -410,6 +490,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 }
 
 func waitWG(t *testing.T, wg *sync.WaitGroup) {
+	t.Helper()
 	done := make(chan struct{})
 	go func() {
 		wg.Wait()

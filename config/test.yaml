@@ -2,6 +2,7 @@
 gracefulShutdownTimeout: 10
 apns:
   rateLimit.rpm: 100
+  dedup.ttl: "60s"
   concurrentWorkers: 300
   connectionPoolSize: 1
   logStatsInterval: 750
@@ -14,6 +15,7 @@ apns:
       topic: "com.game.test"
 gcm:
   rateLimit.rpm: 100
+  dedup.ttl: "60s"
   pingInterval: 30
   pingTimeout: 10
   maxPendingMessages: 3
@@ -99,6 +101,13 @@ feedbackListeners:
       connectionTimeout: 100
 rateLimiter:
   redis: 
+    host: "localhost"
+    port: 6379
+    password: ""
+  tls:
+    disabled: true
+dedup:
+  redis:
     host: "localhost"
     port: 6379
     password: ""
