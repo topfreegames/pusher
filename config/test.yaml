@@ -113,8 +113,3 @@ dedup:
     password: ""
   tls:
     disabled: true
-  games:
-    game100:
-      percentage: 100
-    game50:
-      percentage: 100
