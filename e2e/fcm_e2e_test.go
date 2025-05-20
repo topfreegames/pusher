@@ -62,8 +62,8 @@ func (s *FcmE2ETestSuite) setupFcmPusher(appName string) (*mocks.MockPushClient,
 	// an array of apps is created with len=1 and the method tries to create a GCMClient
 	s.config.GCM.Apps = appName
 	s.vConfig.Set(fmt.Sprintf("gcm.firebaseCredentials.%s", appName), "{ \"project_id\": \"test-app\", \"type\": \"service_account\" }")
-
 	s.vConfig.Set("dedup.games."+appName+".percentage", 100)
+	
 	ctx := context.Background()
 	gcmPusher, err := pusher.NewGCMPusher(ctx, false, s.vConfig, s.config, logger, statsdClientMock)
 	s.Require().NoError(err)
