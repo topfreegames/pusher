@@ -69,11 +69,6 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 	// Get percentage for dedup sampling for specific game
 	percentage := d.gamePercentages[game]
 
-
-	if p, exists := d.gamePercentages[game]; exists {
-		percentage = p
-	}
-
 	if percentage == 0 {
 		return true
 	}
