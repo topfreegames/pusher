@@ -6,7 +6,7 @@ apns:
   concurrentWorkers: 300
   connectionPoolSize: 1
   logStatsInterval: 750
-  apps: "game100"
+  apps: "game"
   certs:
     game:
       authKeyPath: ../tls/authkey.p8
@@ -20,7 +20,7 @@ gcm:
   pingTimeout: 10
   maxPendingMessages: 3
   logStatsInterval: 750
-  apps: "game100"
+  apps: "game"
   certs:
     game:
       apiKey: game-api-key
