@@ -131,6 +131,7 @@ If you wish Sentry integration simply set the following environment variable:
 * `PUSHER_SENTRY_URL` - Sentry Client Key (DSN);
 
 Pusher can detect and filter out duplicate messages to avoid sending the same notification multiple times to the same device. 
+Note: This feature is not yet active. Currently, deduplication only tracks metrics and does not prevent duplicate messages.
 
 * `PUSHER_DEDUP_REDIS_HOST` - Redis host for deduplication service
 * `PUSHER_DEDUP_REDIS_PORT` - Redis port for deduplication service
