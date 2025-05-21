@@ -101,15 +101,14 @@ func StatsReporterReportSendNotificationLatency(statsReporters []interfaces.Stat
 	}
 }
 
-func StatsReporterDuplicateMessageDetected(reporters []interfaces.StatsReporter, game string, platform string) {
-	for _, reporter := range reporters {
-		reporter.ReportMetricCount("duplicated_messages", 1, game, platform)
+func StatsReporterDuplicateMessageDetected(statsReporters []interfaces.StatsReporter, game string, platform string) {
+	for _, statsReporter := range statsReporters {
+		statsReporter.ReportMetricCount("duplicated_messages", 1, game, platform)
 	}
 }
 
-func StatsReporterDedupFailed(reporters []interfaces.StatsReporter, game string, platform string) {
-	for _, reporter := range reporters {
-		reporter.ReportMetricCount("dedup_errors", 1, game, platform)
-		// Or use HandleNotificationFailure if you want to reuse existing metrics
+func StatsReporterDedupFailed(statsReporters []interfaces.StatsReporter, game string, platform string) {
+	for _, statsReporter := range statsReporters {
+		statsReporter.ReportMetricCount("dedup_errors", 1, game, platform)
 	}
 }
