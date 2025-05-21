@@ -84,7 +84,11 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 		// Use the top 16 bits of the hash to determine if we should sample
 		sampleValue := int(sum >> 48)
 		samplePercentile := sampleValue % 100
-
+		d.l.WithFields(logrus.Fields{
+			"sampleValue":      sampleValue,
+			"samplePercentile": samplePercentile,
+			"percentage":       percentage,
+		}).Debug("Deduplication sampling value and percentile")
 		if samplePercentile >= percentage {
 			d.l.Debug("Deduplication sampling percentage check didn't pass, skipping deduplication check")
 			return true
