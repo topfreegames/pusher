@@ -66,17 +66,24 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 }
 
 func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string) bool {
-	d.l.Debug("Checking message deduplication")
 	// Get percentage for dedup sampling for specific game
 	percentage := d.gamePercentages[game]
 
+	log := d.l.WithFields(logrus.Fields{
+		"percentage": percentage,
+		"device":    device,
+		"msg":      msg,
+	})
+
+	log.Debug("Checking message deduplication")
+
 	if percentage == 0 {
-		d.l.Debug("Deduplication sampling percentage is 0, skipping deduplication check")
+		log.Debug("Deduplication sampling percentage is 0, skipping deduplication check")
 		return true
 	}
 
 	if percentage > 0 && percentage < 100 {
-		d.l.Debug("Deduplication sampling percentage is above 0 and below 100, checking if should sample")
+		log.Debug("Deduplication sampling percentage is above 0 and below 100, checking if should sample")
 		h := fnv.New64a()
 		h.Write([]byte(device))
 
@@ -84,28 +91,27 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 		// Use the top 16 bits of the hash to determine if we should sample
 		sampleValue := int(sum >> 48)
 		samplePercentile := sampleValue % 100
-		d.l.WithFields(logrus.Fields{
+		log.WithFields(logrus.Fields{
 			"sampleValue":      sampleValue,
 			"samplePercentile": samplePercentile,
 			"percentage":       percentage,
 		}).Debug("Deduplication sampling value and percentile")
 		if samplePercentile >= percentage {
-			d.l.Debug("Deduplication sampling percentage check didn't pass, skipping deduplication check")
+			log.Debug("Deduplication sampling percentage check didn't pass, skipping deduplication check")
 			return true
 		}
 	}
 
-	d.l.Debug("Deduplication sampling percentage check passed, proceeding with deduplication check")
+	log.Debug("Deduplication sampling percentage check passed, proceeding with deduplication check")
 	rdbKey := keyFor(device, msg)
 
 	// Store the key in Redis with a placeholder value ("1")—the actual value is irrelevant, as we only need to check for key existence.
 	unique, err := d.redis.SetNX(ctx, rdbKey, "1", d.ttl).Result()
 
 	if err != nil {
-		d.l.WithFields(logrus.Fields{
+		log.WithFields(logrus.Fields{
 			"error":  err,
 			"key":    rdbKey,
-			"device": device,
 			"game":   game,
 		}).Error("Failed to check message dedup in Redis")
 
