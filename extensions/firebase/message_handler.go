@@ -100,7 +100,10 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 
 	uniqueMessage := h.dedup.IsUnique(ctx, km.To, string(msg.Value), h.app, "gcm")
 	if !uniqueMessage {
-		l.WithField("message", msg).Debug("duplicate message detected")
+		l.WithFields(logrus.Fields{
+			"extension": "dedup",
+			"game":     h.app,
+		}).Debug("duplicate message detected")
 		extensions.StatsReporterDuplicateMessageDetected(h.statsReporters, h.app, "gcm")
 		//does not return because we don't want to block the message
 	}
