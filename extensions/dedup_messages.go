@@ -31,6 +31,10 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 	pwd := config.GetString("dedup.redis.password")
 	disableTLS := config.GetBool("dedup.tls.disabled")
 
+	log := logger.WithFields(logrus.Fields{
+		"extension": "Dedup",
+	})
+
 	addr := fmt.Sprintf("%s:%d", host, port)
 	opts := &redis.Options{
 		Addr:     addr,
@@ -45,6 +49,7 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 	gamePercentages := make(map[string]int)
 	games := config.GetStringMap("dedup.games")
 	for game := range games {
+		log.Debug("Dedup game key found in config: ", game)
 		percentageConfigKey := "dedup.games." + game + ".percentage"
 
 		config.SetDefault(percentageConfigKey, 0)
@@ -57,10 +62,7 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 		redis:          rdb,
 		ttl:            ttl,
 		statsReporters: statsReporters,
-		l: logger.WithFields(logrus.Fields{
-			"extension": "Dedup",
-			"ttl":       ttl,
-		}),
+		l: log,
 		gamePercentages:   gamePercentages,
 	}
 }
