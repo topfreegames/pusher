@@ -46,6 +46,7 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 		opts.TLSConfig = &tls.Config{}
 	}
 
+	log.Debug("Instantiating Redis client for deduplication")
 	gamePercentages := make(map[string]int)
 	games := config.GetStringMap("dedup.games")
 	for game := range games {
@@ -75,6 +76,7 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 		"percentage": percentage,
 		"device":    device,
 		"msg":      msg,
+		"game":     game,
 	})
 
 	log.Debug("Checking message deduplication")
