@@ -3,6 +3,7 @@ package extensions
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"strconv"
@@ -47,15 +48,33 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 	}
 
 	log.Debug("Instantiating Redis client for deduplication")
-	gamePercentages := make(map[string]int)
-	games := config.GetStringMap("dedup.games")
-	for game := range games {
-		log.Debug("Dedup game key found in config: ", game)
-		percentageConfigKey := "dedup.games." + game + ".percentage"
 
-		config.SetDefault(percentageConfigKey, 0)
-		gamePercentages[game] = config.GetInt(percentageConfigKey)
+	gamesRaw := []byte(config.GetString("dedup.games"))
+
+	var gamePercentages map[string]int
+	err := json.Unmarshal(gamesRaw, &gamePercentages)
+
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"error": err,
+		}).Error("Failed to unmarshal dedup games config")
 	}
+
+	for gameName, percentage := range gamePercentages {
+		log.WithFields(logrus.Fields{
+            "gameName": gameName,
+            "percentage": percentage,
+        }).Debug("Dedup game config loaded")
+	}
+
+	
+	// for game := range games {
+	// 	log.Debug("Dedup game key found in config: ", game)
+	// 	percentageConfigKey := "dedup.games." + game + ".percentage"
+
+	// 	config.SetDefault(percentageConfigKey, 0)
+	// 	gamePercentages[game] = config.GetInt(percentageConfigKey)
+	// }
 
 	rdb := redis.NewClient(opts)
 

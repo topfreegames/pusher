@@ -74,7 +74,7 @@ func (s *ApnsE2ETestSuite) setupApnsPusher() (
 
 	appName := strings.Split(uuid.NewString(), "-")[0]
 	cfg.Apns.Apps = appName
-	viper.Set("dedup.games."+appName+".percentage", 100)
+	viper.Set("dedup.games", fmt.Sprintf(`{"%s": 100}`, appName))
 	viper.Set("queue.topics", []string{fmt.Sprintf(apnsTopicTemplate, appName)})
 	viper.Set("queue.group", appName)
 

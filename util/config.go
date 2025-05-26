@@ -30,7 +30,7 @@ import (
 
 // NewViperWithConfigFile for getting a viper with default configs for the project.
 func NewViperWithConfigFile(configFile string) (*viper.Viper, error) {
-	v := viper.New()
+	v := viper.NewWithOptions(viper.ExperimentalBindStruct())
 	v.SetConfigFile(configFile)
 	v.SetEnvPrefix("pusher")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
