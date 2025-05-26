@@ -61,6 +61,10 @@ var _ = Describe("Feedback Listener", func() {
 		config, err = util.NewViperWithConfigFile(configFile)
 		Expect(err).NotTo(HaveOccurred())
 
+		if !config.IsSet("dedup.games") {
+			config.Set("dedup.games", `{"testgame": 100}`)
+		}
+
 		pgClient, err := extensions.NewPGClient("feedbackListeners.invalidToken.pg", config)
 		Expect(err).NotTo(HaveOccurred())
 		db = pgClient.DB
@@ -111,10 +115,12 @@ var _ = Describe("Feedback Listener", func() {
 	})
 
 	AfterSuite(func() {
-		for _, platform := range []string{"gcm", "apns"} {
-			for _, game := range []string{game1, game2} {
-				_, err := db.Exec(fmt.Sprintf(`DROP TABLE IF  EXISTS %s_%s;`, game, platform))
-				Expect(err).NotTo(HaveOccurred())
+		if db != nil {
+			for _, platform := range []string{"gcm", "apns"} {
+				for _, game := range []string{game1, game2} {
+					_, err := db.Exec(fmt.Sprintf(`DROP TABLE IF  EXISTS %s_%s;`, game, platform))
+					Expect(err).NotTo(HaveOccurred())
+				}
 			}
 		}
 	})

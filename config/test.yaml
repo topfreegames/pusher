@@ -107,6 +107,13 @@ rateLimiter:
   tls:
     disabled: true
 dedup:
+  games: | 
+    {
+      "game1": 100,
+      "game2": 100,
+      "game3": 100,
+      "game4": 100
+    }
   redis:
     host: "localhost"
     port: 6379

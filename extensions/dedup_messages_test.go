@@ -59,17 +59,18 @@ func TestIsUnique(t *testing.T) {
 		require.NoError(t, err)
 		defer mr.Close()
 
+		appName := "gametest1"
 		config := viper.New()
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.disabled", true)
-		config.Set("dedup.games.gametest.percentage", 100)
+		config.Set("dedup.games", fmt.Sprintf(`{"%s": 100}`, appName))
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
 		// First attempt should be unique
-		unique := d.IsUnique(context.Background(), "device123", "message123", "gametest", "platform")
+		unique := d.IsUnique(context.Background(), "device123", "message123", appName, "platform")
 		assert.True(t, unique)
 
 		// No metrics should be reported for unique messages
@@ -81,21 +82,23 @@ func TestIsUnique(t *testing.T) {
 		require.NoError(t, err)
 		defer mr.Close()
 
+		appName := "gametest2"
+		
 		config := viper.New()
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.disabled", true)
-		config.Set("dedup.games.game.percentage", 100)
+		config.Set("dedup.games", fmt.Sprintf(`{"%s": 100}`, appName))
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
 		// First message should be unique
-		unique1 := d.IsUnique(context.Background(), "device123", "message123", "game", "platform")
+		unique1 := d.IsUnique(context.Background(), "device123", "message123", appName, "platform")
 		assert.True(t, unique1)
 
 		// Second identical message should be detected as duplicate
-		unique2 := d.IsUnique(context.Background(), "device123", "message123", "game", "platform")
+		unique2 := d.IsUnique(context.Background(), "device123", "message123", appName, "platform")
 		assert.False(t, unique2)
 
 		hook.Reset()
@@ -106,25 +109,27 @@ func TestIsUnique(t *testing.T) {
 		require.NoError(t, err)
 		defer mr.Close()
 
+		appName := "gametest3"
+
 		config := viper.New()
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.disabled", true)
-		config.Set("dedup.games.game.percentage", 100)
+		config.Set("dedup.games", fmt.Sprintf(`{"%s": 100}`, appName))
 
 		// Very short ttl for testing
 		d := NewDedup(50*time.Millisecond, config, statsReporters, logger)
 
 		// First message should be unique
-		unique1 := d.IsUnique(context.Background(), "device123", "message123", "game", "platform")
+		unique1 := d.IsUnique(context.Background(), "device123", "message123", appName, "platform")
 		assert.True(t, unique1)
 
 		// Wait for expiration
 		mr.FastForward(d.ttl + 1*time.Millisecond)
 
 		// After expiration, same message should be unique again
-		unique2 := d.IsUnique(context.Background(), "device123", "message123", "game", "platform")
+		unique2 := d.IsUnique(context.Background(), "device123", "message123", appName, "platform")
 		assert.True(t, unique2)
 
 		hook.Reset()
@@ -135,12 +140,13 @@ func TestIsUnique(t *testing.T) {
 		require.NoError(t, err)
 		defer mr.Close()
 
+		appName := "gametest4"
 		config := viper.New()
 		config.Set("dedup.redis.host", mr.Host())
 		config.Set("dedup.redis.port", mr.Port())
 		config.Set("dedup.redis.password", "")
 		config.Set("dedup.tls.disabled", true)
-		config.Set("dedup.games.game.percentage", 50)
+		config.Set("dedup.games", fmt.Sprintf(`{"%s": 50}`, appName))
 
 		d := NewDedup(10*time.Minute, config, statsReporters, logger)
 
@@ -156,7 +162,7 @@ func TestIsUnique(t *testing.T) {
 			keyCountBefore := len(mr.DB(1).Keys())
 
 			// Call IsUnique
-			d.IsUnique(context.Background(), device, message, "game", "platform")
+			d.IsUnique(context.Background(), device, message, appName, "platform")
 
 			// Check if Redis was actually called (key was created)
 			keyCountAfter := len(mr.DB(1).Keys())
