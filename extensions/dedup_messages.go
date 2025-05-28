@@ -44,7 +44,9 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 	}
 
 	if !disableTLS {
-		opts.TLSConfig = &tls.Config{}
+		opts.TLSConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
 	}
 
 	log.Debug("Instantiating Redis client for deduplication")
