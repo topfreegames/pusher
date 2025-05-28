@@ -159,13 +159,13 @@ func TestIsUnique(t *testing.T) {
 			message := "test-message"
 
 			// Get keys count before
-			keyCountBefore := len(mr.DB(1).Keys())
+			keyCountBefore := len(mr.DB(0).Keys())
 
 			// Call IsUnique
 			d.IsUnique(context.Background(), device, message, appName, "platform")
 
 			// Check if Redis was actually called (key was created)
-			keyCountAfter := len(mr.DB(1).Keys())
+			keyCountAfter := len(mr.DB(0).Keys())
 			if keyCountAfter > keyCountBefore {
 				sampledCount++
 			}

@@ -15,8 +15,6 @@ import (
 	"github.com/topfreegames/pusher/interfaces"
 )
 
-// a different redis DB for dedup keeps dedup keys separate from Rate Limiter keys stored in default DB = 0
-const DedupRedisDB = 1
 // Dedup struct
 type dedup struct {
 	redis             *redis.Client
@@ -34,13 +32,15 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 
 	log := logger.WithFields(logrus.Fields{
 		"extension": "Dedup",
+		"host":      host,
+		"port":      port,
+		"disableTLS": disableTLS,
 	})
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	opts := &redis.Options{
 		Addr:     addr,
 		Password: pwd,
-		DB:       DedupRedisDB,
 	}
 
 	if !disableTLS {
@@ -68,15 +68,6 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
             "percentage": percentage,
         }).Debug("Dedup game config loaded")
 	}
-
-	
-	// for game := range games {
-	// 	log.Debug("Dedup game key found in config: ", game)
-	// 	percentageConfigKey := "dedup.games." + game + ".percentage"
-
-	// 	config.SetDefault(percentageConfigKey, 0)
-	// 	gamePercentages[game] = config.GetInt(percentageConfigKey)
-	// }
 
 	rdb := redis.NewClient(opts)
 
