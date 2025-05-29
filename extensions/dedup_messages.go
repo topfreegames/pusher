@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"strconv"
@@ -121,23 +122,34 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 	log.Debug("Deduplication sampling percentage check passed, proceeding with deduplication check")
 	rdbKey := keyFor(device, msg)
 
+	rArgs := &redis.SetArgs{
+		Mode: "NX",
+		TTL: d.ttl,
+	}
+
 	// Store the key in Redis with a placeholder value ("1")—the actual value is irrelevant, as we only need to check for key existence.
-	unique, err := d.redis.SetNX(ctx, rdbKey, "1", d.ttl).Result()
+	unique, err := d.redis.SetArgs(ctx, rdbKey, "1", *rArgs).Result();
 
 	if err != nil {
-		log.WithFields(logrus.Fields{
-			"error":  err,
-			"key":    rdbKey,
-			"game":   game,
-		}).Error("Failed to check message dedup in Redis")
+		if errors.Is(err, redis.Nil) {
+			log.WithField("key", rdbKey).Debug("Message is not unique, key already exists in Redis")
+			return false
 
-		StatsReporterDedupFailed(d.statsReporters, game, platform)
+		} else {
+			log.WithFields(logrus.Fields{
+				"error": err,
+				"key":   rdbKey,
+			}).Error("Failed to check uniqueness in Redis")
+			return true // Allow the operation to proceed even if Redis check fails, to avoid blocking notifications.
+		}
+	}
 
-		// Return true on error to avoid blocking messages
+	if unique == "OK" {
+		log.WithField("key", rdbKey).Debug("Message is unique, key created in Redis")
 		return true
 	}
 
-	return unique
+	return false
 }
 
 func keyFor(device, msg string) string {
