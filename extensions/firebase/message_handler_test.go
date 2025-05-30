@@ -461,7 +461,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
 		dedupMsg := createDedupContentForTest(msgValue)
 		s.Require().NoError(err)
-		
+
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
@@ -528,16 +528,16 @@ func waitWG(t *testing.T, wg *sync.WaitGroup) {
 }
 
 func createDedupContentForTest(km kafkaFCMMessage) string {
-    contentData := make(map[string]interface{})
-    
-    if km.Data != nil {
-        contentData["data"] = km.Data
-    }
-    
-    if km.Message.Notification != nil {
-        contentData["notification"] = km.Message.Notification
-    }
-    
-    contentJSON, _ := json.Marshal(contentData)
-    return string(contentJSON)
+	contentData := make(map[string]interface{})
+
+	if km.Data != nil {
+		contentData["data"] = km.Data
+	}
+
+	if km.Message.Notification != nil {
+		contentData["notification"] = km.Message.Notification
+	}
+
+	contentJSON, _ := json.Marshal(contentData)
+	return string(contentJSON)
 }

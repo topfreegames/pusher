@@ -197,7 +197,7 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 	if !uniqueMessage {
 		l.WithFields(log.Fields{
 			"extension": "dedup",
-			"game":     a.appName,
+			"game":      a.appName,
 		}).Debug("duplicate message detected")
 		extensions.StatsReporterDuplicateMessageDetected(a.StatsReporters, a.appName, "apns")
 		//does not return because we don't want to block the message
