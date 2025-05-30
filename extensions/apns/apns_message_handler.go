@@ -247,16 +247,26 @@ func (a *APNSMessageHandler) parseKafkaMessage(message interfaces.KafkaMessage) 
 }
 
 func (a *APNSMessageHandler) createDedupContentFromPayload(notification *pusherAPNSKafkaMessage) string {
-	if notification.Payload != nil {
-		payloadJSON, err := json.Marshal(notification.Payload)
-		if err != nil {
-			a.Logger.WithError(err).Error("error marshalling notification payload for deduplication")
-			return "error-marshalling-payload-for-deduplication"
-		}
-		return string(payloadJSON)
+	if notification.Payload == nil {
+		return "empty-payload"
 	}
-	return "empty-payload"
 
+	payloadMap, ok := notification.Payload.(map[string]interface{})
+	if !ok {
+		return "invalid-payload-type"
+	}
+
+	// Extract only the APS part (the actual notification content)
+	if aps, exists := payloadMap["aps"]; exists {
+		apsJSON, err := json.Marshal(aps)
+		if err != nil {
+			a.Logger.WithError(err).Error("error marshalling APS for deduplication")
+			return "error-marshalling-aps"
+		}
+		return string(apsJSON)
+	}
+
+	return "no-aps-content"
 }
 
 func (a *APNSMessageHandler) buildAndValidateNotification(notification *pusherAPNSKafkaMessage) (*structs.ApnsNotification, error) {
