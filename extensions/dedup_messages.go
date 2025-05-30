@@ -63,13 +63,6 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 		}).Error("Failed to unmarshal dedup games config")
 	}
 
-	for gameName, percentage := range gamePercentages {
-		log.WithFields(logrus.Fields{
-            "gameName": gameName,
-            "percentage": percentage,
-        }).Debug("Dedup game config loaded")
-	}
-
 	rdb := redis.NewClient(opts)
 
 	return dedup{
@@ -123,13 +116,13 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 	rdbKey := keyFor(device, msg)
 
 	rArgs := &redis.SetArgs{
-		Mode: "NX",
-		TTL: d.ttl,
+		Mode: `NX`, 
+		TTL:  d.ttl,
 	}
 
 	// Store the key in Redis with a placeholder value ("1")—the actual value is irrelevant, as we only need to check for key existence.
 	unique, err := d.redis.SetArgs(ctx, rdbKey, "1", *rArgs).Result();
-
+	
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			log.WithField("key", rdbKey).Debug("Message is not unique, key already exists in Redis")

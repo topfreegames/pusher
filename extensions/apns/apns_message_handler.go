@@ -192,7 +192,8 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 	}
 	l = l.WithField("notification", parsedNotification)
 
-	uniqueMessage := a.dedup.IsUnique(ctx, parsedNotification.DeviceToken, string(message.Value), a.appName, "apns")
+	dedupMsg := a.createDedupContentFromPayload(parsedNotification)
+	uniqueMessage := a.dedup.IsUnique(ctx, parsedNotification.DeviceToken, dedupMsg, a.appName, "apns")
 	if !uniqueMessage {
 		l.WithFields(log.Fields{
 			"extension": "dedup",
@@ -243,6 +244,19 @@ func (a *APNSMessageHandler) parseKafkaMessage(message interfaces.KafkaMessage) 
 	notification.Metadata["timestamp"] = time.Now().Unix()
 	notification.ApnsID = uuid.NewV4().String()
 	return notification, nil
+}
+
+func (a *APNSMessageHandler) createDedupContentFromPayload(notification *pusherAPNSKafkaMessage) string {
+	if notification.Payload != nil {
+		payloadJSON, err := json.Marshal(notification.Payload)
+		if err != nil {
+			a.Logger.WithError(err).Error("error marshalling notification payload for deduplication")
+			return "error-marshalling-payload-for-deduplication"
+		}
+		return string(payloadJSON)
+	}
+	return "empty-payload"
+
 }
 
 func (a *APNSMessageHandler) buildAndValidateNotification(notification *pusherAPNSKafkaMessage) (*structs.ApnsNotification, error) {

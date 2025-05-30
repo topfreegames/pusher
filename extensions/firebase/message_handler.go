@@ -98,7 +98,8 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 		return
 	}
 
-	uniqueMessage := h.dedup.IsUnique(ctx, km.To, string(msg.Value), h.app, "gcm")
+	dedupMsg := h.createDedupContentFromPayload(km)
+	uniqueMessage := h.dedup.IsUnique(ctx, km.To, dedupMsg, h.app, "gcm")
 	if !uniqueMessage {
 		l.WithFields(logrus.Fields{
 			"extension": "dedup",
@@ -130,6 +131,25 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 	before := time.Now()
 	defer h.reportLatency(time.Since(before))
 	h.sendPush(ctx, km.Message, msg.Topic)
+}
+
+func (h *messageHandler) createDedupContentFromPayload(km kafkaFCMMessage) string {
+	contentData := make(map[string]interface{})
+
+	if km.Data != nil {
+		contentData["data"] = km.Data
+	}
+
+	if km.Notification != nil {
+		contentData["notification"] = km.Notification
+	}
+
+	contentJSON, err := json.Marshal(contentData)
+	if err != nil {
+		h.logger.WithError(err).Error("Error marshalling content data for deduplication")
+		return "error-marshalling-content-data-for-deduplication"
+	}
+	return string(contentJSON)
 }
 
 func (h *messageHandler) sendPush(ctx context.Context, msg interfaces.Message, topic string) {
