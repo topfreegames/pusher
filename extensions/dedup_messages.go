@@ -85,15 +85,12 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 		"game":     game,
 	})
 
-	log.Debug("Checking message deduplication")
-
 	if percentage == 0 {
 		log.Debug("Deduplication sampling percentage is 0, skipping deduplication check")
 		return true
 	}
 
 	if percentage > 0 && percentage < 100 {
-		log.Debug("Deduplication sampling percentage is above 0 and below 100, checking if should sample")
 		h := fnv.New64a()
 		h.Write([]byte(device))
 
@@ -112,7 +109,6 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 		}
 	}
 
-	log.Debug("Deduplication sampling percentage check passed, proceeding with deduplication check")
 	rdbKey := keyFor(device, msg)
 
 	rArgs := &redis.SetArgs{
