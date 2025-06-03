@@ -16,6 +16,7 @@ import (
 	"github.com/topfreegames/pusher/interfaces"
 )
 
+var dedupRedisDB = 1
 // Dedup struct
 type dedup struct {
 	redis             *redis.Client
@@ -42,6 +43,7 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 	opts := &redis.Options{
 		Addr:     addr,
 		Password: pwd,
+		DB:       dedupRedisDB,
 	}
 
 	if !disableTLS {

@@ -108,7 +108,7 @@ func (s *FcmE2ETestSuite) TestSimpleNotification() {
 	s.Require().NoError(err)
 
 	topic := fmt.Sprintf(gcmTopicTemplate, appName)
-	token := "token"
+	token := "token-simple"
 	testDone := make(chan bool)
 	mockFcmClient.EXPECT().
 		SendPush(gomock.Any(), gomock.Any()).
@@ -140,7 +140,7 @@ func (s *FcmE2ETestSuite) TestSimpleNotification() {
 			Topic:     &topic,
 			Partition: kafka.PartitionAny,
 		},
-		Value: []byte(`{"deviceToken":"` + token + `", "payload": {"gcm": {"alert": "Hello"}}}`),
+		Value: []byte(`{"to":"` + token + `", "data": {"alert": "Hello Simple"}}`),
 	},
 		nil)
 	s.Require().NoError(err)
@@ -170,7 +170,7 @@ func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 	s.Require().NoError(err)
 
 	topic := fmt.Sprintf(gcmTopicTemplate, appName)
-	token := "token"
+	token := "token-multiple"
 	done := make(chan bool)
 
 	for i := 0; i < notificationsToSend; i++ {
@@ -210,7 +210,7 @@ func (s *FcmE2ETestSuite) TestMultipleNotifications() {
 				Topic:     &topic,
 				Partition: kafka.PartitionAny,
 			},
-			Value: []byte(`{"deviceToken":"` + fmt.Sprintf("%s%d", token, i) + `", "payload": {"gcm": {"alert": "Hello"}}}`),
+			Value: []byte(`{"to":"` + fmt.Sprintf("%s%d", token, i) + `", "data": {"alert": "Hello Multiple"}}`),
 		},
 			nil)
 		s.Require().NoError(err)
@@ -294,7 +294,7 @@ func (s *FcmE2ETestSuite) TestDuplicatedMessages() {
 				Topic:     &topic,
 				Partition: kafka.PartitionAny,
 			},
-			Value: []byte(`{"deviceToken":"` + token + `", "payload": {"gcm": {"alert": "Hello"}}}`),
+			Value: []byte(`{"to":"` + token + `", "data": {"alert": "Hello Duplicated"}}`),
 		},
 			nil)
 		s.Require().NoError(err)

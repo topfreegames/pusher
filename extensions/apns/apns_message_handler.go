@@ -192,16 +192,22 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 	}
 	l = l.WithField("notification", parsedNotification)
 
-	dedupMsg := a.createDedupContentFromPayload(parsedNotification)
-	uniqueMessage := a.dedup.IsUnique(ctx, parsedNotification.DeviceToken, dedupMsg, a.appName, "apns")
-	if !uniqueMessage {
-		l.WithFields(log.Fields{
-			"extension": "dedup",
-			"game":      a.appName,
-		}).Debug("duplicate message detected")
-		extensions.StatsReporterDuplicateMessageDetected(a.StatsReporters, a.appName, "apns")
-		//does not return because we don't want to block the message
+	// if there is any error on deduplication, it does not block the message.
+	dedupMsg, err := a.createDedupContentFromPayload(parsedNotification)
+	if err != nil {
+		l.WithError(err).Error("error creating deduplication content from payload")
+	} else {
+		uniqueMessage := a.dedup.IsUnique(ctx, parsedNotification.DeviceToken, dedupMsg, a.appName, "apns")
+		if !uniqueMessage {
+			l.WithFields(log.Fields{
+				"extension": "dedup",
+				"game":      a.appName,
+			}).Debug("duplicate message detected")
+			extensions.StatsReporterDuplicateMessageDetected(a.StatsReporters, a.appName, "apns")
+			//does not return because we don't want to block the message
+		}
 	}
+
 
 	allowed := a.rateLimiter.Allow(ctx, parsedNotification.DeviceToken, a.appName, "apns")
 	if !allowed {
@@ -246,27 +252,26 @@ func (a *APNSMessageHandler) parseKafkaMessage(message interfaces.KafkaMessage) 
 	return notification, nil
 }
 
-func (a *APNSMessageHandler) createDedupContentFromPayload(notification *pusherAPNSKafkaMessage) string {
+func (a *APNSMessageHandler) createDedupContentFromPayload(notification *pusherAPNSKafkaMessage) (string, error) {
 	if notification.Payload == nil {
-		return "empty-payload"
+		return "", errors.New("payload is nil")
 	}
 
-	payloadMap, ok := notification.Payload.(map[string]interface{})
-	if !ok {
-		return "invalid-payload-type"
-	}
-
-	// Extract only the APS part (the actual notification content)
-	if aps, exists := payloadMap["aps"]; exists {
-		apsJSON, err := json.Marshal(aps)
-		if err != nil {
-			a.Logger.WithError(err).Error("error marshalling APS for deduplication")
-			return "error-marshalling-aps"
+	switch payload := notification.Payload.(type) {
+	case map[string]interface{}:
+		if aps, exists := payload["aps"]; exists {
+			apsJSON, err := json.Marshal(aps)
+			if err != nil {
+				return "", err
+			}
+			return string(apsJSON), nil
 		}
-		return string(apsJSON)
+		return "", errors.New("aps key not found in payload")
+	case string:
+		return payload, nil
+	default:
+		return "", fmt.Errorf("invalid payload type, expected string or map[string]any, got: %T",  notification.Payload)
 	}
-
-	return "no-aps-content"
 }
 
 func (a *APNSMessageHandler) buildAndValidateNotification(notification *pusherAPNSKafkaMessage) (*structs.ApnsNotification, error) {

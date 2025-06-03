@@ -133,7 +133,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		s.Require().NoError(err)
 
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
-		dedupMsg := createDedupContentForTest(msgValue)
+		dedupMsg, err := createDedupContentForTest(msgValue)
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
@@ -171,7 +171,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		s.Require().NoError(err)
 
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
-		dedupMsg := createDedupContentForTest(msgValue)
+		dedupMsg, err := createDedupContentForTest(msgValue)
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
@@ -232,7 +232,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		s.Require().NoError(err)
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
 
-		dedupMsg := createDedupContentForTest(msgValue)
+		dedupMsg, err := createDedupContentForTest(msgValue)
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
@@ -387,7 +387,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 		bytes, err := json.Marshal(msgValue)
 		s.Require().NoError(err)
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
-		dedupMsg := createDedupContentForTest(msgValue)
+		dedupMsg, err := createDedupContentForTest(msgValue)
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
@@ -459,9 +459,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 		s.Require().NoError(err)
 
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
-		dedupMsg := createDedupContentForTest(msgValue)
-		s.Require().NoError(err)
-
+		dedupMsg, err := createDedupContentForTest(msgValue)
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
@@ -527,7 +525,7 @@ func waitWG(t *testing.T, wg *sync.WaitGroup) {
 	}
 }
 
-func createDedupContentForTest(km kafkaFCMMessage) string {
+func createDedupContentForTest(km kafkaFCMMessage) (string, error) {
 	contentData := make(map[string]interface{})
 
 	if km.Data != nil {
@@ -538,6 +536,9 @@ func createDedupContentForTest(km kafkaFCMMessage) string {
 		contentData["notification"] = km.Message.Notification
 	}
 
-	contentJSON, _ := json.Marshal(contentData)
-	return string(contentJSON)
+	contentJSON, err := json.Marshal(contentData)
+	if err != nil {
+		return "", err
+	}
+	return string(contentJSON), nil
 }
