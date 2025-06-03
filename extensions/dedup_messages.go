@@ -127,10 +127,7 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 			return false
 
 		} else {
-			log.WithFields(logrus.Fields{
-				"error": err,
-				"key":   rdbKey,
-			}).Error("Failed to check uniqueness in Redis")
+			log.WithError(err).Error("Failed to check uniqueness in Redis")
 			return true // Allow the operation to proceed even if Redis check fails, to avoid blocking notifications.
 		}
 	}
