@@ -16,7 +16,7 @@ import (
 	"github.com/topfreegames/pusher/interfaces"
 )
 
-var dedupRedisDB = 1
+const dedupRedisDB = 1
 // Dedup struct
 type dedup struct {
 	redis             *redis.Client
