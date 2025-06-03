@@ -3,7 +3,6 @@ package firebase
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -117,19 +116,28 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 	})
 
 	s.Run("should fail if rate limit reached", func() {
-		expiration := time.Now().Add(1 * time.Hour).UnixNano()
 		token := uuid.NewString()
-		msg := interfaces.KafkaMessage{
-			Topic: "push-game_gcm",
-			Game:  s.game,
-			Value: []byte(fmt.Sprintf(`{"To": "%s", "Payload": { "aps" : { "alert" : "Hello HTTP/2" } }, "Metadata": { "expiration": 0 }, "push_expiry": %d }`,
-				token,
-				expiration,
-			)),
+		msgValue := kafkaFCMMessage{
+			Message: interfaces.Message{
+				To: token,
+				Data: map[string]interface{}{
+					"title": "notification",
+					"body":  "body",
+				},
+			},
+			Metadata: map[string]interface{}{
+				"some": "metadata",
+			},
 		}
+		bytes, err := json.Marshal(msgValue)
+		s.Require().NoError(err)
+
+		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
+		dedupMsg, err := createDedupContentForTest(msgValue)
+		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
+			IsUnique(gomock.Any(), token, dedupMsg, s.game, "gcm").
 			Return(true)
 
 		s.mockRateLimiter.EXPECT().
@@ -160,11 +168,14 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			},
 		}
 		bytes, err := json.Marshal(msgValue)
+		s.Require().NoError(err)
+
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
+		dedupMsg, err := createDedupContentForTest(msgValue)
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
+			IsUnique(gomock.Any(), token, dedupMsg, s.game, "gcm").
 			Return(false)
 
 		s.mockStatsReporter.EXPECT().
@@ -218,11 +229,14 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			},
 		}
 		bytes, err := json.Marshal(msgValue)
+		s.Require().NoError(err)
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
+
+		dedupMsg, err := createDedupContentForTest(msgValue)
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
+			IsUnique(gomock.Any(), token, dedupMsg, s.game, "gcm").
 			Return(true)
 
 		s.mockRateLimiter.EXPECT().
@@ -289,6 +303,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			}
 			return km
 		}
+
 		go s.handler.HandleResponses()
 		qtyMsgs := 100
 
@@ -370,11 +385,13 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 			},
 		}
 		bytes, err := json.Marshal(msgValue)
+		s.Require().NoError(err)
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
+		dedupMsg, err := createDedupContentForTest(msgValue)
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
+			IsUnique(gomock.Any(), token, dedupMsg, s.game, "gcm").
 			Return(true)
 
 		s.mockRateLimiter.EXPECT().
@@ -439,11 +456,14 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 			},
 		}
 		bytes, err := json.Marshal(msgValue)
+		s.Require().NoError(err)
+
 		msg := interfaces.KafkaMessage{Value: bytes, Topic: "push-game_gcm", Game: s.game}
+		dedupMsg, err := createDedupContentForTest(msgValue)
 		s.Require().NoError(err)
 
 		s.mockDedup.EXPECT().
-			IsUnique(gomock.Any(), token, string(msg.Value), s.game, "gcm").
+			IsUnique(gomock.Any(), token, dedupMsg, s.game, "gcm").
 			Return(true)
 
 		s.mockRateLimiter.EXPECT().
@@ -503,4 +523,22 @@ func waitWG(t *testing.T, wg *sync.WaitGroup) {
 	case <-timeout:
 		t.Fatal("timed out waiting for waitgroup")
 	}
+}
+
+func createDedupContentForTest(km kafkaFCMMessage) (string, error) {
+	contentData := make(map[string]interface{})
+
+	if km.Data != nil {
+		contentData["data"] = km.Data
+	}
+
+	if km.Message.Notification != nil {
+		contentData["notification"] = km.Message.Notification
+	}
+
+	contentJSON, err := json.Marshal(contentData)
+	if err != nil {
+		return "", err
+	}
+	return string(contentJSON), nil
 }

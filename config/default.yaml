@@ -2,6 +2,7 @@
 gracefulShutdownTimeout: 30
 apns:
   rateLimit.rpm: 20
+  dedup.ttl: "60s"
   concurrentWorkers: 300
   connectionPoolSize: 1
   pushQueueSize: 100
@@ -17,6 +18,7 @@ apns:
 gcm:
   rateLimit.rpm: 20
   pingInterval: 30
+  dedup.ttl: "60s"
   pingTimeout: 10
   maxPendingMessages: 100
   logStatsInterval: 10000

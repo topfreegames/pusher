@@ -98,14 +98,20 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 		return
 	}
 
-	uniqueMessage := h.dedup.IsUnique(ctx, km.To, string(msg.Value), h.app, "gcm")
-	if !uniqueMessage {
-		l.WithFields(logrus.Fields{
-			"extension": "dedup",
-			"game":     h.app,
-		}).Debug("duplicate message detected")
-		extensions.StatsReporterDuplicateMessageDetected(h.statsReporters, h.app, "gcm")
-		//does not return because we don't want to block the message
+	// if there is any error on deduplication, it does not block the message.
+	dedupMsg, err := h.createDedupContentFromPayload(km)
+	if err == nil {
+		uniqueMessage := h.dedup.IsUnique(ctx, km.To, dedupMsg, h.app, "gcm")
+		if !uniqueMessage {
+			l.WithFields(logrus.Fields{
+				"extension": "dedup",
+				"game":      h.app,
+			}).Debug("duplicate message detected")
+			extensions.StatsReporterDuplicateMessageDetected(h.statsReporters, h.app, "gcm")
+			//does not return because we don't want to block the message
+		}
+	} else {
+		l.WithError(err).Error("error creating deduplication content from payload")
 	}
 
 	allowed := h.rateLimiter.Allow(ctx, km.To, msg.Game, "gcm")
@@ -130,6 +136,25 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 	before := time.Now()
 	defer h.reportLatency(time.Since(before))
 	h.sendPush(ctx, km.Message, msg.Topic)
+}
+
+func (h *messageHandler) createDedupContentFromPayload(km kafkaFCMMessage) (string, error) {
+	contentData := make(map[string]interface{})
+
+	if km.Data != nil {
+		contentData["data"] = km.Data
+	}
+
+	if km.Notification != nil {
+		contentData["notification"] = km.Notification
+	}
+
+	contentJSON, err := json.Marshal(contentData)
+	if err != nil {
+		h.logger.WithError(err).Error("Error marshalling content data for deduplication")
+		return "", err
+	}
+	return string(contentJSON), nil
 }
 
 func (h *messageHandler) sendPush(ctx context.Context, msg interfaces.Message, topic string) {

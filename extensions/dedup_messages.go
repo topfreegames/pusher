@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"strconv"
@@ -15,8 +16,7 @@ import (
 	"github.com/topfreegames/pusher/interfaces"
 )
 
-// a different redis DB for dedup keeps dedup keys separate from Rate Limiter keys stored in default DB = 0
-const DedupRedisDB = 1
+const dedupRedisDB = 1
 // Dedup struct
 type dedup struct {
 	redis             *redis.Client
@@ -34,13 +34,16 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 
 	log := logger.WithFields(logrus.Fields{
 		"extension": "Dedup",
+		"host":      host,
+		"port":      port,
+		"disableTLS": disableTLS,
 	})
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	opts := &redis.Options{
 		Addr:     addr,
 		Password: pwd,
-		DB:       DedupRedisDB,
+		DB:       dedupRedisDB,
 	}
 
 	if !disableTLS {
@@ -61,22 +64,6 @@ func NewDedup(ttl time.Duration, config *viper.Viper, statsReporters []interface
 			"error": err,
 		}).Error("Failed to unmarshal dedup games config")
 	}
-
-	for gameName, percentage := range gamePercentages {
-		log.WithFields(logrus.Fields{
-            "gameName": gameName,
-            "percentage": percentage,
-        }).Debug("Dedup game config loaded")
-	}
-
-	
-	// for game := range games {
-	// 	log.Debug("Dedup game key found in config: ", game)
-	// 	percentageConfigKey := "dedup.games." + game + ".percentage"
-
-	// 	config.SetDefault(percentageConfigKey, 0)
-	// 	gamePercentages[game] = config.GetInt(percentageConfigKey)
-	// }
 
 	rdb := redis.NewClient(opts)
 
@@ -100,15 +87,12 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 		"game":     game,
 	})
 
-	log.Debug("Checking message deduplication")
-
 	if percentage == 0 {
 		log.Debug("Deduplication sampling percentage is 0, skipping deduplication check")
 		return true
 	}
 
 	if percentage > 0 && percentage < 100 {
-		log.Debug("Deduplication sampling percentage is above 0 and below 100, checking if should sample")
 		h := fnv.New64a()
 		h.Write([]byte(device))
 
@@ -127,26 +111,33 @@ func (d dedup) IsUnique(ctx context.Context, device, msg, game, platform string)
 		}
 	}
 
-	log.Debug("Deduplication sampling percentage check passed, proceeding with deduplication check")
 	rdbKey := keyFor(device, msg)
 
+	rArgs := &redis.SetArgs{
+		Mode: `NX`, 
+		TTL:  d.ttl,
+	}
+
 	// Store the key in Redis with a placeholder value ("1")—the actual value is irrelevant, as we only need to check for key existence.
-	unique, err := d.redis.SetNX(ctx, rdbKey, "1", d.ttl).Result()
-
+	unique, err := d.redis.SetArgs(ctx, rdbKey, "1", *rArgs).Result();
+	
 	if err != nil {
-		log.WithFields(logrus.Fields{
-			"error":  err,
-			"key":    rdbKey,
-			"game":   game,
-		}).Error("Failed to check message dedup in Redis")
+		if errors.Is(err, redis.Nil) {
+			log.WithField("key", rdbKey).Debug("Message is not unique, key already exists in Redis")
+			return false
 
-		StatsReporterDedupFailed(d.statsReporters, game, platform)
+		} else {
+			log.WithError(err).Error("Failed to check uniqueness in Redis")
+			return true // Allow the operation to proceed even if Redis check fails, to avoid blocking notifications.
+		}
+	}
 
-		// Return true on error to avoid blocking messages
+	if unique == "OK" {
+		log.WithField("key", rdbKey).Debug("Message is unique, key created in Redis")
 		return true
 	}
 
-	return unique
+	return false
 }
 
 func keyFor(device, msg string) string {
