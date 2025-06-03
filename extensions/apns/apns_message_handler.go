@@ -194,9 +194,7 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 
 	// if there is any error on deduplication, it does not block the message.
 	dedupMsg, err := a.createDedupContentFromPayload(parsedNotification)
-	if err != nil {
-		l.WithError(err).Error("error creating deduplication content from payload")
-	} else {
+	if err == nil {
 		uniqueMessage := a.dedup.IsUnique(ctx, parsedNotification.DeviceToken, dedupMsg, a.appName, "apns")
 		if !uniqueMessage {
 			l.WithFields(log.Fields{
@@ -206,6 +204,8 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 			extensions.StatsReporterDuplicateMessageDetected(a.StatsReporters, a.appName, "apns")
 			//does not return because we don't want to block the message
 		}
+	} else {
+		l.WithError(err).Error("error creating deduplication content from payload")
 	}
 
 

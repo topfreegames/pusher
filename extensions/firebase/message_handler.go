@@ -100,9 +100,7 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 
 	// if there is any error on deduplication, it does not block the message.
 	dedupMsg, err := h.createDedupContentFromPayload(km)
-	if err != nil {
-		l.WithError(err).Error("error creating deduplication content from payload")
-	} else {
+	if err == nil {
 		uniqueMessage := h.dedup.IsUnique(ctx, km.To, dedupMsg, h.app, "gcm")
 		if !uniqueMessage {
 			l.WithFields(logrus.Fields{
@@ -112,6 +110,8 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 			extensions.StatsReporterDuplicateMessageDetected(h.statsReporters, h.app, "gcm")
 			//does not return because we don't want to block the message
 		}
+	} else {
+		l.WithError(err).Error("error creating deduplication content from payload")
 	}
 
 	allowed := h.rateLimiter.Allow(ctx, km.To, msg.Game, "gcm")
