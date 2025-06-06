@@ -1,5 +1,7 @@
 ---
 gracefulShutdownTimeout: 30
+log:
+  level: "info"  # Can be: debug, info, warn, error
 apns:
   rateLimit.rpm: 20
   dedup.ttl: "60s"

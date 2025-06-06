@@ -24,6 +24,7 @@ package cmd
 
 import (
 	"context"
+
 	raven "github.com/getsentry/raven-go"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -49,7 +50,9 @@ func startApns(
 	if debug {
 		log.Level = logrus.DebugLevel
 	} else {
-		log.Level = logrus.InfoLevel
+		// Check config for log level, fall back to info level
+		configLogLevel := vConfig.GetString("log.level")
+		log.Level = util.ParseLogLevel(configLogLevel)
 	}
 	return pusher.NewAPNSPusher(production, vConfig, config, log, statsdClientOrNil, dbOrNil, queueOrNil)
 }
