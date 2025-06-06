@@ -25,8 +25,30 @@ package util
 import (
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
+
+// ParseLogLevel converts a log level string to logrus.Level
+// Returns logrus.InfoLevel as default if level is invalid
+func ParseLogLevel(level string) logrus.Level {
+	switch strings.ToLower(level) {
+	case "debug":
+		return logrus.DebugLevel
+	case "info":
+		return logrus.InfoLevel
+	case "warn", "warning":
+		return logrus.WarnLevel
+	case "error":
+		return logrus.ErrorLevel
+	case "fatal":
+		return logrus.FatalLevel
+	case "panic":
+		return logrus.PanicLevel
+	default:
+		return logrus.InfoLevel
+	}
+}
 
 // NewViperWithConfigFile for getting a viper with default configs for the project.
 func NewViperWithConfigFile(configFile string) (*viper.Viper, error) {

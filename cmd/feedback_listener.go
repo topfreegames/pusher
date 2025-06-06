@@ -42,13 +42,14 @@ func newFeedbackListener(
 	if debug {
 		log.Level = logrus.DebugLevel
 	} else {
-		log.Level = logrus.InfoLevel
+		configLogLevel := config.GetString("log.level")
+		log.Level = util.ParseLogLevel(configLogLevel)
 	}
 
 	return feedback.NewListener(config, log, nil)
 }
 
-// starFeedbackListenerCmd represents the start-feedback-listener command
+// startFeedbackListenerCmd represents the start-feedback-listener command
 var startFeedbackListenerCmd = &cobra.Command{
 	Use:   "start-feedback-listener",
 	Short: "starts the feedback listener",

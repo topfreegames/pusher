@@ -122,7 +122,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 				To: token,
 				Data: map[string]interface{}{
 					"title": "notification",
-					"body":  "body",
+					"body":  "bodyRateLimit",
 				},
 			},
 			Metadata: map[string]interface{}{
@@ -160,7 +160,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 				To: token,
 				Data: map[string]interface{}{
 					"title": "notification",
-					"body":  "body",
+					"body":  "bodyDedup",
 				},
 			},
 			Metadata: map[string]interface{}{
@@ -221,7 +221,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 				To: token,
 				Data: map[string]interface{}{
 					"title": "notification",
-					"body":  "body",
+					"body":  "bodySuccess",
 				},
 			},
 			Metadata: map[string]interface{}{
@@ -377,7 +377,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 				To: token,
 				Data: map[string]interface{}{
 					"title": "notification",
-					"body":  "body",
+					"body":  "bodySendMetricOnFailure",
 				},
 			},
 			Metadata: map[string]interface{}{
@@ -448,7 +448,7 @@ func (s *MessageHandlerTestSuite) TestHandleResponse() {
 				To: token,
 				Data: map[string]interface{}{
 					"title": "notification",
-					"body":  "body",
+					"body":  "bodyAckMetricOnSuccess",
 				},
 			},
 			Metadata: map[string]interface{}{

@@ -24,12 +24,14 @@ package cmd
 
 import (
 	"context"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/topfreegames/pusher/config"
 	"github.com/topfreegames/pusher/interfaces"
 	"github.com/topfreegames/pusher/pusher"
+	"github.com/topfreegames/pusher/util"
 )
 
 var senderID string
@@ -49,7 +51,8 @@ func startGcm(
 	if debug {
 		log.Level = logrus.DebugLevel
 	} else {
-		log.Level = logrus.InfoLevel
+		configLogLevel := vConfig.GetString("log.level")
+		log.Level = util.ParseLogLevel(configLogLevel)
 	}
 	return pusher.NewGCMPusher(ctx, production, vConfig, config, log, statsdClientOrNil)
 }
