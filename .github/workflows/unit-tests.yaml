@@ -1,4 +1,5 @@
-name: Build, Unit Tests and Linter
+name: Build Multi-Arch, Unit Tests and Linter
+
 on:
   push:
     branches:
@@ -14,41 +15,75 @@ on:
   pull_request:
     branches:
       - '**'
+
 jobs:
-  test:
-    name: Build, Unit Tests and Linter
+  build-and-test:
+    name: Build, Unit Tests and Linter for ${{ matrix.arch }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push ci-test Docker image
-        uses: docker/build-push-action@v3
+
+      - name: Build and push ci-test Docker image for ${{ matrix.arch }}
+        uses: docker/build-push-action@v5
         with:
           file: Dockerfile.ci-test
           context: .
+          platforms: linux/${{ matrix.arch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           push: true
-          tags: tfgco/pusher:ci-test
+          tags: tfgco/pusher:ci-test-${{ matrix.arch }}
+
       - name: Set up go vendor cache
         uses: actions/cache@v3
         with:
           path: vendor
-          key: ${{ runner.os }}-build-${{ hashFiles('Gopkg.lock') }}
+          key: ${{ runner.os }}-${{ matrix.arch }}-build-${{ hashFiles('Gopkg.lock') }}
           restore-keys: |
-            ${{ runner.os }}-build-${{ hashFiles('Gopkg.lock') }}
-            ${{ runner.os }}-build-
+            ${{ runner.os }}-${{ matrix.arch }}-build-${{ hashFiles('Gopkg.lock') }}
+            ${{ runner.os }}-${{ matrix.arch }}-build-
+
       - name: Build
-        run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test go build -v -o bin/pusher main.go
+        run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} go build -v -o bin/pusher main.go
+
       - name: Test
-        run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test ginkgo -v -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" --skipPackage=e2e .
+        run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} ginkgo -v -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" --skipPackage=e2e .
+
       - name: Lint
         continue-on-error: true
-        run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test golangci-lint run
+        run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} golangci-lint run
+
+  create-manifest:
+    name: Create Multi-Arch Manifest
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Create and Push Multi-Arch Manifest
+        run: |
+          docker buildx imagetools create \
+            tfgco/pusher:ci-test \
+            tfgco/pusher:ci-test-amd64 \
+            tfgco/pusher:ci-test-arm64
+         
