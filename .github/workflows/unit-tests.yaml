@@ -90,6 +90,6 @@ jobs:
       - name: Create and Push Multi-Arch Manifest
         run: |
           docker buildx imagetools create \
-            tfgco/pusher:ci-test \
+            tfgco/pusher:ci-test-${{ github.sha }} \
             tfgco/pusher:ci-test-amd64 \
             tfgco/pusher:ci-test-arm64
