@@ -29,6 +29,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -46,6 +48,7 @@ jobs:
           cache-to: type=gha,mode=max
           push: true
           tags: tfgco/pusher:ci-test-${{ matrix.arch }}
+          build-args: TARGETARCH=${{ matrix.arch }}
 
       - name: Set up go vendor cache
         uses: actions/cache@v3
@@ -57,7 +60,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.arch }}-build-
 
       - name: Build
-        run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} go build -v -o bin/pusher main.go
+        run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} && GOOS=linux GOARCH=${{ matrix.arch }} go build -v -o bin/pusher main.go
 
       - name: Test
         run: docker run -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} ginkgo -v -r --randomizeAllSpecs --randomizeSuites --cover --focus="\[Unit\].*" --skipPackage=e2e .

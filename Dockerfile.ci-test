@@ -18,7 +18,9 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-FROM golang:1.23
+FROM --platform=$BUILDPLATFORM golang:1.23
+
+ARG TARGETARCH
 
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
@@ -32,11 +34,16 @@ RUN apt update \
 
 # golangci-lint
 ENV GOLANGCI_LINT_VERSION 1.15.0
-RUN wget -O /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz \
-    && tar -xzf /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz -C /go/bin \
-    && mv /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64/golangci-lint /go/bin/ \
-    && rm -rf /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64 \
-    && rm /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz
+RUN case "${TARGETARCH}" in \
+        "amd64") GOLANGCI_LINT_DOWNLOAD_ARCH="amd64" ;; \
+        "arm64") GOLANGCI_LINT_DOWNLOAD_ARCH="arm64" ;; \
+        *) echo "Unsupported architecture for golangci-lint: ${TARGETARCH}"; exit 1 ;; \
+    esac \
+    && wget -O /go/bin/golangci-lint.tar.gz "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${GOLANGCI_LINT_DOWNLOAD_ARCH}.tar.gz" \
+    && tar -xzf /go/bin/golangci-lint.tar.gz -C /go/bin \
+    && mv "/go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${GOLANGCI_LINT_DOWNLOAD_ARCH}/golangci-lint" /go/bin/ \
+    && rm -rf "/go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${GOLANGCI_LINT_DOWNLOAD_ARCH}" \
+    && rm /go/bin/golangci-lint.tar.gz
 
 # ginkgo
 ENV GINKGO_VERSION 1.16.5
