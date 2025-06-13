@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2016 TFG Co <backend@tfgco.com>
 # Author: TFG Co <backend@tfgco.com>
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -16,25 +15,14 @@
 # COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
 
 FROM golang:1.23-alpine
-
-ARG TARGETARCH
 
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
-RUN sed -i -e 's/#community/community/g' /etc/apk/repositories \
-    && apk update \
-    && apk add --no-cache \
-        wget \
-        gnupg \
-        build-base \
-        librdkafka-dev \
-        postgresql-client-libs \
-        postgresql-dev \
-    && rm -rf /var/cache/apk/*
+# Install build dependencies for librdkafka and postgresql client
+RUN apk add --no-cache build-base wget librdkafka-dev postgresql-client-libs postgresql-dev
 
 # golangci-lint
 ENV GOLANGCI_LINT_VERSION 2.1.6
