@@ -69,7 +69,7 @@ invalidToken:
     poolSize: 20
     maxRetries: 3
     database: push
-    connectionTimeout: 100
+    connectionTimeout: 1000
 feedbackListeners:
   queue:
       topics:
