@@ -206,7 +206,7 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 			Return()
 
 		s.handler.HandleMessages(context.Background(), msg)
-		timeout := time.NewTimer(30 * time.Second)
+		timeout := time.NewTimer(10 * time.Second)
 		select {
 		case <-done:
 		case <-timeout.C:
