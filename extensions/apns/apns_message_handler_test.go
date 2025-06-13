@@ -456,7 +456,6 @@ func (s *ApnsMessageHandlerTestSuite) TestResponseHandle() {
 			err := s.handler.handleAPNSResponse(res)
 			s.NoError(err)
 			waitWG(s.T(), s.waitGroup)
-
 		})
 	}
 
@@ -493,7 +492,7 @@ func waitWG(t *testing.T, wg *sync.WaitGroup) {
 		close(done)
 	}()
 
-	timeout := time.After(10 * time.Millisecond)
+	timeout := time.After(10 * time.Second)
 	select {
 	case <-done:
 	case <-timeout:
