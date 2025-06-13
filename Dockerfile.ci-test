@@ -25,14 +25,16 @@ ARG TARGETARCH
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
-RUN apk update \
+RUN sed -i -e 's/#community/community/g' /etc/apk/repositories \
+    && apk update \
     && apk add --no-cache \
         wget \
         gnupg \
         build-base \
         librdkafka-dev \
         postgresql-client-libs \
-        postgresql-dev 
+        postgresql-dev \
+    && rm -rf /var/cache/apk/*
 
 # golangci-lint
 ENV GOLANGCI_LINT_VERSION 2.1.6
