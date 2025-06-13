@@ -25,12 +25,14 @@ ARG TARGETARCH
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
-RUN apt update \
-    && apt install -y wget  \
-    && wget -qO - https://packages.confluent.io/deb/7.5/archive.key | apt-key add - \
-    && apt update \
-    && apt install -y librdkafka-dev \
-    && apt install -y postgresql
+RUN apk update \
+    && apk add --no-cache \
+        wget \
+        gnupg \
+        build-base \
+        librdkafka-dev \
+        postgresql-client-libs \
+        postgresql-dev 
 
 # golangci-lint
 ENV GOLANGCI_LINT_VERSION 2.1.6
