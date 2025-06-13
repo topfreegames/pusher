@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2016 TFG Co <backend@tfgco.com>
 # Author: TFG Co <backend@tfgco.com>
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -16,27 +15,33 @@
 # COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
 
-FROM golang:1.23
+FROM golang:1.23-bookworm
+
+ARG TARGETARCH
 
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
-RUN apt update \
-    && apt install -y wget  \
-    && wget -qO - https://packages.confluent.io/deb/7.5/archive.key | apt-key add - \
-    && apt update \
-    && apt install -y librdkafka-dev \
-    && apt install -y postgresql
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libpq-dev \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 # golangci-lint
-ENV GOLANGCI_LINT_VERSION 1.15.0
-RUN wget -O /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz \
-    && tar -xzf /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz -C /go/bin \
-    && mv /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64/golangci-lint /go/bin/ \
-    && rm -rf /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64 \
-    && rm /go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz
+ENV GOLANGCI_LINT_VERSION 2.1.6
+RUN case "${TARGETARCH}" in \
+        "amd64") GOLANGCI_LINT_DOWNLOAD_ARCH="amd64" ;; \
+        "arm64") GOLANGCI_LINT_DOWNLOAD_ARCH="arm64" ;; \
+        *) echo "Unsupported architecture for golangci-lint: ${TARGETARCH}"; exit 1 ;; \
+    esac \
+    && wget -O /go/bin/golangci-lint.tar.gz "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${GOLANGCI_LINT_DOWNLOAD_ARCH}.tar.gz" \
+    && tar -xzf /go/bin/golangci-lint.tar.gz -C /go/bin \
+    && mv "/go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${GOLANGCI_LINT_DOWNLOAD_ARCH}/golangci-lint" /go/bin/ \
+    && rm -rf "/go/bin/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${GOLANGCI_LINT_DOWNLOAD_ARCH}" \
+    && rm /go/bin/golangci-lint.tar.gz
 
 # ginkgo
 ENV GINKGO_VERSION 1.16.5
