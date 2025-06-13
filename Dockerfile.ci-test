@@ -16,15 +16,19 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-FROM golang:1.23-alpine
+FROM golang:1.23-bookworm
 
 ARG TARGETARCH
 
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
-# Install build dependencies for librdkafka and postgresql client
-RUN apk add --no-cache build-base wget librdkafka-dev libpq-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libpq-dev \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 # golangci-lint
 ENV GOLANGCI_LINT_VERSION 2.1.6
