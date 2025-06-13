@@ -19,10 +19,14 @@ on:
 jobs:
   build-and-test:
     name: Build, Unit Tests and Linter for ${{ matrix.arch }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-latest-arm64
 
     steps:
       - name: Checkout
