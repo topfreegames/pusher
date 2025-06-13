@@ -64,11 +64,11 @@ jobs:
             ${{ runner.os }}-${{ matrix.arch }}-build-
 
       - name: Build
-        run: docker run --platform linux/${{ matrix.arch }} -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} /bin/bash -c "cd /go/src/github.com/topfreegames/pusher && GOOS=linux GOARCH=${{ matrix.arch }} go build -v -o bin/pusher main.go"
+        run: docker run --platform linux/${{ matrix.arch }} -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} /bin/sh -c "cd /go/src/github.com/topfreegames/pusher && GOOS=linux GOARCH=${{ matrix.arch }} go build -v -o bin/pusher main.go"
 
       - name: Test
-        run: docker run --platform linux/${{ matrix.arch }} -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} /bin/bash -c "cd /go/src/github.com/topfreegames/pusher && ginkgo -v -r --randomizeAllSpecs --randomizeSuites --cover --focus=\"\[Unit\].*\" --skipPackage=e2e ."
+        run: docker run --platform linux/${{ matrix.arch }} -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} /bin/sh -c "cd /go/src/github.com/topfreegames/pusher && ginkgo -v -r --randomizeAllSpecs --randomizeSuites --cover --focus=\"\[Unit\].*\" --skipPackage=e2e ."
 
       - name: Lint
         continue-on-error: true
-        run: docker run --platform linux/${{ matrix.arch }} -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} /bin/bash -c "cd /go/src/github.com/topfreegames/pusher && golangci-lint run"
+        run: docker run --platform linux/${{ matrix.arch }} -v $PWD:/go/src/github.com/topfreegames/pusher tfgco/pusher:ci-test-${{ matrix.arch }} /bin/sh -c "cd /go/src/github.com/topfreegames/pusher && golangci-lint run"
