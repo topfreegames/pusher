@@ -18,6 +18,8 @@
 
 FROM golang:1.23-alpine
 
+ARG TARGETARCH
+
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
