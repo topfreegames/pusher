@@ -22,7 +22,7 @@ ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
 # Install build dependencies for librdkafka and postgresql client
-RUN apk add --no-cache build-base wget librdkafka-dev postgresql-client-libs postgresql-dev
+RUN apk add --no-cache build-base wget librdkafka-dev libpq-dev
 
 # golangci-lint
 ENV GOLANGCI_LINT_VERSION 2.1.6
