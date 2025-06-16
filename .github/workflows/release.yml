@@ -9,15 +9,12 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+-[abcehlprt]+.?[0-9]?[0-9]?'
 
 jobs:
-  push_to_registry:
-    name: Publish Multi-Arch Docker Image
+  build-amd64:
+    name: Build for linux/amd64
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -28,13 +25,52 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push amd64 image
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
-          tags: |
-            tfgco/pusher:${{ github.ref_name }}
-          repository: tfgco/pusher
-          tag_with_ref: true
+          tags: tfgco/pusher:${{ github.ref_name }}-amd64
+
+  build-arm64:
+    name: Build for linux/arm64
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push arm64 image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: tfgco/pusher:${{ github.ref_name }}-arm64
+
+  push-manifest:
+    name: Push multi-arch manifest
+    runs-on: ubuntu-latest
+    needs: [build-amd64, build-arm64]
+    steps:
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Create and push manifest
+        run: |
+          docker manifest create tfgco/pusher:${{ github.ref_name }} \
+            --amend tfgco/pusher:${{ github.ref_name }}-amd64 \
+            --amend tfgco/pusher:${{ github.ref_name }}-arm64
+          docker manifest push tfgco/pusher:${{ github.ref_name }}
