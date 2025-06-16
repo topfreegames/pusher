@@ -1,4 +1,5 @@
 name: Publish Docker Image
+
 on:
   release:
     types:
@@ -6,17 +7,34 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+-[abcehlprt]+.?[0-9]?[0-9]?'
+
 jobs:
   push_to_registry:
-    name: Publish Docker Image
+    name: Publish Multi-Arch Docker Image
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
-      - name: Push to Docker Hub
-        uses: docker/build-push-action@v1
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            tfgco/pusher:${{ github.ref_name }}
           repository: tfgco/pusher
           tag_with_ref: true
