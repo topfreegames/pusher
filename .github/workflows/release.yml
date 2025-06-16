@@ -29,7 +29,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64
           push: true
           tags: tfgco/pusher:${{ github.ref_name }}-amd64
 
@@ -53,7 +52,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/arm64
           push: true
           tags: tfgco/pusher:${{ github.ref_name }}-arm64
 
