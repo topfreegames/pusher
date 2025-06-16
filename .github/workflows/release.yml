@@ -31,6 +31,7 @@ jobs:
           context: .
           push: true
           tags: tfgco/pusher:${{ github.ref_name }}-amd64
+          provenance: false
 
   build-arm64:
     name: Build for linux/arm64
@@ -54,6 +55,7 @@ jobs:
           context: .
           push: true
           tags: tfgco/pusher:${{ github.ref_name }}-arm64
+          provenance: false
 
   push-manifest:
     name: Push multi-arch manifest
@@ -65,6 +67,13 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Inspect images before creating manifest (Debug Step)
+        run: |
+          echo "--- Inspecting AMD64 image ---"
+          docker buildx imagetools inspect tfgco/pusher:${{ github.ref_name }}-amd64
+          echo "--- Inspecting ARM64 image ---"
+          docker buildx imagetools inspect tfgco/pusher:${{ github.ref_name }}-arm64
 
       - name: Create and push manifest
         run: |
