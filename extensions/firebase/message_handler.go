@@ -106,7 +106,7 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 			l.WithFields(logrus.Fields{
 				"extension": "dedup",
 				"game":      h.app,
-			}).Info("duplicate message detected")
+			}).Debug("duplicate message detected")
 			extensions.StatsReporterDuplicateMessageDetected(h.statsReporters, h.app, "gcm")
 			//does not return because we don't want to block the message
 		}
