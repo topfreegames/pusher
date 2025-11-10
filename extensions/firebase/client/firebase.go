@@ -7,6 +7,7 @@ import (
 	"time"
 
 	firebase "firebase.google.com/go/v4"
+	"firebase.google.com/go/v4/errorutils"
 	"firebase.google.com/go/v4/messaging"
 	"github.com/sirupsen/logrus"
 	"github.com/topfreegames/pusher/interfaces"
@@ -65,7 +66,11 @@ func (f *firebaseClientImpl) SendPush(ctx context.Context, msg interfaces.Messag
 
 	res, err := f.firebase.Send(ctx, &firebaseMsg)
 	if err != nil {
-		l.WithError(err).Error("error sending message")
+		if errorutils.IsNotFound(err) {
+			l.WithError(err).Debug("token not found in firebase")
+		} else {
+			l.WithError(err).Error("error sending message")
+		}
 		return translateError(err)
 	}
 

@@ -26,6 +26,4 @@ func translateError(err error) *pushererrors.PushError {
 	default:
 		return pushererrors.NewPushError("UNKNOWN", err.Error())
 	}
-
-	return nil
 }
