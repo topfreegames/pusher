@@ -273,10 +273,12 @@ func (q *KafkaConsumer) receiveMessage(topicPartition kafka.TopicPartition, valu
 		q.pendingMessagesWG.Add(1)
 	}
 
+	parsed := GetGameAndPlatformFromTopic(*topicPartition.Topic)
 	message := interfaces.KafkaMessage{
-		Game:  GetGameAndPlatformFromTopic(*topicPartition.Topic).Game,
-		Topic: *topicPartition.Topic,
-		Value: value,
+		Game:     parsed.Game,
+		Platform: parsed.Platform,
+		Topic:    *topicPartition.Topic,
+		Value:    value,
 	}
 
 	q.msgChan <- message

@@ -29,9 +29,10 @@ import (
 
 // KafkaMessage sent through the Channel.
 type KafkaMessage struct {
-	Game  string
-	Topic string
-	Value []byte
+	Game     string
+	Platform string
+	Topic    string
+	Value    []byte
 }
 
 // Queue interface for making new queues pluggable easily.

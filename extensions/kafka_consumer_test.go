@@ -116,6 +116,44 @@ var _ = Describe("Kafka Extension", func() {
 					Value: val,
 				}))
 			})
+
+			It("should populate Game and Platform on received message for ios topic", func() {
+				topic := "push-mygame_ios-single"
+				startConsuming()
+				defer consumer.StopConsuming()
+				part := kafka.TopicPartition{
+					Topic:     &topic,
+					Partition: 1,
+				}
+				val := []byte("test")
+				event := &kafka.Message{TopicPartition: part, Value: val}
+
+				publishEvent(event)
+				var received interfaces.KafkaMessage
+				Eventually(consumer.msgChan, 5).Should(Receive(&received))
+				Expect(received.Topic).To(Equal(topic))
+				Expect(received.Game).To(Equal("mygame"))
+				Expect(received.Platform).To(Equal("ios"))
+				Expect(received.Value).To(Equal(val))
+			})
+
+			It("should populate Game and Platform on received message for gcm topic", func() {
+				topic := "push-mygame_gcm-massive"
+				startConsuming()
+				defer consumer.StopConsuming()
+				part := kafka.TopicPartition{
+					Topic:     &topic,
+					Partition: 1,
+				}
+				val := []byte("test")
+				event := &kafka.Message{TopicPartition: part, Value: val}
+
+				publishEvent(event)
+				var received interfaces.KafkaMessage
+				Eventually(consumer.msgChan, 5).Should(Receive(&received))
+				Expect(received.Game).To(Equal("mygame"))
+				Expect(received.Platform).To(Equal("gcm"))
+			})
 		})
 
 		Describe("Configuration Defaults", func() {
