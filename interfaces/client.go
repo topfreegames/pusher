@@ -18,6 +18,7 @@ type Message struct {
 	DryRun                   bool          `json:"dry_run,omitempty"`
 	Data                     Data          `json:"data,omitempty"`
 	Notification             *Notification `json:"notification,omitempty"`
+	Platform                 string        `json:"-"`
 }
 
 // Data defines the custom payload of a message.
