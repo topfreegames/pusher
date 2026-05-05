@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	firebase "firebase.google.com/go/v4"
@@ -94,6 +95,13 @@ func getProjectIDFromJson(jsonStr string) (string, error) {
 }
 
 func toFirebaseMessage(message interfaces.Message) messaging.Message {
+	if message.Platform == "ios" {
+		return buildIOSMessage(message)
+	}
+	return buildAndroidMessage(message)
+}
+
+func buildAndroidMessage(message interfaces.Message) messaging.Message {
 	firebaseMessage := messaging.Message{
 		Token: message.To,
 	}
@@ -137,6 +145,68 @@ func toFirebaseMessage(message interfaces.Message) messaging.Message {
 			firebaseMessage.Android.TTL = &ttl
 		}
 	}
+
+	return firebaseMessage
+}
+
+func buildIOSMessage(message interfaces.Message) messaging.Message {
+	firebaseMessage := messaging.Message{
+		Token: message.To,
+	}
+
+	if message.Data != nil {
+		firebaseMessage.Data = toMapString(message.Data)
+	}
+
+	apns := &messaging.APNSConfig{
+		Headers: map[string]string{},
+	}
+	if message.CollapseKey != "" {
+		apns.Headers["apns-collapse-id"] = message.CollapseKey
+	}
+	if message.Priority != "" {
+		apns.Headers["apns-priority"] = message.Priority
+	}
+	if message.TimeToLive != nil {
+		expiration := time.Now().Add(time.Duration(*message.TimeToLive) * time.Second).Unix()
+		apns.Headers["apns-expiration"] = strconv.FormatInt(expiration, 10)
+	}
+
+	aps := &messaging.Aps{
+		ContentAvailable: message.ContentAvailable,
+	}
+
+	if message.Notification != nil {
+		firebaseMessage.Notification = &messaging.Notification{
+			Title:    message.Notification.Title,
+			Body:     message.Notification.Body,
+			ImageURL: message.Notification.ImageUrl,
+		}
+
+		alert := &messaging.ApsAlert{
+			Title:       message.Notification.Title,
+			Body:        message.Notification.Body,
+			LocKey:      message.Notification.BodyLocKey,
+			TitleLocKey: message.Notification.TitleLocKey,
+		}
+		if message.Notification.BodyLocArgs != "" {
+			alert.LocArgs = []string{message.Notification.BodyLocArgs}
+		}
+		if message.Notification.TitleLocArgs != "" {
+			alert.TitleLocArgs = []string{message.Notification.TitleLocArgs}
+		}
+		aps.Alert = alert
+		aps.Sound = message.Notification.Sound
+
+		if message.Notification.Badge != "" {
+			if badge, err := strconv.Atoi(message.Notification.Badge); err == nil {
+				aps.Badge = &badge
+			}
+		}
+	}
+
+	apns.Payload = &messaging.APNSPayload{Aps: aps}
+	firebaseMessage.APNS = apns
 
 	return firebaseMessage
 }
