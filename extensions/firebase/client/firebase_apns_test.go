@@ -30,6 +30,7 @@ func TestToFirebaseMessage_IOSBuildsAPNSOnly(t *testing.T) {
 	assert.Equal(t, "hello", out.APNS.Payload.Aps.Alert.Title)
 	assert.Equal(t, "world", out.APNS.Payload.Aps.Alert.Body)
 	assert.Equal(t, "default", out.APNS.Payload.Aps.Sound)
+	assert.Equal(t, "alert", out.APNS.Headers["apns-push-type"])
 	assert.Nil(t, out.Android, "iOS message must not populate Android config")
 }
 
@@ -132,6 +133,22 @@ func TestBuildIOSMessage_SilentPush(t *testing.T) {
 	assert.Nil(t, out.APNS.Payload.Aps.Alert, "silent push must not include an alert")
 	assert.Nil(t, out.Notification, "silent push must not include a top-level Notification")
 	assert.Equal(t, map[string]string{"k": "v"}, out.Data)
+	assert.Equal(t, "background", out.APNS.Headers["apns-push-type"])
+}
+
+func TestBuildIOSMessage_BackgroundForcesPriority5(t *testing.T) {
+	msg := interfaces.Message{
+		To:               "ios-token",
+		Platform:         "ios",
+		ContentAvailable: true,
+		Priority:         "10",
+	}
+
+	out := toFirebaseMessage(msg)
+
+	assert.Equal(t, "background", out.APNS.Headers["apns-push-type"])
+	assert.Equal(t, "5", out.APNS.Headers["apns-priority"],
+		"background pushes must override priority to 5; APNs rejects priority 10")
 }
 
 func TestBuildIOSMessage_CollapseKeyAndTTLProduceHeaders(t *testing.T) {

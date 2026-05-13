@@ -158,13 +158,19 @@ func buildIOSMessage(message interfaces.Message) messaging.Message {
 		firebaseMessage.Data = toMapString(message.Data)
 	}
 
+	pushType := apnsPushType(message)
 	apns := &messaging.APNSConfig{
-		Headers: map[string]string{},
+		Headers: map[string]string{
+			"apns-push-type": pushType,
+		},
 	}
 	if message.CollapseKey != "" {
 		apns.Headers["apns-collapse-id"] = message.CollapseKey
 	}
-	if message.Priority != "" {
+	if pushType == "background" {
+		// APNs rejects background pushes with priority 10; default to 5 for silent pushes if not set explicitly
+		apns.Headers["apns-priority"] = "5"
+	} else if message.Priority != "" {
 		apns.Headers["apns-priority"] = message.Priority
 	}
 	if message.TimeToLive != nil {
@@ -209,6 +215,16 @@ func buildIOSMessage(message interfaces.Message) messaging.Message {
 	firebaseMessage.APNS = apns
 
 	return firebaseMessage
+}
+
+// apnsPushType returns the value for the apns-push-type header. APNs requires
+// it to match the payload: "background" for silent pushes (content-available
+// only, no alert), "alert" otherwise.
+func apnsPushType(message interfaces.Message) string {
+	if message.Notification == nil && message.ContentAvailable {
+		return "background"
+	}
+	return "alert"
 }
 
 func toMapString(data interfaces.Data) map[string]string {
