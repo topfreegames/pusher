@@ -92,6 +92,12 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 		return
 	}
 
+	platform := msg.Platform
+	if platform == "" {
+		platform = "gcm"
+	}
+	km.Message.Platform = platform
+
 	if km.PushExpiry > 0 && km.PushExpiry < extensions.MakeTimestamp() {
 		l.Warnf("ignoring push message because it has expired: %s", km.Data)
 		h.waitGroupDone()
@@ -101,22 +107,22 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 	// if there is any error on deduplication, it does not block the message.
 	dedupMsg, err := h.createDedupContentFromPayload(km)
 	if err == nil {
-		uniqueMessage := h.dedup.IsUnique(ctx, km.To, dedupMsg, h.app, "gcm")
+		uniqueMessage := h.dedup.IsUnique(ctx, km.To, dedupMsg, h.app, platform)
 		if !uniqueMessage {
 			l.WithFields(logrus.Fields{
 				"extension": "dedup",
 				"game":      h.app,
 			}).Debug("duplicate message detected")
-			extensions.StatsReporterDuplicateMessageDetected(h.statsReporters, h.app, "gcm")
+			extensions.StatsReporterDuplicateMessageDetected(h.statsReporters, h.app, platform)
 			//does not return because we don't want to block the message
 		}
 	} else {
 		l.WithError(err).Error("error creating deduplication content from payload")
 	}
 
-	allowed := h.rateLimiter.Allow(ctx, km.To, msg.Game, "gcm")
+	allowed := h.rateLimiter.Allow(ctx, km.To, msg.Game, platform)
 	if !allowed {
-		h.reportRateLimitReached(msg.Game)
+		h.reportRateLimitReached(msg.Game, platform)
 		h.waitGroupDone()
 		l.WithField("message", msg).Warn("rate limit reached")
 		return
@@ -134,7 +140,7 @@ func (h *messageHandler) HandleMessages(ctx context.Context, msg interfaces.Kafk
 		}
 	}
 	before := time.Now()
-	defer h.reportLatency(time.Since(before))
+	defer h.reportLatency(time.Since(before), platform)
 	h.sendPush(ctx, km.Message, msg.Topic)
 }
 
@@ -169,7 +175,7 @@ func (h *messageHandler) sendPush(ctx context.Context, msg interfaces.Message, t
 		err := h.client.SendPush(ctx, msg)
 		h.reportFirebaseLatency(time.Since(before))
 
-		h.handleNotificationSent(topic)
+		h.handleNotificationSent(topic, msg.Platform)
 
 		h.responsesChannel <- struct {
 			msg   interfaces.Message
@@ -189,9 +195,9 @@ func (h *messageHandler) HandleResponses() {
 			for {
 				response := <-h.responsesChannel
 				if response.error != nil {
-					h.handleNotificationFailure(response.msg, response.error)
+					h.handleNotificationFailure(response.msg, response.msg.Platform, response.error)
 				} else {
-					h.handleNotificationAck()
+					h.handleNotificationAck(response.msg.Platform)
 				}
 				h.waitGroupDone()
 			}
@@ -199,35 +205,35 @@ func (h *messageHandler) HandleResponses() {
 	}
 }
 
-func (h *messageHandler) sendToFeedbackReporters(res interface{}) error {
+func (h *messageHandler) sendToFeedbackReporters(res interface{}, platform string) error {
 	jsonRes, err := json.Marshal(res)
 	if err != nil {
 		return err
 	}
 
 	for _, feedbackReporter := range h.feedbackReporters {
-		feedbackReporter.SendFeedback(h.app, "gcm", jsonRes)
+		feedbackReporter.SendFeedback(h.app, platform, jsonRes)
 	}
 
 	return nil
 }
 
-func (h *messageHandler) handleNotificationSent(topic string) {
+func (h *messageHandler) handleNotificationSent(topic, platform string) {
 	for _, statsReporter := range h.statsReporters {
-		statsReporter.HandleNotificationSent(h.app, "gcm", topic)
+		statsReporter.HandleNotificationSent(h.app, platform, topic)
 	}
 }
 
-func (h *messageHandler) handleNotificationAck() {
+func (h *messageHandler) handleNotificationAck(platform string) {
 	for _, statsReporter := range h.statsReporters {
-		statsReporter.HandleNotificationSuccess(h.app, "gcm")
+		statsReporter.HandleNotificationSuccess(h.app, platform)
 	}
 }
 
-func (h *messageHandler) handleNotificationFailure(message interfaces.Message, err error) {
+func (h *messageHandler) handleNotificationFailure(message interfaces.Message, platform string, err error) {
 	pushError := translateToPushError(err)
 	for _, statsReporter := range h.statsReporters {
-		statsReporter.HandleNotificationFailure(h.app, "gcm", pushError)
+		statsReporter.HandleNotificationFailure(h.app, platform, pushError)
 	}
 	for _, feedbackReporter := range h.feedbackReporters {
 		feedback := &FeedbackResponse{
@@ -236,13 +242,13 @@ func (h *messageHandler) handleNotificationFailure(message interfaces.Message, e
 			From:             message.To,
 		}
 		b, _ := json.Marshal(feedback)
-		feedbackReporter.SendFeedback(h.app, "gcm", b)
+		feedbackReporter.SendFeedback(h.app, platform, b)
 	}
 }
 
-func (h *messageHandler) reportLatency(latency time.Duration) {
+func (h *messageHandler) reportLatency(latency time.Duration, platform string) {
 	for _, statsReporter := range h.statsReporters {
-		statsReporter.ReportSendNotificationLatency(latency, h.app, "gcm", "client", "fcm")
+		statsReporter.ReportSendNotificationLatency(latency, h.app, platform, "client", "fcm")
 	}
 }
 
@@ -252,9 +258,9 @@ func (h *messageHandler) reportFirebaseLatency(latency time.Duration) {
 	}
 }
 
-func (h *messageHandler) reportRateLimitReached(game string) {
+func (h *messageHandler) reportRateLimitReached(game, platform string) {
 	for _, statsReporter := range h.statsReporters {
-		statsReporter.NotificationRateLimitReached(game, "gcm")
+		statsReporter.NotificationRateLimitReached(game, platform)
 	}
 }
 

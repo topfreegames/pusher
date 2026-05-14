@@ -82,13 +82,15 @@ func NewGCMPusher(
 	}
 	g.Queue = q
 	for _, a := range g.Config.GetGcmAppsArray() {
-		singleTopic := fmt.Sprintf("push-%s_gcm-single", a)
-		if !slices.Contains(q.Topics, singleTopic) {
-			q.Topics = append(q.Topics, singleTopic)
-		}
-		massiveTopic := fmt.Sprintf("push-%s_gcm-massive", a)
-		if !slices.Contains(q.Topics, massiveTopic) {
-			q.Topics = append(q.Topics, massiveTopic)
+		for _, platform := range []string{"gcm", "ios"} {
+			singleTopic := fmt.Sprintf("push-%s_%s-single", a, platform)
+			if !slices.Contains(q.Topics, singleTopic) {
+				q.Topics = append(q.Topics, singleTopic)
+			}
+			massiveTopic := fmt.Sprintf("push-%s_%s-massive", a, platform)
+			if !slices.Contains(q.Topics, massiveTopic) {
+				q.Topics = append(q.Topics, massiveTopic)
+			}
 		}
 	}
 

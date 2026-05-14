@@ -34,7 +34,7 @@ gcm:
   concurrentWorkers: 10
 queue:
   topics:
-    - "^push-[^-_]+_(apns|gcm)[_-](single|massive)"
+    - "^push-[^-_]+_(apns|gcm|ios)[_-](single|massive)"
   brokers: "localhost:9941"
   group: testGroup
   sessionTimeout: 6000

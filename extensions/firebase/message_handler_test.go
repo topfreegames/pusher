@@ -280,6 +280,321 @@ func (s *MessageHandlerTestSuite) TestHandleMessage() {
 		s.waitGroup.Wait()
 	})
 
+	s.Run("should propagate ios platform through dedup, rate limiter, and stats reporters", func() {
+		token := uuid.NewString()
+		msgValue := kafkaFCMMessage{
+			Message: interfaces.Message{
+				To: token,
+				Data: map[string]interface{}{
+					"title": "notification",
+					"body":  "bodyIOS",
+				},
+			},
+			Metadata: map[string]interface{}{
+				"some": "metadata",
+			},
+		}
+		bytes, err := json.Marshal(msgValue)
+		s.Require().NoError(err)
+		msg := interfaces.KafkaMessage{
+			Value:    bytes,
+			Topic:    "push-game_ios-single",
+			Game:     s.game,
+			Platform: "ios",
+		}
+
+		dedupMsg, err := createDedupContentForTest(msgValue)
+		s.Require().NoError(err)
+
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, dedupMsg, s.game, "ios").
+			Return(true)
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.game, "ios").
+			Return(true)
+
+		done := make(chan struct{})
+
+		s.mockClient.EXPECT().
+			SendPush(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, m interfaces.Message) {
+				s.Equal(token, m.To)
+				s.Equal("ios", m.Platform)
+			})
+
+		s.mockStatsReporter.EXPECT().
+			ReportSendNotificationLatency(gomock.Any(), s.game, "ios", gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSent(s.game, "ios", "push-game_ios-single").
+			Do(func(game, platform, topic string) {
+				done <- struct{}{}
+			})
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSuccess(s.game, "ios").
+			Return()
+
+		go s.handler.HandleResponses()
+		s.waitGroup.Add(1)
+		s.handler.HandleMessages(context.Background(), msg)
+
+		timeout := time.NewTimer(5 * time.Second)
+		select {
+		case <-done:
+		case <-timeout.C:
+			s.Fail("timed out waiting for ios message to be processed")
+		}
+		s.waitGroup.Wait()
+	})
+
+	s.Run("should report ios platform on duplicate detected", func() {
+		token := uuid.NewString()
+		msgValue := kafkaFCMMessage{
+			Message: interfaces.Message{
+				To: token,
+				Data: map[string]interface{}{
+					"title": "notification",
+					"body":  "bodyIOSDedup",
+				},
+			},
+		}
+		bytes, err := json.Marshal(msgValue)
+		s.Require().NoError(err)
+		msg := interfaces.KafkaMessage{
+			Value:    bytes,
+			Topic:    "push-game_ios-single",
+			Game:     s.game,
+			Platform: "ios",
+		}
+
+		dedupMsg, err := createDedupContentForTest(msgValue)
+		s.Require().NoError(err)
+
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, dedupMsg, s.game, "ios").
+			Return(false)
+
+		s.mockStatsReporter.EXPECT().
+			ReportMetricCount("duplicated_messages", int64(1), s.game, "ios").
+			Return()
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.game, "ios").
+			Return(true)
+
+		done := make(chan struct{})
+
+		s.mockClient.EXPECT().
+			SendPush(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, m interfaces.Message) {
+				s.Equal(token, m.To)
+				done <- struct{}{}
+			})
+
+		s.mockStatsReporter.EXPECT().
+			ReportSendNotificationLatency(gomock.Any(), s.game, "ios", gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSent(s.game, "ios", "push-game_ios-single").
+			Return()
+
+		s.handler.HandleMessages(context.Background(), msg)
+		timeout := time.NewTimer(50 * time.Millisecond)
+		select {
+		case <-done:
+		case <-timeout.C:
+			s.Fail("timed out waiting for ios dup-detected message to be sent")
+		}
+	})
+
+	s.Run("should report ios platform on rate limit reached", func() {
+		token := uuid.NewString()
+		msgValue := kafkaFCMMessage{
+			Message: interfaces.Message{
+				To: token,
+				Data: map[string]interface{}{
+					"title": "notification",
+					"body":  "bodyIOSRateLimit",
+				},
+			},
+		}
+		bytes, err := json.Marshal(msgValue)
+		s.Require().NoError(err)
+		msg := interfaces.KafkaMessage{
+			Value:    bytes,
+			Topic:    "push-game_ios-single",
+			Game:     s.game,
+			Platform: "ios",
+		}
+
+		dedupMsg, err := createDedupContentForTest(msgValue)
+		s.Require().NoError(err)
+
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, dedupMsg, s.game, "ios").
+			Return(true)
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.game, "ios").
+			Return(false)
+
+		s.mockStatsReporter.EXPECT().
+			NotificationRateLimitReached(s.game, "ios").
+			Return()
+
+		s.waitGroup.Add(1)
+		s.handler.HandleMessages(context.Background(), msg)
+		waitWG(s.T(), s.waitGroup)
+	})
+
+	s.Run("should send ios feedback on failure", func() {
+		token := uuid.NewString()
+		msgValue := kafkaFCMMessage{
+			Message: interfaces.Message{
+				To: token,
+				Data: map[string]interface{}{
+					"title": "notification",
+					"body":  "bodyIOSFailure",
+				},
+			},
+		}
+		bytes, err := json.Marshal(msgValue)
+		s.Require().NoError(err)
+		msg := interfaces.KafkaMessage{
+			Value:    bytes,
+			Topic:    "push-game_ios-single",
+			Game:     s.game,
+			Platform: "ios",
+		}
+
+		dedupMsg, err := createDedupContentForTest(msgValue)
+		s.Require().NoError(err)
+
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, dedupMsg, s.game, "ios").
+			Return(true)
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.game, "ios").
+			Return(true)
+
+		done := make(chan struct{})
+
+		s.mockClient.EXPECT().
+			SendPush(gomock.Any(), gomock.Any()).
+			Return(errors.NewPushError("DEVICE_UNREGISTERED", "device unregistered"))
+
+		s.mockStatsReporter.EXPECT().
+			ReportSendNotificationLatency(gomock.Any(), s.game, "ios", gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSent(s.game, "ios", "push-game_ios-single").
+			Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationFailure(s.game, "ios", gomock.Any())
+
+		s.mockFeedbackReporter.EXPECT().
+			SendFeedback(s.game, "ios", gomock.Any()).
+			DoAndReturn(func(game, platform string, feedback []byte) {
+				obj := &FeedbackResponse{}
+				err := json.Unmarshal(feedback, obj)
+				s.NoError(err)
+				s.Equal(token, obj.From)
+				done <- struct{}{}
+			})
+
+		go s.handler.HandleResponses()
+		s.waitGroup.Add(1)
+		s.handler.HandleMessages(context.Background(), msg)
+
+		timeout := time.NewTimer(50 * time.Millisecond)
+		select {
+		case <-done:
+		case <-timeout.C:
+			s.Fail("timed out waiting for ios failure feedback")
+		}
+	})
+
+	s.Run("should default empty platform to gcm for backward compatibility", func() {
+		token := uuid.NewString()
+		msgValue := kafkaFCMMessage{
+			Message: interfaces.Message{
+				To: token,
+				Data: map[string]interface{}{
+					"title": "notification",
+					"body":  "bodyEmptyPlatform",
+				},
+			},
+		}
+		bytes, err := json.Marshal(msgValue)
+		s.Require().NoError(err)
+		// Platform is intentionally left empty.
+		msg := interfaces.KafkaMessage{
+			Value: bytes,
+			Topic: "push-game_gcm-single",
+			Game:  s.game,
+		}
+
+		dedupMsg, err := createDedupContentForTest(msgValue)
+		s.Require().NoError(err)
+
+		s.mockDedup.EXPECT().
+			IsUnique(gomock.Any(), token, dedupMsg, s.game, "gcm").
+			Return(true)
+
+		s.mockRateLimiter.EXPECT().
+			Allow(gomock.Any(), token, s.game, "gcm").
+			Return(true)
+
+		done := make(chan struct{})
+
+		s.mockClient.EXPECT().
+			SendPush(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, m interfaces.Message) {
+				s.Equal("gcm", m.Platform)
+			})
+
+		s.mockStatsReporter.EXPECT().
+			ReportSendNotificationLatency(gomock.Any(), s.game, "gcm", gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			ReportFirebaseLatency(gomock.Any(), s.game, gomock.Any()).Return()
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSent(s.game, "gcm", "push-game_gcm-single").
+			Do(func(game, platform, topic string) {
+				done <- struct{}{}
+			})
+
+		s.mockStatsReporter.EXPECT().
+			HandleNotificationSuccess(s.game, "gcm").
+			Return()
+
+		go s.handler.HandleResponses()
+		s.waitGroup.Add(1)
+		s.handler.HandleMessages(context.Background(), msg)
+
+		timeout := time.NewTimer(5 * time.Second)
+		select {
+		case <-done:
+		case <-timeout.C:
+			s.Fail("timed out waiting for empty-platform message to be processed")
+		}
+		s.waitGroup.Wait()
+	})
+
 	s.Run("should not lock sendPushConcurrencyControl when sending multiple messages", func() {
 		newMessage := func() kafkaFCMMessage {
 			token := uuid.NewString()

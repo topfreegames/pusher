@@ -68,5 +68,49 @@ var _ = Describe("Common", func() {
 				Expect(err.Error()).To(Equal("json: unsupported type: chan int"))
 			})
 		})
+
+		Describe("GetGameAndPlatformFromTopic", func() {
+			It("should parse gcm single topic", func() {
+				parsed := GetGameAndPlatformFromTopic("push-mygame_gcm-single")
+				Expect(parsed.Game).To(Equal("mygame"))
+				Expect(parsed.Platform).To(Equal("gcm"))
+			})
+
+			It("should parse gcm massive topic", func() {
+				parsed := GetGameAndPlatformFromTopic("push-mygame_gcm-massive")
+				Expect(parsed.Game).To(Equal("mygame"))
+				Expect(parsed.Platform).To(Equal("gcm"))
+			})
+
+			It("should parse apns single topic", func() {
+				parsed := GetGameAndPlatformFromTopic("push-mygame_apns-single")
+				Expect(parsed.Game).To(Equal("mygame"))
+				Expect(parsed.Platform).To(Equal("apns"))
+			})
+
+			It("should parse apns massive topic", func() {
+				parsed := GetGameAndPlatformFromTopic("push-mygame_apns-massive")
+				Expect(parsed.Game).To(Equal("mygame"))
+				Expect(parsed.Platform).To(Equal("apns"))
+			})
+
+			It("should parse ios single topic", func() {
+				parsed := GetGameAndPlatformFromTopic("push-mygame_ios-single")
+				Expect(parsed.Game).To(Equal("mygame"))
+				Expect(parsed.Platform).To(Equal("ios"))
+			})
+
+			It("should parse ios massive topic", func() {
+				parsed := GetGameAndPlatformFromTopic("push-mygame_ios-massive")
+				Expect(parsed.Game).To(Equal("mygame"))
+				Expect(parsed.Platform).To(Equal("ios"))
+			})
+
+			It("should parse ios topic with compound game name", func() {
+				parsed := GetGameAndPlatformFromTopic("push-com_my_game_ios-single")
+				Expect(parsed.Game).To(Equal("com_my_game"))
+				Expect(parsed.Platform).To(Equal("ios"))
+			})
+		})
 	})
 })
