@@ -17,38 +17,24 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-FROM golang:1.23 AS dependencies
 
-ENV LIBRDKAFKA_VERSION 2.2.0
-ENV CPLUS_INCLUDE_PATH /usr/local/include
-ENV LIBRARY_PATH /usr/local/lib
-ENV LD_LIBRARY_PATH /usr/local/lib
+FROM golang:1.27.3-bookworm AS build
 
 WORKDIR /go/src/github.com/topfreegames/pusher
-
-# RUN apk add --no-cache make git g++ bash python wget pkgconfig && \
-#     wget -O /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/confluentinc/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
-#     tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
-#     cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
-#     ./configure && make && make install && make clean && ./configure --clean && \
-#     mkdir -p /go/src/github.com/topfreegames/pusher
-
-RUN apt update &&  \
-    apt install -y wget && \
-    wget -qO - https://packages.confluent.io/deb/7.5/archive.key | apt-key add - && \
-    apt update && \
-    apt install -y librdkafka-dev
-
-RUN mkdir -p /go/src/github.com/topfreegames/pusher
 
 ADD . /go/src/github.com/topfreegames/pusher
 
 RUN make build
-RUN mkdir /app && \
-    mv /go/src/github.com/topfreegames/pusher/bin/pusher /app/pusher && \
-    mv /go/src/github.com/topfreegames/pusher/config /app/config && \
-    mv /go/src/github.com/topfreegames/pusher/tls /app/tls && \
-    rm -r /go/src/github.com/topfreegames/pusher
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /go/src/github.com/topfreegames/pusher/bin/pusher /app/pusher
+COPY --from=build /go/src/github.com/topfreegames/pusher/config /app/config
+COPY --from=build /go/src/github.com/topfreegames/pusher/tls /app/tls
 
 WORKDIR /app
 
