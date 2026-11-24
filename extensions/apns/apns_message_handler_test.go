@@ -460,7 +460,7 @@ func (s *ApnsMessageHandlerTestSuite) TestResponseHandle() {
 		})
 	}
 
-	s.Run("should retry if TooManyRequests", func() {
+	s.Run("should retry if TooManyRequests without blocking on a full push queue", func() {
 		apnsID := uuid.NewV4().String()
 		res := &structs.ResponseWithMetadata{
 			StatusCode: 429,
@@ -472,17 +472,45 @@ func (s *ApnsMessageHandlerTestSuite) TestResponseHandle() {
 				},
 			},
 		}
+		s.handler.retryInterval = time.Millisecond
+
+		pushQueue := make(chan *structs.ApnsNotification, 2)
+		pushQueue <- &structs.ApnsNotification{}
+		pushQueue <- &structs.ApnsNotification{}
+		latencyReported := make(chan struct{})
 
 		s.mockApnsPushQueue.EXPECT().
 			Push(res.Notification).
-			Return()
+			Do(func(notification *structs.ApnsNotification) { pushQueue <- notification })
 
 		s.mockStatsReporter.EXPECT().
 			ReportSendNotificationLatency(gomock.Any(), s.appName, "apns", gomock.Any()).
-			Return()
+			Do(func(time.Duration, string, string, ...string) { close(latencyReported) })
 
-		err := s.handler.handleAPNSResponse(res)
-		s.NoError(err)
+		handled := make(chan error)
+		go func() { handled <- s.handler.handleAPNSResponse(res) }()
+
+		select {
+		case err := <-handled:
+			s.NoError(err)
+		case <-time.After(time.Second):
+			s.FailNow("handleAPNSResponse blocked on a full push queue")
+		}
+
+		<-pushQueue
+		<-pushQueue
+		select {
+		case retried := <-pushQueue:
+			s.Same(res.Notification, retried)
+		case <-time.After(time.Second):
+			s.FailNow("notification was not retried")
+		}
+
+		select {
+		case <-latencyReported:
+		case <-time.After(time.Second):
+			s.FailNow("retry latency was not reported")
+		}
 	})
 }
 
