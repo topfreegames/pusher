@@ -202,12 +202,11 @@ func (a *APNSMessageHandler) HandleMessages(ctx context.Context, message interfa
 				"game":      a.appName,
 			}).Debug("duplicate message detected")
 			extensions.StatsReporterDuplicateMessageDetected(a.StatsReporters, a.appName, "apns")
-			//does not return because we don't want to block the message
+			// does not return because we don't want to block the message
 		}
 	} else {
 		l.WithError(err).Error("error creating deduplication content from payload")
 	}
-
 
 	allowed := a.rateLimiter.Allow(ctx, parsedNotification.DeviceToken, a.appName, "apns")
 	if !allowed {
@@ -270,7 +269,7 @@ func (a *APNSMessageHandler) createDedupContentFromPayload(notification *pusherA
 	case string:
 		return payload, nil
 	default:
-		return "", fmt.Errorf("invalid payload type, expected string or map[string]any, got: %T",  notification.Payload)
+		return "", fmt.Errorf("invalid payload type, expected string or map[string]any, got: %T", notification.Payload)
 	}
 }
 
@@ -322,8 +321,15 @@ func (a *APNSMessageHandler) handleAPNSResponse(responseWithMetadata *structs.Re
 			"maxRetries":   a.maxRetryAttempts,
 			"apnsID":       responseWithMetadata.ApnsID,
 		}).Info("retrying notification")
-		<-time.After(a.retryInterval)
-		a.sendNotification(responseWithMetadata.Notification)
+
+		// Retry a notification in a goroutine to avoid a deadlock.
+		// `routeMessages` sends messages on `pushChannel` and competes with this retry mechanism. If the channel fills up
+		// and `HandleResponses` attempts to send a message into `pushChannel`, it waits for room and stop consuming from `responseChannel`.
+		// Once this channel fills up, `pushWorker` gets stuck waiting for room in `responseChannel`.
+		go func() {
+			<-time.After(a.retryInterval)
+			a.sendNotification(responseWithMetadata.Notification)
+		}()
 		return nil
 	}
 
